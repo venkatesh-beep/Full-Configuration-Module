@@ -3,10 +3,33 @@ import time
 
 # ================= IMPORT MODULE UIs =================
 from services.auth import login_ui
+
+# ---- Existing Modules ----
 from modules.paycodes import paycodes_ui
 from modules.paycode_events import paycode_events_ui
 from modules.paycode_combinations import paycode_combinations_ui
 from modules.paycode_event_sets import paycode_event_sets_ui
+
+# ---- Future / Coming Soon Modules ----
+from modules.shift_templates import shift_templates_ui
+from modules.shift_template_sets import shift_template_sets_ui
+from modules.schedule_patterns import schedule_patterns_ui
+from modules.schedule_pattern_sets import schedule_pattern_sets_ui
+
+from modules.accruals import accruals_ui
+from modules.accrual_policies import accrual_policies_ui
+from modules.accrual_policy_sets import accrual_policy_sets_ui
+
+from modules.timeoff_policies import timeoff_policies_ui
+from modules.timeoff_policy_sets import timeoff_policy_sets_ui
+
+from modules.regularization_policies import regularization_policies_ui
+from modules.regularization_policy_sets import regularization_policy_sets_ui
+
+from modules.roles import roles_ui
+from modules.overtime_policies import overtime_policies_ui
+from modules.timecard_updation import timecard_updation_ui
+
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -27,7 +50,10 @@ if "token_issued_at" not in st.session_state:
 
 # ================= APP HEADER =================
 st.title("⚙️ Configuration Portal")
-st.caption("Centralized configuration for Paycodes, Paycode Events, Combinations and Event Sets")
+st.caption(
+    "Centralized configuration for Paycodes, Shifts, Schedules, Accruals, "
+    "Timeoff, Regularization, Overtime and more"
+)
 
 # ================= LOGIN FLOW =================
 if not st.session_state.token:
@@ -38,13 +64,13 @@ if not st.session_state.token:
 st.session_state.HOST = st.session_state.HOST.rstrip("/") + "/"
 
 # ================= SESSION TIMER (30 MINUTES) =================
-TOKEN_VALIDITY_SECONDS = 30 * 60  # 30 minutes
+TOKEN_VALIDITY_SECONDS = 30 * 60
 
 issued_at = st.session_state.get("token_issued_at")
 
 if issued_at:
     elapsed = time.time() - issued_at
-    remaining = int(TOKEN_VALIDITY_SECONDS - elapsed)
+    remaining = max(0, int(TOKEN_VALIDITY_SECONDS - elapsed))
 
     if remaining <= 0:
         st.warning("🔒 Session expired. Please login again.")
@@ -71,15 +97,40 @@ with st.sidebar:
         help="Example: https://saas-beeforce.labour.tech/"
     )
 
+    st.session_state.HOST = st.session_state.HOST.rstrip("/") + "/"
+
     st.markdown("---")
 
     menu = st.radio(
         "📂 Configuration Modules",
         [
+            # ---- Paycode Core ----
             "Paycodes",
             "Paycode Events",
             "Paycode Combinations",
-            "Paycode Event Sets"
+            "Paycode Event Sets",
+
+            # ---- Shift & Schedule ----
+            "Shift Templates",
+            "Shift Template Sets",
+            "Schedule Patterns",
+            "Schedule Pattern Sets",
+
+            # ---- Accruals ----
+            "Accruals",
+            "Accrual Policies",
+            "Accrual Policy Sets",
+
+            # ---- Timeoff ----
+            "Timeoff Policies",
+            "Timeoff Policy Sets",
+
+            # ---- Regularization & Others ----
+            "Regularization Policies",
+            "Regularization Policy Sets",
+            "Roles",
+            "Overtime Policies",
+            "Timecard Updation"
         ]
     )
 
@@ -101,3 +152,45 @@ elif menu == "Paycode Combinations":
 
 elif menu == "Paycode Event Sets":
     paycode_event_sets_ui()
+
+elif menu == "Shift Templates":
+    shift_templates_ui()
+
+elif menu == "Shift Template Sets":
+    shift_template_sets_ui()
+
+elif menu == "Schedule Patterns":
+    schedule_patterns_ui()
+
+elif menu == "Schedule Pattern Sets":
+    schedule_pattern_sets_ui()
+
+elif menu == "Accruals":
+    accruals_ui()
+
+elif menu == "Accrual Policies":
+    accrual_policies_ui()
+
+elif menu == "Accrual Policy Sets":
+    accrual_policy_sets_ui()
+
+elif menu == "Timeoff Policies":
+    timeoff_policies_ui()
+
+elif menu == "Timeoff Policy Sets":
+    timeoff_policy_sets_ui()
+
+elif menu == "Regularization Policies":
+    regularization_policies_ui()
+
+elif menu == "Regularization Policy Sets":
+    regularization_policy_sets_ui()
+
+elif menu == "Roles":
+    roles_ui()
+
+elif menu == "Overtime Policies":
+    overtime_policies_ui()
+
+elif menu == "Timecard Updation":
+    timecard_updation_ui()
