@@ -60,7 +60,7 @@ def paycodes_ui():
         "optionalHoliday",
         "linkRegularizeInTimeCard",
         "linkTimeOffInTimeCard",
-        "linkedPaycode",              # 🔥 NEW (OPTIONAL)
+        "linkedPaycode",     # OPTIONAL
         "presentDays",
         "lopDays",
         "leaveDays",
@@ -85,7 +85,7 @@ def paycodes_ui():
     st.divider()
 
     # ==================================================
-    # UPLOAD PAYCODES (CREATE / UPDATE)
+    # UPLOAD PAYCODES
     # ==================================================
     st.subheader("📤 Upload Paycodes (Create / Update)")
 
@@ -114,6 +114,7 @@ def paycodes_ui():
 
             with st.spinner("⏳ Uploading and processing paycodes... Please wait"):
 
+                # Prevent reprocessing same file
                 if st.session_state.processed_file_hash == current_hash:
                     st.warning("⚠ This file was already processed. Upload a new file to continue.")
                     return
@@ -129,7 +130,7 @@ def paycodes_ui():
                         if not code:
                             raise ValueError("Paycode code is mandatory")
 
-                        # ---- Prevent duplicates inside file ----
+                        # Deduplicate inside file
                         if code in processed_codes:
                             results.append({
                                 "Row": row_no + 1,
@@ -167,18 +168,14 @@ def paycodes_ui():
                             "otHours": float(row.get("otHours") or 0)
                         }
 
-                        # 🔥 linkedPaycode — ONLY if provided
-                       linked_pc_raw = row.get("linkedPaycode")
-
-if linked_pc_raw not in ("", None):
-    try:
-        linked_pc_id = int(float(linked_pc_raw))
-        payload["linkedPaycode"] = {
-            "id": linked_pc_id
-        }
-    except ValueError:
-        pass
-
+                        # ---------- FIXED linkedPaycode PARSING ----------
+                        linked_pc_raw = row.get("linkedPaycode")
+                        if linked_pc_raw not in ("", None):
+                            try:
+                                linked_pc_id = int(float(linked_pc_raw))
+                                payload["linkedPaycode"] = {"id": linked_pc_id}
+                            except ValueError:
+                                pass
 
                         raw_id = str(row.get("id")).strip()
 
