@@ -57,9 +57,10 @@ def paycodes_ui():
         "exception",
         "historical",
         "validateWithPaycodeEvent",
+        "optionalHoliday",
         "linkRegularizeInTimeCard",
         "linkTimeOffInTimeCard",
-        "optionalHoliday",
+        "linkedPaycode",              # 🔥 NEW (OPTIONAL)
         "presentDays",
         "lopDays",
         "leaveDays",
@@ -111,9 +112,7 @@ def paycodes_ui():
 
         if st.button("🚀 Process Upload", type="primary"):
 
-            # ===================== LOADING SPINNER =====================
             with st.spinner("⏳ Uploading and processing paycodes... Please wait"):
-                # ---------------------------------------------------------
 
                 if st.session_state.processed_file_hash == current_hash:
                     st.warning("⚠ This file was already processed. Upload a new file to continue.")
@@ -127,11 +126,10 @@ def paycodes_ui():
                 for row_no, row in df.iterrows():
                     try:
                         code = str(row.get("code")).strip()
-
                         if not code:
                             raise ValueError("Paycode code is mandatory")
 
-                        # ---- De-duplicate within file ----
+                        # ---- Prevent duplicates inside file ----
                         if code in processed_codes:
                             results.append({
                                 "Row": row_no + 1,
@@ -156,10 +154,9 @@ def paycodes_ui():
                             "historical": to_bool(row.get("historical")),
 
                             "validateWithPaycodeEvent": to_bool(row.get("validateWithPaycodeEvent")),
+                            "optionalHoliday": to_bool(row.get("optionalHoliday"), default=False),
                             "linkRegularizeInTimeCard": to_bool(row.get("linkRegularizeInTimeCard")),
                             "linkTimeOffInTimeCard": to_bool(row.get("linkTimeOffInTimeCard")),
-
-                            "optionalHoliday": to_bool(row.get("optionalHoliday"), default=False),
 
                             "presentDays": float(row.get("presentDays") or 0),
                             "lopDays": float(row.get("lopDays") or 0),
@@ -169,6 +166,13 @@ def paycodes_ui():
                             "payableDays": float(row.get("payableDays") or 0),
                             "otHours": float(row.get("otHours") or 0)
                         }
+
+                        # 🔥 linkedPaycode — ONLY if provided
+                        linked_pc = str(row.get("linkedPaycode")).strip()
+                        if linked_pc.isdigit():
+                            payload["linkedPaycode"] = {
+                                "id": int(linked_pc)
+                            }
 
                         raw_id = str(row.get("id")).strip()
 
@@ -205,8 +209,6 @@ def paycodes_ui():
                             "Status": "Failed",
                             "Message": str(e)
                         })
-
-            # ===================== END SPINNER =====================
 
             st.markdown("#### 📊 Upload Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
