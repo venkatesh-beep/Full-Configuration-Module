@@ -1,10 +1,12 @@
 import streamlit as st
+import time
 
 # ================= IMPORT MODULE UIs =================
 from services.auth import login_ui
 from modules.paycodes import paycodes_ui
 from modules.paycode_events import paycode_events_ui
 from modules.paycode_combinations import paycode_combinations_ui
+from modules.paycode_event_sets import paycode_event_sets_ui
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -20,14 +22,44 @@ if "token" not in st.session_state:
 if "HOST" not in st.session_state:
     st.session_state.HOST = "https://saas-beeforce.labour.tech/"
 
+if "token_issued_at" not in st.session_state:
+    st.session_state.token_issued_at = None
+
 # ================= APP HEADER =================
 st.title("⚙️ Configuration Portal")
-st.caption("Centralized configuration for Paycodes, Paycode Events and Combinations")
+st.caption("Centralized configuration for Paycodes, Paycode Events, Combinations and Event Sets")
 
 # ================= LOGIN FLOW =================
 if not st.session_state.token:
     login_ui()
     st.stop()
+
+# ================= NORMALIZE HOST =================
+st.session_state.HOST = st.session_state.HOST.rstrip("/") + "/"
+
+# ================= SESSION TIMER (30 MINUTES) =================
+TOKEN_VALIDITY_SECONDS = 30 * 60  # 30 minutes
+
+issued_at = st.session_state.get("token_issued_at")
+
+if issued_at:
+    elapsed = time.time() - issued_at
+    remaining = int(TOKEN_VALIDITY_SECONDS - elapsed)
+
+    if remaining <= 0:
+        st.warning("🔒 Session expired. Please login again.")
+        st.session_state.clear()
+        st.rerun()
+
+    minutes = remaining // 60
+    seconds = remaining % 60
+
+    with st.sidebar:
+        st.markdown("### ⏳ Session Timer")
+        st.info(f"Expires in **{minutes:02d}:{seconds:02d}**")
+
+        if remaining <= 300:
+            st.warning("⚠️ Session expiring soon")
 
 # ================= SIDEBAR =================
 with st.sidebar:
@@ -46,7 +78,8 @@ with st.sidebar:
         [
             "Paycodes",
             "Paycode Events",
-            "Paycode Combinations"
+            "Paycode Combinations",
+            "Paycode Event Sets"
         ]
     )
 
@@ -66,3 +99,5 @@ elif menu == "Paycode Events":
 elif menu == "Paycode Combinations":
     paycode_combinations_ui()
 
+elif menu == "Paycode Event Sets":
+    paycode_event_sets_ui()
