@@ -1,67 +1,190 @@
 import streamlit as st
 import pandas as pd
+import requests
 import io
-from services.api import get, post, put, delete
 
-BASE = "/resource-server/api/paycode_combinations"
-PAYCODES = "/resource-server/api/paycodes"
-
+# ======================================================
+# MAIN UI
+# ======================================================
 def paycode_combinations_ui():
     st.header("🔗 Paycode Combinations")
 
-    host = st.session_state.HOST.rstrip("/")
-    combo_url = host + BASE
-    paycodes_url = host + PAYCODES
+    HOST = st.session_state.HOST.rstrip("/")
+    COMBO_URL = HOST + "/resource-server/api/paycode_combinations"
+    PAYCODES_URL = HOST + "/resource-server/api/paycodes"
 
-    st.subheader("📥 Download Template")
+    headers = {
+        "Authorization": f"Bearer {st.session_state.token}",
+        "Content-Type": "application/json;charset=UTF-8",
+        "Accept": "application/json"
+    }
 
-    if st.button("Download Template"):
-        paycodes = pd.DataFrame(get(paycodes_url).json())
-        template = pd.DataFrame(
-            columns=["id", "first_paycode", "second_paycode", "combined_paycode"]
-        )
+    # ==================================================
+    # DOWNLOAD UPLOAD TEMPLATE
+    # ==================================================
+    st.subheader("📥 Download Upload Template")
+
+    template_df = pd.DataFrame(columns=[
+        "id",
+        "firstPaycode",
+        "secondPaycode",
+        "combinedPaycode",
+        "inactive"
+    ])
+
+    if st.button("⬇️ Download Paycode Combination Template"):
+        # ---- Fetch available paycodes (Sheet 2) ----
+        r = requests.get(PAYCODES_URL, headers=headers)
+        if r.status_code == 200:
+            paycodes_df = pd.DataFrame(r.json())[
+                ["id", "code", "description"]
+            ]
+        else:
+            paycodes_df = pd.DataFrame(
+                columns=["id", "code", "description"]
+            )
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template.to_excel(writer, index=False, sheet_name="Combinations")
-            paycodes.to_excel(writer, index=False, sheet_name="Paycodes")
+            template_df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Paycode_Combinations"
+            )
+            paycodes_df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Available_Paycodes"
+            )
 
         st.download_button(
             "⬇️ Download Excel",
             data=output.getvalue(),
-            file_name="paycode_combinations.xlsx"
+            file_name="paycode_combinations_template.xlsx"
         )
 
-    st.subheader("📤 Upload Combinations")
+    # ==================================================
+    # UPLOAD PAYCODE COMBINATIONS
+    # ==================================================
+    st.subheader("📤 Upload Paycode Combinations")
 
-    file = st.file_uploader("Upload Excel", ["xlsx"])
-    if file:
-        df = pd.read_excel(file, sheet_name="Combinations")
+    uploaded_file = st.file_uploader(
+        "Upload CSV or Excel",
+        ["csv", "xlsx", "xls"]
+    )
+
+    if uploaded_file:
+        df = (
+            pd.read_csv(uploaded_file)
+            if uploaded_file.name.endswith(".csv")
+            else pd.read_excel(uploaded_file, sheet_name=0)
+        )
+        df = df.fillna("")
+
         results = []
 
-        for _, row in df.iterrows():
-            body = {
-                "firstPaycode": {"id": int(row["first_paycode"])},
-                "secondPaycode": {"id": int(row["second_paycode"])},
-                "combinedPaycode": {"id": int(row["combined_paycode"])}
-            }
+        for row_no, row in df.iterrows():
+            try:
+                first_pc = str(row.get("firstPaycode")).strip()
+                second_pc = str(row.get("secondPaycode")).strip()
+                combined_pc = str(row.get("combinedPaycode")).strip()
+                inactive = bool(row.get("inactive"))
 
-            if pd.notna(row.get("id")):
-                r = put(f"{combo_url}/{int(row['id'])}", body)
-                action = "Update"
-            else:
-                r = post(combo_url, body)
-                action = "Create"
+                if not first_pc or not second_pc or not combined_pc:
+                    raise ValueError("Missing paycode ids")
 
-            results.append({
-                "Action": action,
-                "Status": r.status_code
-            })
+                payload = {
+                    "firstPaycode": {"id": int(first_pc)},
+                    "secondPaycode": {"id": int(second_pc)},
+                    "combinedPaycode": {"id": int(combined_pc)},
+                    "inactive": inactive
+                }
+
+                raw_id = str(row.get("id")).strip()
+
+                # ---------- CREATE / UPDATE ----------
+                if raw_id.isdigit():
+                    r = requests.put(
+                        f"{COMBO_URL}/{int(raw_id)}",
+                        headers=headers,
+                        json=payload
+                    )
+                    action = "Update"
+                else:
+                    r = requests.post(
+                        COMBO_URL,
+                        headers=headers,
+                        json=payload
+                    )
+                    action = "Create"
+
+                results.append({
+                    "Row": row_no + 1,
+                    "First Paycode": first_pc,
+                    "Second Paycode": second_pc,
+                    "Combined Paycode": combined_pc,
+                    "Action": action,
+                    "HTTP Status": r.status_code,
+                    "Status": "Success" if r.status_code in (200, 201) else "Failed",
+                    "Message": r.text
+                })
+
+            except Exception as e:
+                results.append({
+                    "Row": row_no + 1,
+                    "First Paycode": row.get("firstPaycode"),
+                    "Second Paycode": row.get("secondPaycode"),
+                    "Combined Paycode": row.get("combinedPaycode"),
+                    "Action": "Error",
+                    "HTTP Status": "",
+                    "Status": "Failed",
+                    "Message": str(e)
+                })
 
         st.dataframe(pd.DataFrame(results), use_container_width=True)
 
-    st.subheader("🗑️ Delete Combination")
-    did = st.text_input("Combination ID")
-    if st.button("Delete Combination"):
-        r = delete(f"{combo_url}/{did}")
-        st.success("Deleted" if r.status_code in (200, 204) else r.text)
+    # ==================================================
+    # DELETE PAYCODE COMBINATIONS
+    # ==================================================
+    st.subheader("🗑️ Delete Paycode Combinations")
+
+    ids_input = st.text_input("Enter Combination IDs (comma-separated)")
+
+    if st.button("Delete Paycode Combinations"):
+        ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
+        for cid in ids:
+            r = requests.delete(f"{COMBO_URL}/{cid}", headers=headers)
+            if r.status_code in (200, 204):
+                st.success(f"Deleted Combination ID {cid}")
+            else:
+                st.error(f"Failed to delete ID {cid} → {r.text}")
+
+    # ==================================================
+    # DOWNLOAD EXISTING PAYCODE COMBINATIONS
+    # ==================================================
+    st.subheader("⬇️ Download Existing Paycode Combinations")
+
+    if st.button("Download Existing Paycode Combinations"):
+        r = requests.get(COMBO_URL, headers=headers)
+
+        if r.status_code != 200:
+            st.error("❌ Failed to fetch paycode combinations")
+        else:
+            rows = []
+
+            for c in r.json():
+                rows.append({
+                    "id": c.get("id"),
+                    "firstPaycode": c.get("firstPaycode", {}).get("id"),
+                    "secondPaycode": c.get("secondPaycode", {}).get("id"),
+                    "combinedPaycode": c.get("combinedPaycode", {}).get("id"),
+                    "inactive": c.get("inactive", False)
+                })
+
+            df = pd.DataFrame(rows)
+
+            st.download_button(
+                "⬇️ Download CSV",
+                data=df.to_csv(index=False),
+                file_name="paycode_combinations_export.csv"
+            )
