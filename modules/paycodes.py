@@ -168,11 +168,17 @@ def paycodes_ui():
                         }
 
                         # 🔥 linkedPaycode — ONLY if provided
-                        linked_pc = str(row.get("linkedPaycode")).strip()
-                        if linked_pc.isdigit():
-                            payload["linkedPaycode"] = {
-                                "id": int(linked_pc)
-                            }
+                       linked_pc_raw = row.get("linkedPaycode")
+
+if linked_pc_raw not in ("", None):
+    try:
+        linked_pc_id = int(float(linked_pc_raw))
+        payload["linkedPaycode"] = {
+            "id": linked_pc_id
+        }
+    except ValueError:
+        pass
+
 
                         raw_id = str(row.get("id")).strip()
 
