@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import time   # 🔥 REQUIRED for timer
 
 CLIENT_AUTH = st.secrets["CLIENT_AUTH"]
 DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
@@ -28,6 +29,11 @@ def login_ui():
         if r.status_code != 200:
             st.error("❌ Invalid credentials")
         else:
+            # ===============================
+            # STORE TOKEN + START TIMER
+            # ===============================
             st.session_state.token = r.json()["access_token"]
+            st.session_state.token_issued_at = time.time()  # ⏱️ START 30-MIN TIMER
+
             st.success("✅ Login successful")
             st.rerun()
