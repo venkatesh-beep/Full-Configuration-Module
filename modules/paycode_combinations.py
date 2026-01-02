@@ -8,10 +8,7 @@ import io
 # ======================================================
 def paycode_combinations_ui():
     st.header("🔗 Paycode Combinations")
-    st.caption(
-        "Create, update and delete Paycode Combinations.\n"
-        "⚠ Delete will fail if the combination is already used."
-    )
+    st.caption("Create, update and delete Paycode Combinations")
 
     HOST = st.session_state.HOST.rstrip("/")
     COMBO_URL = HOST + "/resource-server/api/paycode_combinations"
@@ -102,7 +99,7 @@ def paycode_combinations_ui():
                         # ---------- UPDATE ----------
                         if raw_id.isdigit():
                             combo_id = int(raw_id)
-                            payload["id"] = combo_id  # 🔥 REQUIRED BY API
+                            payload["id"] = combo_id
 
                             r = requests.put(
                                 f"{COMBO_URL}/{combo_id}",
@@ -144,13 +141,9 @@ def paycode_combinations_ui():
     st.divider()
 
     # ==================================================
-    # HARD DELETE PAYCODE COMBINATIONS (DELETE)
+    # HARD DELETE PAYCODE COMBINATIONS
     # ==================================================
-    st.markdown("### 🗑️ Delete Paycode Combinations (Hard Delete)")
-    st.error(
-        "⚠ Hard delete will FAIL if the combination is referenced.\n"
-        "This cannot be overridden from UI."
-    )
+    st.markdown("### 🗑️ Delete Paycode Combinations")
 
     ids_input = st.text_input(
         "Enter Combination IDs (comma-separated)",
@@ -170,10 +163,7 @@ def paycode_combinations_ui():
                 if r.status_code in (200, 204):
                     st.success(f"Deleted Combination ID {cid}")
                 else:
-                    st.error(
-                        f"Failed to delete ID {cid}\n"
-                        f"Reason: {r.text}"
-                    )
+                    st.error(f"Failed to delete ID {cid} → {r.text}")
 
     st.divider()
 
