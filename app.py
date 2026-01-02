@@ -51,8 +51,8 @@ if "token_issued_at" not in st.session_state:
 # ================= APP HEADER =================
 st.title("⚙️ Configuration Portal")
 st.caption(
-    "Centralized configuration for Paycodes, Shifts, Schedules, Accruals, "
-    "Timeoff, Regularization, Overtime and more"
+    "Centralized configuration for Paycodes, Shifts, Schedules, "
+    "Accruals, Timeoff, Regularization, Overtime and more"
 )
 
 # ================= LOGIN FLOW =================
@@ -60,8 +60,9 @@ if not st.session_state.token:
     login_ui()
     st.stop()
 
-# ================= NORMALIZE HOST =================
-st.session_state.HOST = st.session_state.HOST.rstrip("/") + "/"
+# ================= NORMALIZED HOST (SAFE) =================
+# IMPORTANT: do NOT write back to session_state.HOST
+BASE_HOST = st.session_state.HOST.rstrip("/")
 
 # ================= SESSION TIMER (30 MINUTES) =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
@@ -96,8 +97,6 @@ with st.sidebar:
         key="HOST",
         help="Example: https://saas-beeforce.labour.tech/"
     )
-
-    st.session_state.HOST = st.session_state.HOST.rstrip("/") + "/"
 
     st.markdown("---")
 
