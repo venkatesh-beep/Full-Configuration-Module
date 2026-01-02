@@ -4,10 +4,34 @@ import requests
 import io
 
 # ======================================================
+# SAFE BOOLEAN PARSER
+# ======================================================
+def to_bool(value, default=False):
+    """
+    Safely convert Excel / CSV values to boolean.
+    Defaults to FALSE if value is empty or invalid.
+    """
+    if value is None or str(value).strip() == "":
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    v = str(value).strip().lower()
+    if v in ("true", "1", "yes", "y"):
+        return True
+    if v in ("false", "0", "no", "n"):
+        return False
+
+    return default
+
+
+# ======================================================
 # MAIN UI
 # ======================================================
 def paycodes_ui():
     st.header("🧾 Paycodes Configuration")
+    st.caption("Create, update, deactivate and download Paycodes")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
 
@@ -34,6 +58,7 @@ def paycodes_ui():
         "validateWithPaycodeEvent",
         "linkRegularizeInTimeCard",
         "linkTimeOffInTimeCard",
+        "optionalHoliday",            # 🔥 REQUIRED FIELD
         "presentDays",
         "lopDays",
         "leaveDays",
@@ -43,7 +68,7 @@ def paycodes_ui():
         "otHours"
     ])
 
-    if st.button("⬇️ Download Paycode Template"):
+    if st.button("⬇️ Download Paycode Upload Template", use_container_width=True):
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             template_df.to_excel(writer, index=False, sheet_name="Paycodes")
@@ -51,16 +76,19 @@ def paycodes_ui():
         st.download_button(
             "⬇️ Download Excel",
             data=output.getvalue(),
-            file_name="paycodes_upload_template.xlsx"
+            file_name="paycodes_upload_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
+    st.divider()
+
     # ==================================================
-    # UPLOAD PAYCODES
+    # UPLOAD PAYCODES (CREATE / UPDATE)
     # ==================================================
     st.subheader("📤 Upload Paycodes (Create / Update)")
 
     uploaded_file = st.file_uploader(
-        "Upload CSV or Excel",
+        "Upload CSV or Excel file",
         ["csv", "xlsx", "xls"]
     )
 
@@ -79,14 +107,20 @@ def paycodes_ui():
                 payload = {
                     "code": str(row.get("code")).strip(),
                     "description": str(row.get("description")).strip(),
-                    "inactive": bool(row.get("inactive")),
-                    "absence": bool(row.get("absence")),
-                    "schedule": bool(row.get("schedule")),
-                    "exception": bool(row.get("exception")),
-                    "historical": bool(row.get("historical")),
-                    "validateWithPaycodeEvent": bool(row.get("validateWithPaycodeEvent")),
-                    "linkRegularizeInTimeCard": bool(row.get("linkRegularizeInTimeCard")),
-                    "linkTimeOffInTimeCard": bool(row.get("linkTimeOffInTimeCard")),
+
+                    "inactive": to_bool(row.get("inactive")),
+                    "absence": to_bool(row.get("absence")),
+                    "schedule": to_bool(row.get("schedule")),
+                    "exception": to_bool(row.get("exception")),
+                    "historical": to_bool(row.get("historical")),
+
+                    "validateWithPaycodeEvent": to_bool(row.get("validateWithPaycodeEvent")),
+                    "linkRegularizeInTimeCard": to_bool(row.get("linkRegularizeInTimeCard")),
+                    "linkTimeOffInTimeCard": to_bool(row.get("linkTimeOffInTimeCard")),
+
+                    # 🔥 ALWAYS PRESENT — DEFAULT FALSE
+                    "optionalHoliday": to_bool(row.get("optionalHoliday"), default=False),
+
                     "presentDays": float(row.get("presentDays") or 0),
                     "lopDays": float(row.get("lopDays") or 0),
                     "leaveDays": float(row.get("leaveDays") or 0),
@@ -133,14 +167,20 @@ def paycodes_ui():
                     "Message": str(e)
                 })
 
+        st.markdown("#### 📊 Upload Result")
         st.dataframe(pd.DataFrame(results), use_container_width=True)
+
+    st.divider()
 
     # ==================================================
     # DELETE PAYCODES
     # ==================================================
     st.subheader("🗑️ Delete Paycodes")
 
-    ids_input = st.text_input("Enter Paycode IDs (comma-separated)")
+    ids_input = st.text_input(
+        "Enter Paycode IDs (comma-separated)",
+        placeholder="Example: 101,102,103"
+    )
 
     if st.button("Delete Paycodes"):
         ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
@@ -151,12 +191,14 @@ def paycodes_ui():
             else:
                 st.error(f"Failed to delete ID {pid} → {r.text}")
 
+    st.divider()
+
     # ==================================================
     # DOWNLOAD EXISTING PAYCODES
     # ==================================================
     st.subheader("⬇️ Download Existing Paycodes")
 
-    if st.button("Download Existing Paycodes"):
+    if st.button("Download Existing Paycodes", use_container_width=True):
         r = requests.get(BASE_URL, headers=headers)
         if r.status_code != 200:
             st.error("❌ Failed to fetch paycodes")
@@ -165,5 +207,6 @@ def paycodes_ui():
             st.download_button(
                 "⬇️ Download CSV",
                 data=df.to_csv(index=False),
-                file_name="paycodes_export.csv"
+                file_name="paycodes_export.csv",
+                mime="text/csv"
             )
