@@ -1,5 +1,5 @@
 import streamlit as st
 
-def accrual_policies_ui():
+def accruals_ui():
     st.header("📊 Accruals")
     st.success("Coming Soon 🚧 Under construction")
