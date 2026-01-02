@@ -32,7 +32,7 @@ def file_hash(file_bytes):
 # ======================================================
 def paycodes_ui():
     st.header("🧾 Paycodes Configuration")
-    st.caption("Create, update, deactivate and download Paycodes")
+    st.caption("Create, update, delete and download Paycodes")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
 
@@ -73,6 +73,7 @@ def paycodes_ui():
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             template_df.to_excel(writer, index=False, sheet_name="Paycodes")
+
         st.download_button(
             "⬇️ Download Excel",
             data=output.getvalue(),
@@ -83,7 +84,7 @@ def paycodes_ui():
     st.divider()
 
     # ==================================================
-    # UPLOAD PAYCODES
+    # UPLOAD PAYCODES (CREATE / UPDATE)
     # ==================================================
     st.subheader("📤 Upload Paycodes (Create / Update)")
 
@@ -92,7 +93,6 @@ def paycodes_ui():
         ["csv", "xlsx", "xls"]
     )
 
-    # initialize session guards
     if "processed_file_hash" not in st.session_state:
         st.session_state.processed_file_hash = None
 
@@ -110,93 +110,132 @@ def paycodes_ui():
         st.info(f"Rows detected: {len(df)}")
 
         if st.button("🚀 Process Upload", type="primary"):
-            # ---- prevent reprocessing same file ----
-            if st.session_state.processed_file_hash == current_hash:
-                st.warning("⚠ This file was already processed. Upload a new file to continue.")
-                return
 
-            st.session_state.processed_file_hash = current_hash
+            # ===================== LOADING SPINNER =====================
+            with st.spinner("⏳ Uploading and processing paycodes... Please wait"):
+                # ---------------------------------------------------------
 
-            results = []
-            processed_codes = set()
+                if st.session_state.processed_file_hash == current_hash:
+                    st.warning("⚠ This file was already processed. Upload a new file to continue.")
+                    return
 
-            for row_no, row in df.iterrows():
-                try:
-                    code = str(row.get("code")).strip()
+                st.session_state.processed_file_hash = current_hash
 
-                    # ---- de-duplicate inside file ----
-                    if code in processed_codes:
+                results = []
+                processed_codes = set()
+
+                for row_no, row in df.iterrows():
+                    try:
+                        code = str(row.get("code")).strip()
+
+                        if not code:
+                            raise ValueError("Paycode code is mandatory")
+
+                        # ---- De-duplicate within file ----
+                        if code in processed_codes:
+                            results.append({
+                                "Row": row_no + 1,
+                                "Code": code,
+                                "Action": "Skipped",
+                                "HTTP Status": "",
+                                "Status": "Duplicate in file",
+                                "Message": "Duplicate code skipped"
+                            })
+                            continue
+
+                        processed_codes.add(code)
+
+                        payload = {
+                            "code": code,
+                            "description": str(row.get("description")).strip(),
+
+                            "inactive": to_bool(row.get("inactive")),
+                            "absence": to_bool(row.get("absence")),
+                            "schedule": to_bool(row.get("schedule")),
+                            "exception": to_bool(row.get("exception")),
+                            "historical": to_bool(row.get("historical")),
+
+                            "validateWithPaycodeEvent": to_bool(row.get("validateWithPaycodeEvent")),
+                            "linkRegularizeInTimeCard": to_bool(row.get("linkRegularizeInTimeCard")),
+                            "linkTimeOffInTimeCard": to_bool(row.get("linkTimeOffInTimeCard")),
+
+                            "optionalHoliday": to_bool(row.get("optionalHoliday"), default=False),
+
+                            "presentDays": float(row.get("presentDays") or 0),
+                            "lopDays": float(row.get("lopDays") or 0),
+                            "leaveDays": float(row.get("leaveDays") or 0),
+                            "woDays": float(row.get("woDays") or 0),
+                            "holDays": float(row.get("holDays") or 0),
+                            "payableDays": float(row.get("payableDays") or 0),
+                            "otHours": float(row.get("otHours") or 0)
+                        }
+
+                        raw_id = str(row.get("id")).strip()
+
+                        if raw_id.isdigit():
+                            r = requests.put(
+                                f"{BASE_URL}/{int(raw_id)}",
+                                headers=headers,
+                                json=payload
+                            )
+                            action = "Update"
+                        else:
+                            r = requests.post(
+                                BASE_URL,
+                                headers=headers,
+                                json=payload
+                            )
+                            action = "Create"
+
                         results.append({
                             "Row": row_no + 1,
                             "Code": code,
-                            "Action": "Skipped",
-                            "HTTP Status": "",
-                            "Status": "Duplicate in file",
-                            "Message": "Duplicate code skipped"
+                            "Action": action,
+                            "HTTP Status": r.status_code,
+                            "Status": "Success" if r.status_code in (200, 201) else "Failed",
+                            "Message": r.text
                         })
-                        continue
 
-                    processed_codes.add(code)
+                    except Exception as e:
+                        results.append({
+                            "Row": row_no + 1,
+                            "Code": row.get("code"),
+                            "Action": "Error",
+                            "HTTP Status": "",
+                            "Status": "Failed",
+                            "Message": str(e)
+                        })
 
-                    payload = {
-                        "code": code,
-                        "description": str(row.get("description")).strip(),
-                        "inactive": to_bool(row.get("inactive")),
-                        "absence": to_bool(row.get("absence")),
-                        "schedule": to_bool(row.get("schedule")),
-                        "exception": to_bool(row.get("exception")),
-                        "historical": to_bool(row.get("historical")),
-                        "validateWithPaycodeEvent": to_bool(row.get("validateWithPaycodeEvent")),
-                        "linkRegularizeInTimeCard": to_bool(row.get("linkRegularizeInTimeCard")),
-                        "linkTimeOffInTimeCard": to_bool(row.get("linkTimeOffInTimeCard")),
-                        "optionalHoliday": to_bool(row.get("optionalHoliday")),
-                        "presentDays": float(row.get("presentDays") or 0),
-                        "lopDays": float(row.get("lopDays") or 0),
-                        "leaveDays": float(row.get("leaveDays") or 0),
-                        "woDays": float(row.get("woDays") or 0),
-                        "holDays": float(row.get("holDays") or 0),
-                        "payableDays": float(row.get("payableDays") or 0),
-                        "otHours": float(row.get("otHours") or 0)
-                    }
-
-                    raw_id = str(row.get("id")).strip()
-
-                    if raw_id.isdigit():
-                        r = requests.put(
-                            f"{BASE_URL}/{int(raw_id)}",
-                            headers=headers,
-                            json=payload
-                        )
-                        action = "Update"
-                    else:
-                        r = requests.post(
-                            BASE_URL,
-                            headers=headers,
-                            json=payload
-                        )
-                        action = "Create"
-
-                    results.append({
-                        "Row": row_no + 1,
-                        "Code": code,
-                        "Action": action,
-                        "HTTP Status": r.status_code,
-                        "Status": "Success" if r.status_code in (200, 201) else "Failed",
-                        "Message": r.text
-                    })
-
-                except Exception as e:
-                    results.append({
-                        "Row": row_no + 1,
-                        "Code": row.get("code"),
-                        "Action": "Error",
-                        "HTTP Status": "",
-                        "Status": "Failed",
-                        "Message": str(e)
-                    })
+            # ===================== END SPINNER =====================
 
             st.markdown("#### 📊 Upload Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
+
+    st.divider()
+
+    # ==================================================
+    # DELETE PAYCODES
+    # ==================================================
+    st.subheader("🗑️ Delete Paycodes")
+    st.warning(
+        "Deleting a paycode may fail if it is already used.\n"
+        "If deletion fails, consider setting `inactive = TRUE` instead."
+    )
+
+    ids_input = st.text_input(
+        "Enter Paycode IDs (comma-separated)",
+        placeholder="Example: 101,102,103"
+    )
+
+    if st.button("Delete Paycodes"):
+        with st.spinner("⏳ Deleting paycodes..."):
+            ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
+            for pid in ids:
+                r = requests.delete(f"{BASE_URL}/{pid}", headers=headers)
+                if r.status_code in (200, 204):
+                    st.success(f"Deleted Paycode ID {pid}")
+                else:
+                    st.error(f"Failed to delete ID {pid} → {r.text}")
 
     st.divider()
 
@@ -206,14 +245,15 @@ def paycodes_ui():
     st.subheader("⬇️ Download Existing Paycodes")
 
     if st.button("Download Existing Paycodes", use_container_width=True):
-        r = requests.get(BASE_URL, headers=headers)
-        if r.status_code != 200:
-            st.error("❌ Failed to fetch paycodes")
-        else:
-            df = pd.DataFrame(r.json())
-            st.download_button(
-                "⬇️ Download CSV",
-                data=df.to_csv(index=False),
-                file_name="paycodes_export.csv",
-                mime="text/csv"
-            )
+        with st.spinner("⏳ Fetching paycodes..."):
+            r = requests.get(BASE_URL, headers=headers)
+            if r.status_code != 200:
+                st.error("❌ Failed to fetch paycodes")
+            else:
+                df = pd.DataFrame(r.json())
+                st.download_button(
+                    "⬇️ Download CSV",
+                    data=df.to_csv(index=False),
+                    file_name="paycodes_export.csv",
+                    mime="text/csv"
+                )
