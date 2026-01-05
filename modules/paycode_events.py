@@ -67,10 +67,20 @@ def paycode_events_ui():
 
     if st.button("⬇️ Download Template"):
         r = requests.get(PAYCODES_URL, headers=headers)
+
+        # ✅ Sheet 2: ONLY id, code, description
         paycodes_df = (
             pd.DataFrame(
-                [{"id": p.get("id"), "code": p.get("code")} for p in r.json()]
-            ) if r.status_code == 200 else pd.DataFrame(columns=["id", "code"])
+                [
+                    {
+                        "id": p.get("id"),
+                        "code": p.get("code"),
+                        "description": p.get("description")
+                    }
+                    for p in r.json()
+                ]
+            ) if r.status_code == 200
+            else pd.DataFrame(columns=["id", "code", "description"])
         )
 
         output = io.BytesIO()
@@ -121,7 +131,7 @@ def paycode_events_ui():
 
             holiday_date = normalize_yyyy_mm_dd(holiday_raw)
             if not holiday_date:
-                errors.append(f"Row {row_no + 1}: Invalid date {holiday_raw}")
+                errors.append(f"Row {row_no + 1}: Invalid date '{holiday_raw}'")
                 continue
 
             year, month, day = map(int, holiday_date.split("-"))
@@ -185,8 +195,8 @@ def paycode_events_ui():
             results.append({
                 "Paycode Event": payload["name"],
                 "Action": "Update" if is_update else "Create",
-                "Status": "Success" if r.status_code in (200, 201) else "Failed",
-                "HTTP Status": r.status_code
+                "HTTP Status": r.status_code,
+                "Status": "Success" if r.status_code in (200, 201) else "Failed"
             })
 
         st.dataframe(pd.DataFrame(results), use_container_width=True)
@@ -194,7 +204,7 @@ def paycode_events_ui():
     st.divider()
 
     # ==================================================
-    # DELETE (ALWAYS VISIBLE)
+    # DELETE
     # ==================================================
     st.subheader("🗑️ Delete Paycode Events")
 
@@ -214,7 +224,7 @@ def paycode_events_ui():
     st.divider()
 
     # ==================================================
-    # DOWNLOAD EXISTING (SAFE)
+    # DOWNLOAD EXISTING
     # ==================================================
     st.subheader("⬇️ Download Existing Paycode Events")
 
