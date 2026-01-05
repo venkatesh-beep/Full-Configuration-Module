@@ -4,8 +4,38 @@ import requests
 import io
 import re
 from datetime import datetime
+
+# ======================================================
+# DATE NORMALIZATION
+# ======================================================
+def normalize_yyyy_mm_dd(date_value):
+    if not date_value:
+        return None
+
+    if hasattr(date_value, "strftime"):
+        return date_value.strftime("%Y-%m-%d")
+
+    date_str = str(date_value).strip()
+
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", date_str):
+        return date_str.split(" ")[0]
+
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_str):
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+            return date_str
+        except ValueError:
+            return None
+
+    return None
+
+
+# ======================================================
+# MAIN UI
+# ======================================================
 def paycode_events_ui():
     st.header("🧾 Paycode Events")
+    st.caption("Create • Update • Delete • Download Paycode Events")
 
     HOST = st.session_state.HOST.rstrip("/")
     BASE_URL = f"{HOST}/resource-server/api/paycode_events"
@@ -13,7 +43,7 @@ def paycode_events_ui():
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json;charset=UTF-8",
         "Accept": "application/json"
     }
 
@@ -36,8 +66,10 @@ def paycode_events_ui():
     if st.button("⬇️ Download Template"):
         r = requests.get(PAYCODES_URL, headers=headers)
         paycodes_df = (
-            pd.DataFrame(r.json())[["id", "code", "description"]]
-            if r.status_code == 200 else pd.DataFrame()
+            pd.DataFrame([
+                {"id": p.get("id"), "code": p.get("code")}
+                for p in r.json()
+            ]) if r.status_code == 200 else pd.DataFrame(columns=["id", "code"])
         )
 
         output = io.BytesIO()
@@ -47,98 +79,92 @@ def paycode_events_ui():
 
         st.download_button(
             "⬇️ Download Excel",
-            output.getvalue(),
-            "paycode_events_template.xlsx"
+            data=output.getvalue(),
+            file_name="paycode_events_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
+    st.divider()
 
     # ==================================================
     # UPLOAD
     # ==================================================
     st.subheader("📤 Upload Paycode Events")
 
-    uploaded_file = st.file_uploader("Upload CSV / Excel", ["csv", "xlsx", "xls"])
-    if not uploaded_file:
-        return
+    uploaded_file = st.file_uploader(
+        "Upload CSV or Excel",
+        type=["csv", "xlsx", "xls"]
+    )
 
-    df = (
-        pd.read_csv(uploaded_file)
-        if uploaded_file.name.endswith(".csv")
-        else pd.read_excel(uploaded_file)
-    ).fillna("")
+    if uploaded_file:
+        store = {}
+        errors = []
 
-    store = {}
-    errors = []
+        df = (
+            pd.read_csv(uploaded_file)
+            if uploaded_file.name.endswith(".csv")
+            else pd.read_excel(uploaded_file)
+        ).fillna("")
 
-    for idx, row in df.iterrows():
-        raw_id = str(row.get("id", "")).strip()
-        name = str(row.get("Paycode Event Name", "")).strip()
-        description = str(row.get("Description", "")).strip() or name
-        paycode_id = str(row.get("paycode_id", "")).strip()
-        holiday_name = str(row.get("holiday_name", "")).strip()
-        holiday_raw = row.get("holiday_date(YYYY-MM-DD)", "")
+        for row_no, row in df.iterrows():
+            raw_id = str(row.get("id", "")).strip()
+            name = str(row.get("Paycode Event Name", "")).strip()
+            description = str(row.get("Description", "")).strip() or name
+            paycode_id = str(row.get("paycode_id", "")).strip()
+            holiday_name = str(row.get("holiday_name", "")).strip()
+            holiday_raw = row.get("holiday_date(YYYY-MM-DD)", "")
 
-        repeat_week = str(row.get("repeatWeek", "")).strip() or "*"
-        repeat_weekday = str(row.get("repeatWeekday", "")).strip() or "*"
+            if not name or not holiday_name or not holiday_raw or not paycode_id:
+                errors.append(f"Row {row_no + 1}: Missing mandatory fields")
+                continue
 
-        if not name or not holiday_name or not holiday_raw or not paycode_id:
-            errors.append(f"Row {idx+1}: Missing mandatory fields")
-            continue
+            holiday_date = normalize_yyyy_mm_dd(holiday_raw)
+            if not holiday_date:
+                errors.append(f"Row {row_no + 1}: Invalid date {holiday_raw}")
+                continue
 
-        holiday_date = normalize_yyyy_mm_dd(holiday_raw)
-        if not holiday_date:
-            errors.append(f"Row {idx+1}: Invalid date {holiday_raw}")
-            continue
+            year, month, day = map(int, holiday_date.split("-"))
 
-        year, month, day = map(int, holiday_date.split("-"))
+            key = raw_id if raw_id.isdigit() else name
 
-        # 🔐 ABSOLUTE KEY LOGIC
-        if raw_id.isdigit():
-            key = f"ID_{raw_id}"
-        else:
-            key = f"NEW_{name}"
+            if key not in store:
+                base = {
+                    "name": name,
+                    "description": description,
+                    "paycode": {"id": int(float(paycode_id))},
+                    "schedules": []
+                }
+                if raw_id.isdigit():
+                    base["id"] = int(raw_id)
+                store[key] = base
 
-        if key not in store:
-            store[key] = {
-                "name": name,
-                "description": description,
-                "paycode": {"id": int(float(paycode_id))},
-                "schedules": []
-            }
+            store[key]["schedules"].append({
+                "name": holiday_name,
+                "startDate": st.session_state.get("START_DATE", "2026-01-01"),
+                "repeatDay": day,
+                "repeatMonth": month,
+                "repeatYear": year,
+                "repeatWeek": str(row.get("repeatWeek", "")).strip() or "*",
+                "repeatWeekday": str(row.get("repeatWeekday", "")).strip() or "*"
+            })
 
-            if raw_id.isdigit():
-                store[key]["id"] = int(raw_id)
+        st.session_state.final_body = list(store.values())
 
-        # 🔒 NEVER LOSE ID IF IT EXISTS
-        if raw_id.isdigit():
-            store[key]["id"] = int(raw_id)
+        if errors:
+            st.error("Some rows were skipped")
+            st.text("\n".join(errors))
 
-        store[key]["schedules"].append({
-            "name": holiday_name,
-            "startDate": st.session_state.get("START_DATE", "2026-01-01"),
-            "repeatYear": year,
-            "repeatMonth": month,
-            "repeatDay": day,
-            "repeatWeek": repeat_week,
-            "repeatWeekday": repeat_weekday
-        })
-
-    st.session_state.final_body = list(store.values())
-
-    if errors:
-        st.error("❌ Some rows were skipped")
-        st.text("\n".join(errors))
-
-    st.success(f"✅ Loaded {len(store)} Paycode Events")
+        st.success(f"Loaded {len(store)} Paycode Events")
 
     # ==================================================
     # CREATE / UPDATE
     # ==================================================
-    st.subheader("🚀 Create / Update Paycode Events")
+    st.subheader("🚀 Create / Update")
 
     if st.button("Submit Paycode Events"):
         results = []
 
-        for payload in st.session_state.final_body:
+        for payload in st.session_state.get("final_body", []):
             is_update = isinstance(payload.get("id"), int)
 
             if is_update:
@@ -148,41 +174,52 @@ def paycode_events_ui():
                     json=payload
                 )
             else:
-                r = requests.post(BASE_URL, headers=headers, json=payload)
+                r = requests.post(
+                    BASE_URL,
+                    headers=headers,
+                    json=payload
+                )
 
             results.append({
                 "Paycode Event": payload["name"],
-                "Action": "UPDATE" if is_update else "CREATE",
-                "HTTP": r.status_code,
-                "Status": "Success" if r.status_code in (200, 201) else "Failed"
+                "Action": "Update" if is_update else "Create",
+                "Status": "Success" if r.status_code in (200, 201) else "Failed",
+                "HTTP": r.status_code
             })
 
         st.dataframe(pd.DataFrame(results), use_container_width=True)
 
+    st.divider()
+
     # ==================================================
-    # DELETE
+    # DELETE (ALWAYS VISIBLE)
     # ==================================================
     st.subheader("🗑️ Delete Paycode Events")
 
-    ids_input = st.text_input("Enter Paycode Event IDs (comma-separated)")
+    delete_ids = st.text_input(
+        "Enter Paycode Event IDs (comma-separated)",
+        placeholder="Example: 101,102"
+    )
+
     if st.button("Delete Paycode Events"):
-        ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
-        for pid in ids:
+        for pid in [x.strip() for x in delete_ids.split(",") if x.strip().isdigit()]:
             r = requests.delete(f"{BASE_URL}/{pid}", headers=headers)
             if r.status_code in (200, 204):
-                st.success(f"Deleted Paycode Event ID {pid}")
+                st.success(f"Deleted ID {pid}")
             else:
-                st.error(f"Failed to delete ID {pid} → {r.text}")
+                st.error(f"Failed to delete {pid}")
+
+    st.divider()
 
     # ==================================================
-    # DOWNLOAD EXISTING
+    # DOWNLOAD EXISTING (ALWAYS VISIBLE)
     # ==================================================
     st.subheader("⬇️ Download Existing Paycode Events")
 
-    if st.button("Download Existing Paycode Events"):
+    if st.button("Download Existing"):
         r = requests.get(BASE_URL, headers=headers)
         if r.status_code != 200:
-            st.error("❌ Failed to fetch Paycode Events")
+            st.error("Failed to fetch data")
             return
 
         rows = []
@@ -200,8 +237,10 @@ def paycode_events_ui():
                 })
 
         df = pd.DataFrame(rows)
+
         st.download_button(
             "⬇️ Download CSV",
-            df.to_csv(index=False),
-            "paycode_events_export.csv"
+            data=df.to_csv(index=False),
+            file_name="paycode_events_export.csv",
+            mime="text/csv"
         )
