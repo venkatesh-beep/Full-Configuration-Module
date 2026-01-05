@@ -18,6 +18,7 @@ def timecard_updation_ui():
 
     GET_URL = f"{HOST}/web-client/restProxy/timecards/"
     POST_URL = f"{HOST}/resource-server/api/timecards"
+    PAYCODES_URL = f"{HOST}/resource-server/api/paycodes"
 
     HEADERS_GET = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -28,6 +29,47 @@ def timecard_updation_ui():
         "Authorization": f"Bearer {st.session_state.token}",
         "Content-Type": "application/json"
     }
+
+    # --------------------------------------------------
+    # DOWNLOAD TEMPLATE
+    # --------------------------------------------------
+    st.subheader("📥 Download Upload Template")
+
+    template_df = pd.DataFrame(columns=[
+        "externalNumber",
+        "attendanceDate",
+        "paycode_id"
+    ])
+
+    if st.button("⬇️ Download Template", use_container_width=True):
+        # Fetch paycodes
+        r = requests.get(PAYCODES_URL, headers=HEADERS_GET)
+        paycodes_df = (
+            pd.DataFrame([
+                {
+                    "paycode_id": p.get("id"),
+                    "paycode": p.get("code"),
+                    "description": p.get("description")
+                }
+                for p in r.json()
+            ]) if r.status_code == 200 else pd.DataFrame(
+                columns=["paycode_id", "paycode", "description"]
+            )
+        )
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            template_df.to_excel(writer, index=False, sheet_name="Timecard_Upload")
+            paycodes_df.to_excel(writer, index=False, sheet_name="Available_Paycodes")
+
+        st.download_button(
+            "⬇️ Download Excel",
+            data=output.getvalue(),
+            file_name="timecard_updation_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    st.divider()
 
     # --------------------------------------------------
     # Upload file
@@ -54,7 +96,6 @@ def timecard_updation_ui():
     df["attendanceDate"] = pd.to_datetime(df["attendanceDate"]).dt.strftime("%Y-%m-%d")
 
     st.success(f"File loaded successfully — {len(df)} rows")
-
     st.dataframe(df, use_container_width=True)
 
     # --------------------------------------------------
@@ -64,6 +105,15 @@ def timecard_updation_ui():
         return
 
     st.divider()
+
+    # --------------------------------------------------
+    # Fetch Paycodes Map (for status display)
+    # --------------------------------------------------
+    paycode_map = {}
+    r = requests.get(PAYCODES_URL, headers=HEADERS_GET)
+    if r.status_code == 200:
+        for p in r.json():
+            paycode_map[p.get("id")] = p.get("code")
 
     # --------------------------------------------------
     # Processing
@@ -101,7 +151,6 @@ def timecard_updation_ui():
                 continue
 
             data = json_resp if isinstance(json_resp, list) else json_resp.get("data", [])
-
             if not data:
                 continue
 
@@ -147,7 +196,10 @@ def timecard_updation_ui():
             if r2.status_code in (200, 201):
                 results.append({
                     "externalNumber": external_number,
-                    "attendanceDate": attendance_date
+                    "attendanceDate": attendance_date,
+                    "paycode_id": paycode_id,
+                    "paycode": paycode_map.get(paycode_id, ""),
+                    "Status": "SUCCESS"
                 })
 
     # --------------------------------------------------
