@@ -19,7 +19,7 @@ def timeoff_policy_sets_ui():
 
     HOST = st.session_state.HOST.rstrip("/")
 
-    BASE_URL = f"{HOST}/resource-server/api/timeoff_policy_sets"
+    BASE_URL = f"{HOST}/resource-server/api/time_off_policy_sets"
     PAYCODES_URL = f"{HOST}/resource-server/api/paycodes"
 
     HEADERS = {
