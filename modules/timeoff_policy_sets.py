@@ -38,17 +38,12 @@ def timeoff_policy_sets_ui():
 
         paycodes_df = (
             pd.DataFrame(
-                [
-                    {
-                        "id": p.get("id"),
-                        "code": p.get("code"),
-                        "description": p.get("description")
-                    }
-                    for p in r.json()
-                ]
-            ) if r.status_code == 200
-            else pd.DataFrame(columns=["id", "code", "description"])
-        )
+                [{
+                    "id": p.get("id"),
+                    "code": p.get("code"),
+                    "description": p.get("description")
+                } for p in r.json()]
+            ) if r.status_code == 200 else pd.DataFrame()
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -69,56 +64,51 @@ def timeoff_policy_sets_ui():
     # ==================================================
     st.subheader("📤 Upload Time-off Policy Sets")
 
-    uploaded_file = st.file_uploader(
-        "Upload CSV or Excel",
-        type=["csv", "xlsx", "xls"]
-    )
+    uploaded_file = st.file_uploader("Upload CSV or Excel", ["csv", "xlsx", "xls"])
 
     if uploaded_file:
-        store = {}
-        errors = []
-
         df = (
             pd.read_csv(uploaded_file)
             if uploaded_file.name.endswith(".csv")
             else pd.read_excel(uploaded_file)
         ).fillna("")
 
-        for row_no, row in df.iterrows():
-            raw_id = str(row.get("id", "")).strip()
-            name = str(row.get("name", "")).strip()
-            description = str(row.get("description", "")).strip() or name
-            policy_id = str(row.get("policy_id", "")).strip()
-            paycode_id = str(row.get("paycode_id", "")).strip()
+        store = {}
+        errors = []
+
+        for i, row in df.iterrows():
+            raw_id = str(row["id"]).strip()
+            name = str(row["name"]).strip()
+            description = str(row["description"]).strip() or name
+            policy_id = str(row["policy_id"]).strip()
+            paycode_id = str(row["paycode_id"]).strip()
 
             if not name or not policy_id or not paycode_id:
-                errors.append(f"Row {row_no + 1}: Missing mandatory fields")
+                errors.append(f"Row {i+1}: Missing mandatory fields")
                 continue
 
             key = raw_id if raw_id.isdigit() else name
 
             if key not in store:
-                base = {
+                payload = {
                     "name": name,
                     "description": description,
                     "entries": []
                 }
                 if raw_id.isdigit():
-                    base["id"] = int(raw_id)
+                    payload["id"] = int(raw_id)
 
-                store[key] = base
+                store[key] = payload
 
             store[key]["entries"].append({
-                "id": int(float(policy_id)),
-                "paycode": {
-                    "id": int(float(paycode_id))
-                }
+                "policy": {"id": int(float(policy_id))},
+                "paycode": {"id": int(float(paycode_id))}
             })
 
         st.session_state.final_body = list(store.values())
 
         if errors:
-            st.error("❌ Some rows were skipped")
+            st.error("❌ Some rows skipped")
             st.text("\n".join(errors))
 
         st.success(f"✅ Loaded {len(store)} Time-off Policy Sets")
@@ -134,9 +124,7 @@ def timeoff_policy_sets_ui():
         results = []
 
         for payload in st.session_state.get("final_body", []):
-            is_update = isinstance(payload.get("id"), int)
-
-            if is_update:
+            if "id" in payload:
                 r = requests.put(
                     f"{BASE_URL}/{payload['id']}",
                     headers=headers,
@@ -144,19 +132,15 @@ def timeoff_policy_sets_ui():
                 )
                 action = "Update"
             else:
-                r = requests.post(
-                    BASE_URL,
-                    headers=headers,
-                    json=payload
-                )
+                r = requests.post(BASE_URL, headers=headers, json=payload)
                 action = "Create"
 
             results.append({
                 "Name": payload["name"],
                 "Action": action,
                 "Entries": len(payload["entries"]),
-                "Status": "Success" if r.status_code in (200, 201) else "Failed",
-                "HTTP Status": r.status_code
+                "HTTP Status": r.status_code,
+                "Status": "Success" if r.status_code in (200, 201) else "Failed"
             })
 
         st.dataframe(pd.DataFrame(results), use_container_width=True)
@@ -168,13 +152,10 @@ def timeoff_policy_sets_ui():
     # ==================================================
     st.subheader("🗑️ Delete Time-off Policy Sets")
 
-    delete_ids = st.text_input(
-        "Enter Time-off Policy Set IDs (comma-separated)",
-        placeholder="Example: 16,17"
-    )
+    ids = st.text_input("Enter IDs (comma-separated)")
 
-    if st.button("Delete Time-off Policy Sets"):
-        for pid in [x.strip() for x in delete_ids.split(",") if x.strip().isdigit()]:
+    if st.button("Delete"):
+        for pid in [x.strip() for x in ids.split(",") if x.strip().isdigit()]:
             r = requests.delete(f"{BASE_URL}/{pid}", headers=headers)
             if r.status_code in (200, 204):
                 st.success(f"Deleted ID {pid}")
@@ -188,10 +169,10 @@ def timeoff_policy_sets_ui():
     # ==================================================
     st.subheader("⬇️ Download Existing Time-off Policy Sets")
 
-    if st.button("Download Existing Time-off Policy Sets"):
+    if st.button("Download Existing"):
         r = requests.get(BASE_URL, headers=headers)
         if r.status_code != 200:
-            st.error("❌ Failed to fetch Time-off Policy Sets")
+            st.error("Failed to fetch data")
             return
 
         rows = []
@@ -201,7 +182,7 @@ def timeoff_policy_sets_ui():
                     "id": s.get("id"),
                     "name": s.get("name"),
                     "description": s.get("description"),
-                    "policy_id": e.get("id"),
+                    "policy_id": e.get("policy", {}).get("id"),
                     "paycode_id": e.get("paycode", {}).get("id")
                 })
 
