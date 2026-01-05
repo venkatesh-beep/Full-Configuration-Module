@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
+import json
 
 def timecard_updation_ui():
     st.header("🕒 Timecard Updation")
@@ -41,18 +42,22 @@ def timecard_updation_ui():
 
     st.info(f"Rows detected: {len(df)}")
 
-    if not st.button("🚀 Update Timecards", type="primary"):
+    dry_run = st.checkbox("🔍 Preview JSON only (do not update)")
+
+    if not st.button("🚀 Process Timecard Updates", type="primary"):
         return
 
     results = []
 
-    with st.spinner("⏳ Updating timecards..."):
+    with st.spinner("⏳ Processing timecards..."):
         for idx, row in df.iterrows():
             try:
+                # =========================
+                # INPUTS
+                # =========================
                 external_number = str(row["externalNumber"]).strip()
                 paycode_id = int(row["paycode_id"])
 
-                # ✅ STRICT DATE NORMALIZATION
                 attendance_date = pd.to_datetime(
                     row["attendanceDate"]
                 ).strftime("%Y-%m-%d")
@@ -79,7 +84,7 @@ def timecard_updation_ui():
                     raise ValueError("attendancePaycodes not found")
 
                 # =========================
-                # STEP 2: FIND MATCHING DATE
+                # STEP 2: MATCH DATE
                 # =========================
                 ap_match = None
                 for ap in tc["attendancePaycodes"]:
@@ -119,26 +124,33 @@ def timecard_updation_ui():
                 }
 
                 # =========================
-                # STEP 4: UPDATE
+                # SHOW JSON IN UI
                 # =========================
-                r2 = requests.post(
-                    UPDATE_URL,
-                    headers=headers_post,
-                    json=payload
-                )
+                with st.expander(f"📦 Row {idx + 1} – Generated JSON"):
+                    st.json(payload)
 
-                if r2.status_code not in (200, 201):
-                    raise ValueError(r2.text)
+                # =========================
+                # STEP 4: UPDATE (OPTIONAL)
+                # =========================
+                if not dry_run:
+                    r2 = requests.post(
+                        UPDATE_URL,
+                        headers=headers_post,
+                        json=payload
+                    )
+
+                    if r2.status_code not in (200, 201):
+                        raise ValueError(r2.text)
 
                 results.append({
                     "Row": idx + 1,
                     "External Number": external_number,
                     "Date": attendance_date,
                     "Paycode": paycode_id,
+                    "Employee ID": employee_id,
                     "Version": version,
-                    "HTTP": r2.status_code,
-                    "Status": "Success",
-                    "Message": "Updated"
+                    "Status": "Preview" if dry_run else "Success",
+                    "Message": "JSON Generated" if dry_run else "Updated"
                 })
 
             except Exception as e:
@@ -147,8 +159,8 @@ def timecard_updation_ui():
                     "External Number": row.get("externalNumber"),
                     "Date": row.get("attendanceDate"),
                     "Paycode": row.get("paycode_id"),
+                    "Employee ID": "",
                     "Version": "",
-                    "HTTP": "",
                     "Status": "Failed",
                     "Message": str(e)
                 })
