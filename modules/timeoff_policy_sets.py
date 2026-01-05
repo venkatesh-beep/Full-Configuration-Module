@@ -7,16 +7,24 @@ import io
 # MAIN UI
 # ======================================================
 def timeoff_policy_sets_ui():
-    st.header("🏖️ Time-off Policy Sets")
-    st.caption("Create • Update • Delete • Download Time-off Policy Sets")
+    st.header("🏖️ Timeoff Policy Sets")
+    st.caption("Create, update, delete and download Timeoff Policy Sets")
+
+    # --------------------------------------------------
+    # Preconditions
+    # --------------------------------------------------
+    if "token" not in st.session_state or not st.session_state.token:
+        st.error("Please login first")
+        return
 
     HOST = st.session_state.HOST.rstrip("/")
+
     BASE_URL = f"{HOST}/resource-server/api/timeoff_policy_sets"
     PAYCODES_URL = f"{HOST}/resource-server/api/paycodes"
 
-    headers = {
+    HEADERS = {
         "Authorization": f"Bearer {st.session_state.token}",
-        "Content-Type": "application/json;charset=UTF-8",
+        "Content-Type": "application/json",
         "Accept": "application/json"
     }
 
@@ -33,8 +41,8 @@ def timeoff_policy_sets_ui():
         "paycode_id"
     ])
 
-    if st.button("⬇️ Download Template"):
-        r = requests.get(PAYCODES_URL, headers=headers)
+    if st.button("⬇️ Download Template", use_container_width=True):
+        r = requests.get(PAYCODES_URL, headers=HEADERS)
 
         paycodes_df = (
             pd.DataFrame(
@@ -43,12 +51,13 @@ def timeoff_policy_sets_ui():
                     "code": p.get("code"),
                     "description": p.get("description")
                 } for p in r.json()]
-            ) if r.status_code == 200 else pd.DataFrame()
+            ) if r.status_code == 200 else pd.DataFrame(columns=["id", "code", "description"])
+        )
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Timeoff Policy Sets")
-            paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes")
+            template_df.to_excel(writer, index=False, sheet_name="Timeoff_Policy_Sets")
+            paycodes_df.to_excel(writer, index=False, sheet_name="Available_Paycodes")
 
         st.download_button(
             "⬇️ Download Excel",
@@ -60,117 +69,136 @@ def timeoff_policy_sets_ui():
     st.divider()
 
     # ==================================================
-    # UPLOAD
+    # UPLOAD FILE
     # ==================================================
-    st.subheader("📤 Upload Time-off Policy Sets")
+    st.subheader("📤 Upload Timeoff Policy Sets")
 
-    uploaded_file = st.file_uploader("Upload CSV or Excel", ["csv", "xlsx", "xls"])
+    uploaded_file = st.file_uploader(
+        "Upload CSV or Excel",
+        ["csv", "xlsx", "xls"]
+    )
 
-    if uploaded_file:
-        df = (
-            pd.read_csv(uploaded_file)
-            if uploaded_file.name.endswith(".csv")
-            else pd.read_excel(uploaded_file)
-        ).fillna("")
+    if not uploaded_file:
+        return
 
-        store = {}
-        errors = []
+    df = (
+        pd.read_csv(uploaded_file)
+        if uploaded_file.name.endswith(".csv")
+        else pd.read_excel(uploaded_file)
+    )
 
-        for i, row in df.iterrows():
-            raw_id = str(row["id"]).strip()
-            name = str(row["name"]).strip()
-            description = str(row["description"]).strip() or name
-            policy_id = str(row["policy_id"]).strip()
-            paycode_id = str(row["paycode_id"]).strip()
+    df = df.fillna("")
+    st.success(f"Loaded {len(df)} rows")
+    st.dataframe(df, use_container_width=True)
 
-            if not name or not policy_id or not paycode_id:
-                errors.append(f"Row {i+1}: Missing mandatory fields")
-                continue
-
-            key = raw_id if raw_id.isdigit() else name
-
-            if key not in store:
-                payload = {
-                    "name": name,
-                    "description": description,
-                    "entries": []
-                }
-                if raw_id.isdigit():
-                    payload["id"] = int(raw_id)
-
-                store[key] = payload
-
-            store[key]["entries"].append({
-                "policy": {"id": int(float(policy_id))},
-                "paycode": {"id": int(float(paycode_id))}
-            })
-
-        st.session_state.final_body = list(store.values())
-
-        if errors:
-            st.error("❌ Some rows skipped")
-            st.text("\n".join(errors))
-
-        st.success(f"✅ Loaded {len(store)} Time-off Policy Sets")
+    # ==================================================
+    # PROCESS UPLOAD
+    # ==================================================
+    if not st.button("🚀 Process Upload", type="primary"):
+        return
 
     st.divider()
+
+    # --------------------------------------------------
+    # GROUP BY (id OR name)
+    # --------------------------------------------------
+    grouped = {}
+
+    for _, row in df.iterrows():
+        raw_id = str(row["id"]).strip()
+        name = str(row["name"]).strip()
+        description = str(row["description"]).strip() or name
+        policy_id = row["policy_id"]
+        paycode_id = row["paycode_id"]
+
+        if not name or not policy_id or not paycode_id:
+            continue
+
+        key = raw_id if raw_id.isdigit() else name
+
+        if key not in grouped:
+            body = {
+                "name": name,
+                "description": description,
+                "entries": []
+            }
+            if raw_id.isdigit():
+                body["id"] = int(raw_id)
+
+            grouped[key] = body
+
+        grouped[key]["entries"].append({
+            "id": int(policy_id),
+            "paycode": {"id": int(paycode_id)}
+        })
 
     # ==================================================
     # CREATE / UPDATE
     # ==================================================
-    st.subheader("🚀 Create / Update Time-off Policy Sets")
+    results = []
 
-    if st.button("Submit Time-off Policy Sets"):
-        results = []
+    with st.spinner("⏳ Processing Timeoff Policy Sets..."):
+        for body in grouped.values():
+            is_update = "id" in body
 
-        for payload in st.session_state.get("final_body", []):
-            if "id" in payload:
+            if is_update:
                 r = requests.put(
-                    f"{BASE_URL}/{payload['id']}",
-                    headers=headers,
-                    json=payload
+                    f"{BASE_URL}/{body['id']}",
+                    headers=HEADERS,
+                    json=body
                 )
                 action = "Update"
             else:
-                r = requests.post(BASE_URL, headers=headers, json=payload)
+                r = requests.post(
+                    BASE_URL,
+                    headers=HEADERS,
+                    json=body
+                )
                 action = "Create"
 
             results.append({
-                "Name": payload["name"],
+                "Name": body["name"],
                 "Action": action,
-                "Entries": len(payload["entries"]),
+                "Entries": len(body["entries"]),
                 "HTTP Status": r.status_code,
-                "Status": "Success" if r.status_code in (200, 201) else "Failed"
+                "Status": "Success" if r.status_code in (200, 201) else "Failed",
+                "Message": r.text
             })
 
-        st.dataframe(pd.DataFrame(results), use_container_width=True)
+    st.success("✅ Processing completed")
+    st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
 
     # ==================================================
     # DELETE
     # ==================================================
-    st.subheader("🗑️ Delete Time-off Policy Sets")
+    st.subheader("🗑️ Delete Timeoff Policy Sets")
 
-    ids = st.text_input("Enter IDs (comma-separated)")
+    ids_input = st.text_input(
+        "Enter IDs (comma-separated)",
+        placeholder="Example: 16,18,20"
+    )
 
-    if st.button("Delete"):
-        for pid in [x.strip() for x in ids.split(",") if x.strip().isdigit()]:
-            r = requests.delete(f"{BASE_URL}/{pid}", headers=headers)
+    if st.button("Delete", type="primary"):
+        ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
+        for pid in ids:
+            r = requests.delete(f"{BASE_URL}/{pid}", headers=HEADERS)
             if r.status_code in (200, 204):
                 st.success(f"Deleted ID {pid}")
             else:
-                st.error(f"Failed to delete ID {pid}")
+                st.error(f"Failed to delete {pid} → {r.text}")
 
     st.divider()
 
     # ==================================================
     # DOWNLOAD EXISTING
     # ==================================================
-    st.subheader("⬇️ Download Existing Time-off Policy Sets")
+    st.subheader("⬇️ Download Existing Timeoff Policy Sets")
 
-    if st.button("Download Existing"):
-        r = requests.get(BASE_URL, headers=headers)
+    if st.button("Download Existing", use_container_width=True):
+        r = requests.get(BASE_URL, headers=HEADERS)
+
         if r.status_code != 200:
             st.error("Failed to fetch data")
             return
@@ -182,15 +210,15 @@ def timeoff_policy_sets_ui():
                     "id": s.get("id"),
                     "name": s.get("name"),
                     "description": s.get("description"),
-                    "policy_id": e.get("policy", {}).get("id"),
+                    "policy_id": e.get("id"),
                     "paycode_id": e.get("paycode", {}).get("id")
                 })
 
-        df = pd.DataFrame(rows)
+        out_df = pd.DataFrame(rows)
 
         st.download_button(
             "⬇️ Download CSV",
-            data=df.to_csv(index=False),
+            data=out_df.to_csv(index=False),
             file_name="timeoff_policy_sets_export.csv",
             mime="text/csv"
         )
