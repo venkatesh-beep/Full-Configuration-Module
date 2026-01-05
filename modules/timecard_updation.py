@@ -1,16 +1,15 @@
 import streamlit as st
 import pandas as pd
 import requests
-import io
-import json
 
 def timecard_updation_ui():
     st.header("🕒 Timecard Updation")
-    st.caption("Update attendance paycodes using file upload")
+    st.caption("Update Timecard Paycodes using file upload (exact backend flow)")
 
     HOST = st.session_state.HOST.rstrip("/")
-    FETCH_URL = HOST + "/web-client/restProxy/timecards/"
-    UPDATE_URL = HOST + "/resource-server/api/timecards"
+
+    GET_URL = HOST + "/web-client/restProxy/timecards/"
+    POST_URL = HOST + "/resource-server/api/timecards"
 
     headers_get = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -42,9 +41,9 @@ def timecard_updation_ui():
 
     st.info(f"Rows detected: {len(df)}")
 
-    dry_run = st.checkbox("🔍 Preview JSON only (do not update)")
+    preview_only = st.checkbox("🔍 Preview JSON only (do not update)")
 
-    if not st.button("🚀 Process Timecard Updates", type="primary"):
+    if not st.button("🚀 Process Timecards", type="primary"):
         return
 
     results = []
@@ -53,25 +52,27 @@ def timecard_updation_ui():
         for idx, row in df.iterrows():
             try:
                 # =========================
-                # INPUTS
+                # INPUT FROM FILE
                 # =========================
                 external_number = str(row["externalNumber"]).strip()
                 paycode_id = int(row["paycode_id"])
 
+                # ✅ FORCE YYYY-MM-DD
                 attendance_date = pd.to_datetime(
                     row["attendanceDate"]
                 ).strftime("%Y-%m-%d")
 
                 # =========================
-                # STEP 1: FETCH TIMECARD
+                # STEP 1: GET TIMECARD
                 # =========================
                 r = requests.get(
-                    FETCH_URL,
+                    GET_URL,
                     headers=headers_get,
                     params={
-                        "externalNumber": external_number,
+                        "attributes": "attendancePunches(organizationLocation|shiftTemplate),schedule(shiftTemplate)",
                         "startDate": attendance_date,
-                        "endDate": attendance_date
+                        "endDate": attendance_date,
+                        "externalNumber": external_number
                     }
                 )
 
@@ -81,10 +82,10 @@ def timecard_updation_ui():
                 tc = r.json()[0]
 
                 if "attendancePaycodes" not in tc or not tc["attendancePaycodes"]:
-                    raise ValueError("attendancePaycodes not found")
+                    raise ValueError("attendancePaycodes not found in response")
 
                 # =========================
-                # STEP 2: MATCH DATE
+                # FIND MATCHING PAYCODE (BY DATE)
                 # =========================
                 ap_match = None
                 for ap in tc["attendancePaycodes"]:
@@ -93,19 +94,19 @@ def timecard_updation_ui():
                         break
 
                 if not ap_match:
-                    raise ValueError("No matching attendancePaycode for date")
+                    raise ValueError("No matching attendancePaycode for given date")
 
                 employee_id = ap_match["employee"]["id"]
                 version = ap_match["version"]
 
                 # =========================
-                # STEP 3: BUILD PAYLOAD
+                # STEP 2: BUILD POST PAYLOAD
                 # =========================
                 payload = {
                     "attendanceDate": attendance_date,
                     "entries": [
                         {
-                            "index": 1,
+                            "index": 0,  # ✅ MUST BE 0
                             "employee": {
                                 "id": employee_id
                             },
@@ -130,11 +131,11 @@ def timecard_updation_ui():
                     st.json(payload)
 
                 # =========================
-                # STEP 4: UPDATE (OPTIONAL)
+                # STEP 3: POST UPDATE
                 # =========================
-                if not dry_run:
+                if not preview_only:
                     r2 = requests.post(
-                        UPDATE_URL,
+                        POST_URL,
                         headers=headers_post,
                         json=payload
                     )
@@ -145,24 +146,21 @@ def timecard_updation_ui():
                 results.append({
                     "Row": idx + 1,
                     "External Number": external_number,
-                    "Date": attendance_date,
+                    "Attendance Date": attendance_date,
                     "Paycode": paycode_id,
                     "Employee ID": employee_id,
                     "Version": version,
-                    "Status": "Preview" if dry_run else "Success",
-                    "Message": "JSON Generated" if dry_run else "Updated"
+                    "Status": "Preview" if preview_only else "Success"
                 })
 
             except Exception as e:
                 results.append({
                     "Row": idx + 1,
                     "External Number": row.get("externalNumber"),
-                    "Date": row.get("attendanceDate"),
+                    "Attendance Date": row.get("attendanceDate"),
                     "Paycode": row.get("paycode_id"),
-                    "Employee ID": "",
-                    "Version": "",
                     "Status": "Failed",
-                    "Message": str(e)
+                    "Error": str(e)
                 })
 
     st.subheader("📊 Upload Result")
