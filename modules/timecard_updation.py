@@ -4,12 +4,11 @@ import requests
 import io
 
 def timecard_updation_ui():
-    st.header("🧾 Timecard Updation")
-    st.caption("Bulk update attendance paycodes using External Number")
+    st.header("🕒 Timecard Updation")
+    st.caption("Update attendance paycodes using file upload")
 
     HOST = st.session_state.HOST.rstrip("/")
-
-    FETCH_URL = HOST + "/web-client/restProxy/timecards"
+    FETCH_URL = HOST + "/web-client/restProxy/timecards/"
     UPDATE_URL = HOST + "/resource-server/api/timecards"
 
     headers_get = {
@@ -23,37 +22,14 @@ def timecard_updation_ui():
         "Accept": "application/json"
     }
 
-    # ==================================================
-    # DOWNLOAD TEMPLATE
-    # ==================================================
-    st.subheader("📥 Download Upload Template")
+    # =========================
+    # UPLOAD FILE
+    # =========================
+    uploaded_file = st.file_uploader(
+        "Upload CSV or Excel (externalNumber, attendanceDate, paycode_id)",
+        ["csv", "xlsx", "xls"]
+    )
 
-    template_df = pd.DataFrame(columns=[
-        "externalNumber",
-        "attendanceDate",   # YYYY-MM-DD
-        "paycode_id"
-    ])
-
-    if st.button("⬇️ Download Template", use_container_width=True):
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False)
-
-        st.download_button(
-            "⬇️ Download Excel",
-            output.getvalue(),
-            "timecard_update_template.xlsx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    st.divider()
-
-    # ==================================================
-    # UPLOAD & PROCESS
-    # ==================================================
-    st.subheader("📤 Upload Timecard File")
-
-    uploaded_file = st.file_uploader("Upload CSV / Excel", ["csv", "xlsx", "xls"])
     if not uploaded_file:
         return
 
@@ -65,111 +41,117 @@ def timecard_updation_ui():
 
     st.info(f"Rows detected: {len(df)}")
 
-    if st.button("🚀 Process Timecards", type="primary"):
-        with st.spinner("⏳ Processing timecards..."):
-            results = []
+    if not st.button("🚀 Update Timecards", type="primary"):
+        return
 
-            for row_no, row in df.iterrows():
-                try:
-                    # -------------------------------
-                    # READ FILE VALUES
-                    # -------------------------------
-                    external_number = str(row["externalNumber"]).strip()
+    results = []
 
-                    # ✅ FORCE YYYY-MM-DD ONLY
-                    attendance_date = pd.to_datetime(
-                        row["attendanceDate"]
-                    ).strftime("%Y-%m-%d")
+    with st.spinner("⏳ Updating timecards..."):
+        for idx, row in df.iterrows():
+            try:
+                external_number = str(row["externalNumber"]).strip()
+                paycode_id = int(row["paycode_id"])
 
-                    paycode_id = int(row["paycode_id"])
+                # ✅ STRICT DATE NORMALIZATION
+                attendance_date = pd.to_datetime(
+                    row["attendanceDate"]
+                ).strftime("%Y-%m-%d")
 
-                    if not external_number:
-                        raise ValueError("External Number missing")
+                # =========================
+                # STEP 1: FETCH TIMECARD
+                # =========================
+                r = requests.get(
+                    FETCH_URL,
+                    headers=headers_get,
+                    params={
+                        "externalNumber": external_number,
+                        "startDate": attendance_date,
+                        "endDate": attendance_date
+                    }
+                )
 
-                    # ==================================================
-                    # STEP 1: FETCH TIMECARD (GET)
-                    # ==================================================
-                    r = requests.get(
-                        FETCH_URL,
-                        headers=headers_get,
-                        params={
-                            "externalNumber": external_number,
-                            "startDate": attendance_date,
-                            "endDate": attendance_date
-                        }
-                    )
+                if r.status_code != 200 or not r.json():
+                    raise ValueError("No timecard found")
 
-                    if r.status_code != 200 or not r.json():
-                        raise ValueError("No timecard found")
+                tc = r.json()[0]
 
-                    tc = r.json()[0]
+                if "attendancePaycodes" not in tc or not tc["attendancePaycodes"]:
+                    raise ValueError("attendancePaycodes not found")
 
-                    # ✅ CORRECT SOURCES
-                    ap = tc["attendancePaycodes"][0]
+                # =========================
+                # STEP 2: FIND MATCHING DATE
+                # =========================
+                ap_match = None
+                for ap in tc["attendancePaycodes"]:
+                    if ap.get("attendanceDate") == attendance_date:
+                        ap_match = ap
+                        break
 
-                    employee_id = ap["employee"]["id"]
-                    version = ap["version"]
+                if not ap_match:
+                    raise ValueError("No matching attendancePaycode for date")
 
+                employee_id = ap_match["employee"]["id"]
+                version = ap_match["version"]
 
-                    
-                    version = tc["attendancePaycodes"][0]["version"]
-
-                    # ==================================================
-                    # STEP 2: BUILD PAYLOAD (MATCHES FRONTEND)
-                    # ==================================================
-                    payload = {
-                        "attendanceDate": attendance_date,
-                        "entries": [
-                            {
-                                "index": 1,
+                # =========================
+                # STEP 3: BUILD PAYLOAD
+                # =========================
+                payload = {
+                    "attendanceDate": attendance_date,
+                    "entries": [
+                        {
+                            "index": 1,
+                            "employee": {
+                                "id": employee_id
+                            },
+                            "attendancePaycode": {
                                 "employee": {
                                     "id": employee_id
                                 },
-                                "attendancePaycode": {
-                                    "employee": {
-                                        "id": employee_id
-                                    },
-                                    "attendanceDate": attendance_date,
-                                    "paycode": {
-                                        "id": paycode_id
-                                    },
-                                    "version": version
-                                }
+                                "attendanceDate": attendance_date,
+                                "paycode": {
+                                    "id": paycode_id
+                                },
+                                "version": version
                             }
-                        ]
-                    }
+                        }
+                    ]
+                }
 
-                    # ==================================================
-                    # STEP 3: UPDATE TIMECARD
-                    # ==================================================
-                    r2 = requests.post(
-                        UPDATE_URL,
-                        headers=headers_post,
-                        json=payload
-                    )
+                # =========================
+                # STEP 4: UPDATE
+                # =========================
+                r2 = requests.post(
+                    UPDATE_URL,
+                    headers=headers_post,
+                    json=payload
+                )
 
-                    results.append({
-                        "Row": row_no + 1,
-                        "External Number": external_number,
-                        "Date": attendance_date,
-                        "Paycode": paycode_id,
-                        "Version": version,
-                        "HTTP": r2.status_code,
-                        "Status": "Success" if r2.status_code in (200, 201) else "Failed",
-                        "Message": r2.text
-                    })
+                if r2.status_code not in (200, 201):
+                    raise ValueError(r2.text)
 
-                except Exception as e:
-                    results.append({
-                        "Row": row_no + 1,
-                        "External Number": row.get("externalNumber"),
-                        "Date": row.get("attendanceDate"),
-                        "Paycode": row.get("paycode_id"),
-                        "Version": "",
-                        "HTTP": "",
-                        "Status": "Failed",
-                        "Message": str(e)
-                    })
+                results.append({
+                    "Row": idx + 1,
+                    "External Number": external_number,
+                    "Date": attendance_date,
+                    "Paycode": paycode_id,
+                    "Version": version,
+                    "HTTP": r2.status_code,
+                    "Status": "Success",
+                    "Message": "Updated"
+                })
 
-        st.markdown("### 📊 Upload Result")
-        st.dataframe(pd.DataFrame(results), use_container_width=True)
+            except Exception as e:
+                results.append({
+                    "Row": idx + 1,
+                    "External Number": row.get("externalNumber"),
+                    "Date": row.get("attendanceDate"),
+                    "Paycode": row.get("paycode_id"),
+                    "Version": "",
+                    "HTTP": "",
+                    "Status": "Failed",
+                    "Message": str(e)
+                })
+
+    st.subheader("📊 Upload Result")
+    st.dataframe(pd.DataFrame(results), use_container_width=True)
