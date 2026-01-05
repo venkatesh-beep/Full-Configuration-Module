@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 
 # ======================================================
-# DATE NORMALIZATION
+# DATE NORMALIZATION (STRICT YYYY-MM-DD)
 # ======================================================
 def normalize_yyyy_mm_dd(date_value):
     if not date_value:
@@ -17,9 +17,11 @@ def normalize_yyyy_mm_dd(date_value):
 
     date_str = str(date_value).strip()
 
+    # Excel datetime
     if re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", date_str):
         return date_str.split(" ")[0]
 
+    # Strict YYYY-MM-DD
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_str):
         try:
             datetime.strptime(date_str, "%Y-%m-%d")
@@ -66,10 +68,9 @@ def paycode_events_ui():
     if st.button("⬇️ Download Template"):
         r = requests.get(PAYCODES_URL, headers=headers)
         paycodes_df = (
-            pd.DataFrame([
-                {"id": p.get("id"), "code": p.get("code")}
-                for p in r.json()
-            ]) if r.status_code == 200 else pd.DataFrame(columns=["id", "code"])
+            pd.DataFrame(
+                [{"id": p.get("id"), "code": p.get("code")} for p in r.json()]
+            ) if r.status_code == 200 else pd.DataFrame(columns=["id", "code"])
         )
 
         output = io.BytesIO()
@@ -124,7 +125,6 @@ def paycode_events_ui():
                 continue
 
             year, month, day = map(int, holiday_date.split("-"))
-
             key = raw_id if raw_id.isdigit() else name
 
             if key not in store:
@@ -151,15 +151,17 @@ def paycode_events_ui():
         st.session_state.final_body = list(store.values())
 
         if errors:
-            st.error("Some rows were skipped")
+            st.error("❌ Some rows were skipped")
             st.text("\n".join(errors))
 
-        st.success(f"Loaded {len(store)} Paycode Events")
+        st.success(f"✅ Loaded {len(store)} Paycode Events")
+
+    st.divider()
 
     # ==================================================
     # CREATE / UPDATE
     # ==================================================
-    st.subheader("🚀 Create / Update")
+    st.subheader("🚀 Create / Update Paycode Events")
 
     if st.button("Submit Paycode Events"):
         results = []
@@ -184,7 +186,7 @@ def paycode_events_ui():
                 "Paycode Event": payload["name"],
                 "Action": "Update" if is_update else "Create",
                 "Status": "Success" if r.status_code in (200, 201) else "Failed",
-                "HTTP": r.status_code
+                "HTTP Status": r.status_code
             })
 
         st.dataframe(pd.DataFrame(results), use_container_width=True)
@@ -207,31 +209,39 @@ def paycode_events_ui():
             if r.status_code in (200, 204):
                 st.success(f"Deleted ID {pid}")
             else:
-                st.error(f"Failed to delete {pid}")
+                st.error(f"Failed to delete ID {pid}")
 
     st.divider()
 
     # ==================================================
-    # DOWNLOAD EXISTING (ALWAYS VISIBLE)
+    # DOWNLOAD EXISTING (SAFE)
     # ==================================================
     st.subheader("⬇️ Download Existing Paycode Events")
 
-    if st.button("Download Existing"):
+    if st.button("Download Existing Paycode Events"):
         r = requests.get(BASE_URL, headers=headers)
         if r.status_code != 200:
-            st.error("Failed to fetch data")
+            st.error("❌ Failed to fetch Paycode Events")
             return
 
         rows = []
         for e in r.json():
             for s in e.get("schedules", []):
+                ry = s.get("repeatYear")
+                rm = s.get("repeatMonth")
+                rd = s.get("repeatDay")
+
+                holiday_date = ""
+                if str(ry).isdigit() and str(rm).isdigit() and str(rd).isdigit():
+                    holiday_date = f"{int(ry):04d}-{int(rm):02d}-{int(rd):02d}"
+
                 rows.append({
                     "id": e.get("id"),
                     "Paycode Event Name": e.get("name"),
                     "Description": e.get("description"),
                     "paycode_id": e.get("paycode", {}).get("id"),
                     "holiday_name": s.get("name"),
-                    "holiday_date(YYYY-MM-DD)": f"{s.get('repeatYear'):04d}-{s.get('repeatMonth'):02d}-{s.get('repeatDay'):02d}",
+                    "holiday_date(YYYY-MM-DD)": holiday_date,
                     "repeatWeek": s.get("repeatWeek", "*"),
                     "repeatWeekday": s.get("repeatWeekday", "*")
                 })
