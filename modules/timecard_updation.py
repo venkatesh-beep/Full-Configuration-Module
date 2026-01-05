@@ -3,16 +3,12 @@ import pandas as pd
 import requests
 import io
 
-# ======================================================
-# TIMECARD UPDATION UI
-# ======================================================
 def timecard_updation_ui():
     st.header("🧾 Timecard Updation")
     st.caption("Bulk update attendance paycodes using External Number")
 
     HOST = st.session_state.HOST.rstrip("/")
 
-    # ---------- API ENDPOINTS ----------
     FETCH_URL = HOST + "/web-client/restProxy/timecards"
     UPDATE_URL = HOST + "/resource-server/api/timecards"
 
@@ -41,7 +37,7 @@ def timecard_updation_ui():
     if st.button("⬇️ Download Template", use_container_width=True):
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Timecard_Update")
+            template_df.to_excel(writer, index=False)
 
         st.download_button(
             "⬇️ Download Excel",
@@ -71,17 +67,16 @@ def timecard_updation_ui():
 
     if st.button("🚀 Process Timecards", type="primary"):
         with st.spinner("⏳ Processing timecards..."):
-
             results = []
 
             for row_no, row in df.iterrows():
                 try:
-                    # ----------------------------------
+                    # -------------------------------
                     # READ FILE VALUES
-                    # ----------------------------------
+                    # -------------------------------
                     external_number = str(row["externalNumber"]).strip()
 
-                    # ✅ FORCE DATE TO YYYY-MM-DD
+                    # ✅ FORCE YYYY-MM-DD ONLY
                     attendance_date = pd.to_datetime(
                         row["attendanceDate"]
                     ).strftime("%Y-%m-%d")
@@ -89,10 +84,10 @@ def timecard_updation_ui():
                     paycode_id = int(row["paycode_id"])
 
                     if not external_number:
-                        raise ValueError("External Number is empty")
+                        raise ValueError("External Number missing")
 
                     # ==================================================
-                    # STEP 1: FETCH TIMECARD (GET – CELL 1)
+                    # STEP 1: FETCH TIMECARD (GET)
                     # ==================================================
                     r = requests.get(
                         FETCH_URL,
@@ -100,12 +95,7 @@ def timecard_updation_ui():
                         params={
                             "externalNumber": external_number,
                             "startDate": attendance_date,
-                            "endDate": attendance_date,
-                            # 🔴 MANDATORY (from Postman)
-                            "attributes": (
-                                "attendancePunches(organizationLocation|shiftTemplate),"
-                                "schedule(shiftTemplate)"
-                            )
+                            "endDate": attendance_date
                         }
                     )
 
@@ -114,13 +104,8 @@ def timecard_updation_ui():
 
                     tc = r.json()[0]
 
-                    # ----------------------------------
-                    # EXTRACT REQUIRED VALUES
-                    # ----------------------------------
-                    # ✅ employeeId
-                    employee_id = tc["attendancePunches"][0]["employee"]["id"]
-
-                    # ✅ version (MANDATORY)
+                    # ✅ CORRECT SOURCES
+                    employee_id = tc["employee"]["id"]
                     version = tc["attendancePaycodes"][0]["version"]
 
                     # ==================================================
@@ -149,7 +134,7 @@ def timecard_updation_ui():
                     }
 
                     # ==================================================
-                    # STEP 3: UPDATE TIMECARD (POST – CELL 2)
+                    # STEP 3: UPDATE TIMECARD
                     # ==================================================
                     r2 = requests.post(
                         UPDATE_URL,
