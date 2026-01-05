@@ -105,7 +105,13 @@ def timecard_updation_ui():
                     tc = r.json()[0]
 
                     # ✅ CORRECT SOURCES
-                    employee_id = tc["employee"]["id"]
+                    ap = tc["attendancePaycodes"][0]
+
+                    employee_id = ap["employee"]["id"]
+                    version = ap["version"]
+
+
+                    
                     version = tc["attendancePaycodes"][0]["version"]
 
                     # ==================================================
