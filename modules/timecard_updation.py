@@ -3,12 +3,16 @@ import pandas as pd
 import requests
 import io
 
+# ======================================================
+# TIMECARD UPDATION UI
+# ======================================================
 def timecard_updation_ui():
     st.header("🧾 Timecard Updation")
-    st.caption("Update attendance paycode using External Number (version-safe)")
+    st.caption("Bulk update attendance paycodes using External Number")
 
     HOST = st.session_state.HOST.rstrip("/")
 
+    # ---------- API ENDPOINTS ----------
     FETCH_URL = HOST + "/web-client/restProxy/timecards"
     UPDATE_URL = HOST + "/resource-server/api/timecards"
 
@@ -37,7 +41,7 @@ def timecard_updation_ui():
     if st.button("⬇️ Download Template", use_container_width=True):
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False)
+            template_df.to_excel(writer, index=False, sheet_name="Timecard_Update")
 
         st.download_button(
             "⬇️ Download Excel",
@@ -67,24 +71,41 @@ def timecard_updation_ui():
 
     if st.button("🚀 Process Timecards", type="primary"):
         with st.spinner("⏳ Processing timecards..."):
+
             results = []
 
-            for i, row in df.iterrows():
+            for row_no, row in df.iterrows():
                 try:
+                    # ----------------------------------
+                    # READ FILE VALUES
+                    # ----------------------------------
                     external_number = str(row["externalNumber"]).strip()
-                    attendance_date = str(row["attendanceDate"]).strip()
+
+                    # ✅ FORCE DATE TO YYYY-MM-DD
+                    attendance_date = pd.to_datetime(
+                        row["attendanceDate"]
+                    ).strftime("%Y-%m-%d")
+
                     paycode_id = int(row["paycode_id"])
 
-                    # ===============================
-                    # STEP 1: FETCH TIMECARD (GET)
-                    # ===============================
+                    if not external_number:
+                        raise ValueError("External Number is empty")
+
+                    # ==================================================
+                    # STEP 1: FETCH TIMECARD (GET – CELL 1)
+                    # ==================================================
                     r = requests.get(
                         FETCH_URL,
                         headers=headers_get,
                         params={
                             "externalNumber": external_number,
                             "startDate": attendance_date,
-                            "endDate": attendance_date
+                            "endDate": attendance_date,
+                            # 🔴 MANDATORY (from Postman)
+                            "attributes": (
+                                "attendancePunches(organizationLocation|shiftTemplate),"
+                                "schedule(shiftTemplate)"
+                            )
                         }
                     )
 
@@ -93,15 +114,18 @@ def timecard_updation_ui():
 
                     tc = r.json()[0]
 
+                    # ----------------------------------
+                    # EXTRACT REQUIRED VALUES
+                    # ----------------------------------
                     # ✅ employeeId
                     employee_id = tc["attendancePunches"][0]["employee"]["id"]
 
                     # ✅ version (MANDATORY)
                     version = tc["attendancePaycodes"][0]["version"]
 
-                    # ===============================
-                    # STEP 2: BUILD PAYLOAD (VERSION INCLUDED)
-                    # ===============================
+                    # ==================================================
+                    # STEP 2: BUILD PAYLOAD (MATCHES FRONTEND)
+                    # ==================================================
                     payload = {
                         "attendanceDate": attendance_date,
                         "entries": [
@@ -124,6 +148,9 @@ def timecard_updation_ui():
                         ]
                     }
 
+                    # ==================================================
+                    # STEP 3: UPDATE TIMECARD (POST – CELL 2)
+                    # ==================================================
                     r2 = requests.post(
                         UPDATE_URL,
                         headers=headers_post,
@@ -131,7 +158,7 @@ def timecard_updation_ui():
                     )
 
                     results.append({
-                        "Row": i + 1,
+                        "Row": row_no + 1,
                         "External Number": external_number,
                         "Date": attendance_date,
                         "Paycode": paycode_id,
@@ -143,7 +170,7 @@ def timecard_updation_ui():
 
                 except Exception as e:
                     results.append({
-                        "Row": i + 1,
+                        "Row": row_no + 1,
                         "External Number": row.get("externalNumber"),
                         "Date": row.get("attendanceDate"),
                         "Paycode": row.get("paycode_id"),
