@@ -3,21 +3,13 @@ import pandas as pd
 import requests
 import io
 
-# ======================================================
-# TIMECARD UPDATION UI
-# ======================================================
 def timecard_updation_ui():
     st.header("🧾 Timecard Updation")
-    st.caption("Bulk update attendance paycodes using External Number")
+    st.caption("Update attendance paycode using External Number (version-safe)")
 
     HOST = st.session_state.HOST.rstrip("/")
 
-    # ---------- API ENDPOINTS ----------
-    FETCH_URL = (
-        HOST
-        + "/web-client/restProxy/timecards/"
-        + "?attributes=attendancePunches(organizationLocation|shiftTemplate),schedule(shiftTemplate)"
-    )
+    FETCH_URL = HOST + "/web-client/restProxy/timecards"
     UPDATE_URL = HOST + "/resource-server/api/timecards"
 
     headers_get = {
@@ -45,7 +37,7 @@ def timecard_updation_ui():
     if st.button("⬇️ Download Template", use_container_width=True):
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Timecard_Update")
+            template_df.to_excel(writer, index=False)
 
         st.download_button(
             "⬇️ Download Excel",
@@ -59,10 +51,9 @@ def timecard_updation_ui():
     # ==================================================
     # UPLOAD & PROCESS
     # ==================================================
-    st.subheader("📤 Upload Timecard Updates")
+    st.subheader("📤 Upload Timecard File")
 
     uploaded_file = st.file_uploader("Upload CSV / Excel", ["csv", "xlsx", "xls"])
-
     if not uploaded_file:
         return
 
@@ -75,50 +66,47 @@ def timecard_updation_ui():
     st.info(f"Rows detected: {len(df)}")
 
     if st.button("🚀 Process Timecards", type="primary"):
-        with st.spinner("⏳ Processing Timecards..."):
-
+        with st.spinner("⏳ Processing timecards..."):
             results = []
 
-            for row_no, row in df.iterrows():
+            for i, row in df.iterrows():
                 try:
                     external_number = str(row["externalNumber"]).strip()
                     attendance_date = str(row["attendanceDate"]).strip()
-                    paycode_id = str(row["paycode_id"]).strip()
+                    paycode_id = int(row["paycode_id"])
 
-                    if not external_number or not attendance_date or not paycode_id:
-                        raise ValueError("Missing mandatory fields")
-
-                    # ==================================================
-                    # STEP 1: FETCH EXISTING TIMECARD (API–1)
-                    # ==================================================
+                    # ===============================
+                    # STEP 1: FETCH TIMECARD (GET)
+                    # ===============================
                     r = requests.get(
                         FETCH_URL,
                         headers=headers_get,
                         params={
+                            "externalNumber": external_number,
                             "startDate": attendance_date,
-                            "endDate": attendance_date,
-                            "externalNumber": external_number
+                            "endDate": attendance_date
                         }
                     )
 
                     if r.status_code != 200 or not r.json():
-                        raise ValueError("No timecard data found")
+                        raise ValueError("No timecard found")
 
-                    timecard = r.json()[0]
+                    tc = r.json()[0]
 
-                    employee_id = timecard["employee"]["id"]
+                    # ✅ employeeId
+                    employee_id = tc["attendancePunches"][0]["employee"]["id"]
 
-                    attendance = timecard["attendancePaycodes"][0]
-                    version = attendance.get("version", "1")
+                    # ✅ version (MANDATORY)
+                    version = tc["attendancePaycodes"][0]["version"]
 
-                    # ==================================================
-                    # STEP 2: BUILD UPDATE PAYLOAD (API–2)
-                    # ==================================================
+                    # ===============================
+                    # STEP 2: BUILD PAYLOAD (VERSION INCLUDED)
+                    # ===============================
                     payload = {
                         "attendanceDate": attendance_date,
                         "entries": [
                             {
-                                "index": 0,
+                                "index": 1,
                                 "employee": {
                                     "id": employee_id
                                 },
@@ -128,7 +116,7 @@ def timecard_updation_ui():
                                     },
                                     "attendanceDate": attendance_date,
                                     "paycode": {
-                                        "id": int(paycode_id)
+                                        "id": paycode_id
                                     },
                                     "version": version
                                 }
@@ -143,22 +131,24 @@ def timecard_updation_ui():
                     )
 
                     results.append({
-                        "Row": row_no + 1,
+                        "Row": i + 1,
                         "External Number": external_number,
-                        "Attendance Date": attendance_date,
+                        "Date": attendance_date,
                         "Paycode": paycode_id,
-                        "HTTP Status": r2.status_code,
+                        "Version": version,
+                        "HTTP": r2.status_code,
                         "Status": "Success" if r2.status_code in (200, 201) else "Failed",
                         "Message": r2.text
                     })
 
                 except Exception as e:
                     results.append({
-                        "Row": row_no + 1,
+                        "Row": i + 1,
                         "External Number": row.get("externalNumber"),
-                        "Attendance Date": row.get("attendanceDate"),
+                        "Date": row.get("attendanceDate"),
                         "Paycode": row.get("paycode_id"),
-                        "HTTP Status": "",
+                        "Version": "",
+                        "HTTP": "",
                         "Status": "Failed",
                         "Message": str(e)
                     })
