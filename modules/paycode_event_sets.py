@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
-import json
 
 # ======================================================
 # PAYCODE EVENT SETS UI
@@ -22,7 +21,7 @@ def paycode_event_sets_ui():
     }
 
     # ==================================================
-    # DOWNLOAD TEMPLATE
+    # 1️⃣ DOWNLOAD TEMPLATE
     # ==================================================
     st.subheader("📥 Download Upload Template")
 
@@ -40,7 +39,11 @@ def paycode_event_sets_ui():
 
         events_df = (
             pd.DataFrame([
-                {"id": e["id"], "name": e["name"], "description": e["description"]}
+                {
+                    "id": e.get("id"),
+                    "name": e.get("name"),
+                    "description": e.get("description")
+                }
                 for e in r.json()
             ]) if r.status_code == 200 else
             pd.DataFrame(columns=["id", "name", "description"])
@@ -54,13 +57,14 @@ def paycode_event_sets_ui():
         st.download_button(
             "⬇️ Download Excel",
             data=output.getvalue(),
-            file_name="paycode_event_sets_template.xlsx"
+            file_name="paycode_event_sets_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
     st.divider()
 
     # ==================================================
-    # UPLOAD
+    # 2️⃣ UPLOAD & PROCESS
     # ==================================================
     st.subheader("📤 Upload Paycode Event Sets")
 
@@ -81,51 +85,42 @@ def paycode_event_sets_ui():
             with st.spinner("⏳ Processing Paycode Event Sets..."):
                 for row_no, row in df.iterrows():
                     try:
-                        raw_id = str(row.get("id", "")).strip()
                         name = str(row.get("name", "")).strip()
-                        description = str(row.get("description", "")).strip() or name
-
                         if not name:
                             raise ValueError("Name is mandatory")
 
-                        # ==============================
-                        # BUILD ENTRIES FROM FILE
-                        # ==============================
-                        file_entries = []
+                        raw_id = str(row.get("id", "")).strip()
+                        description = str(row.get("description", "")).strip() or name
+
+                        payload = {
+                            "name": name,
+                            "description": description
+                        }
+
+                        # ---------------- ENTRIES (OPTIONAL) ----------------
+                        entries = []
+
                         for i in range(1, 6):
                             ev = row.get(f"PaycodeEvent{i}")
                             pr = row.get(f"Priority{i}")
+
                             if ev in ("", None):
                                 continue
-                            file_entries.append({
+
+                            entries.append({
                                 "paycodeEvent": {"id": int(float(ev))},
                                 "priority": int(pr) if str(pr).isdigit() else i,
                                 "overridable": False
                             })
 
-                        # ==============================
-                        # UPDATE
-                        # ==============================
+                        # ---------------- UPDATE ----------------
                         if raw_id.isdigit():
                             set_id = int(raw_id)
+                            payload["id"] = set_id
 
-                            # 🔹 Fetch existing set
-                            existing = requests.get(
-                                f"{SETS_URL}/{set_id}", headers=headers
-                            )
-
-                            if existing.status_code != 200:
-                                raise ValueError("Existing Paycode Event Set not found")
-
-                            existing_json = existing.json()
-
-                            payload = {
-                                "id": set_id,
-                                "name": name,
-                                "description": description,
-                                # 🔹 keep existing entries if file doesn't provide
-                                "entries": file_entries if file_entries else existing_json.get("entries", [])
-                            }
+                            # ✅ Only send entries if provided
+                            if entries:
+                                payload["entries"] = entries
 
                             r = requests.put(
                                 f"{SETS_URL}/{set_id}",
@@ -134,18 +129,12 @@ def paycode_event_sets_ui():
                             )
                             action = "Update"
 
-                        # ==============================
-                        # CREATE
-                        # ==============================
+                        # ---------------- CREATE ----------------
                         else:
-                            if not file_entries:
-                                raise ValueError("Entries required for Create")
+                            if not entries:
+                                raise ValueError("Entries are mandatory for Create")
 
-                            payload = {
-                                "name": name,
-                                "description": description,
-                                "entries": file_entries
-                            }
+                            payload["entries"] = entries
 
                             r = requests.post(
                                 SETS_URL,
@@ -158,9 +147,8 @@ def paycode_event_sets_ui():
                             "Row": row_no + 1,
                             "Name": name,
                             "Action": action,
-                            "Entries": len(payload["entries"]),
-                            "Status": "Success" if r.status_code in (200, 201) else "Failed",
-                            "JSON Sent": json.dumps(payload, indent=2)
+                            "Entries": len(entries),
+                            "Status": "Success" if r.status_code in (200, 201) else "Failed"
                         })
 
                     except Exception as e:
@@ -169,8 +157,7 @@ def paycode_event_sets_ui():
                             "Name": row.get("name"),
                             "Action": "Error",
                             "Entries": "",
-                            "Status": str(e),
-                            "JSON Sent": ""
+                            "Status": str(e)
                         })
 
             st.subheader("📊 Upload Result")
@@ -179,42 +166,62 @@ def paycode_event_sets_ui():
     st.divider()
 
     # ==================================================
-    # DELETE
+    # 3️⃣ DELETE
     # ==================================================
     st.subheader("🗑️ Delete Paycode Event Sets")
 
-    ids_input = st.text_input("Enter IDs (comma-separated)")
-    if st.button("Delete"):
-        for sid in [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]:
-            r = requests.delete(f"{SETS_URL}/{sid}", headers=headers)
-            if r.status_code in (200, 204):
-                st.success(f"Deleted {sid}")
-            else:
-                st.error(f"Failed to delete {sid}")
+    ids_input = st.text_input(
+        "Enter Paycode Event Set IDs (comma-separated)",
+        placeholder="Example: 82,83"
+    )
+
+    if st.button("Delete Paycode Event Sets"):
+        ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
+
+        with st.spinner("⏳ Deleting..."):
+            for sid in ids:
+                r = requests.delete(f"{SETS_URL}/{sid}", headers=headers)
+                if r.status_code in (200, 204):
+                    st.success(f"Deleted ID {sid}")
+                else:
+                    st.error(f"Failed to delete ID {sid}")
 
     st.divider()
 
     # ==================================================
-    # DOWNLOAD EXISTING
+    # 4️⃣ DOWNLOAD EXISTING
     # ==================================================
     st.subheader("⬇️ Download Existing Paycode Event Sets")
 
-    if st.button("Download Existing", use_container_width=True):
-        r = requests.get(SETS_URL, headers=headers)
-        if r.status_code != 200:
-            st.error("Failed to fetch data")
-            return
+    if st.button("Download Existing Paycode Event Sets", use_container_width=True):
+        with st.spinner("⏳ Fetching data..."):
+            r = requests.get(SETS_URL, headers=headers)
+            if r.status_code != 200:
+                st.error("❌ Failed to fetch Paycode Event Sets")
+                return
 
-        rows = []
-        for s in r.json():
-            base = {"id": s["id"], "name": s["name"], "description": s["description"]}
-            for i, e in enumerate(sorted(s.get("entries", []), key=lambda x: x["priority"]), start=1):
-                base[f"PaycodeEvent{i}"] = e["paycodeEvent"]["id"]
-                base[f"Priority{i}"] = e["priority"]
-            rows.append(base)
+            rows = []
+            for s in r.json():
+                base = {
+                    "id": s.get("id"),
+                    "name": s.get("name"),
+                    "description": s.get("description")
+                }
 
-        st.download_button(
-            "⬇️ Download CSV",
-            data=pd.DataFrame(rows).to_csv(index=False),
-            file_name="paycode_event_sets_export.csv"
-        )
+                for idx, entry in enumerate(
+                    sorted(s.get("entries", []), key=lambda x: x.get("priority", 0)),
+                    start=1
+                ):
+                    base[f"PaycodeEvent{idx}"] = entry.get("paycodeEvent", {}).get("id")
+                    base[f"Priority{idx}"] = entry.get("priority")
+
+                rows.append(base)
+
+            df_out = pd.DataFrame(rows)
+
+            st.download_button(
+                "⬇️ Download CSV",
+                data=df_out.to_csv(index=False),
+                file_name="paycode_event_sets_export.csv",
+                mime="text/csv"
+            )
