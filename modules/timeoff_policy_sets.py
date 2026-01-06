@@ -3,22 +3,15 @@ import pandas as pd
 import requests
 import io
 
-# ======================================================
-# MAIN UI
-# ======================================================
 def timeoff_policy_sets_ui():
     st.header("🏖️ Time-off Policy Sets")
     st.caption("Create, Update, Delete and Download Time-off Policy Sets")
 
-    # --------------------------------------------------
-    # PRE-CHECK
-    # --------------------------------------------------
     if "token" not in st.session_state or not st.session_state.token:
         st.error("Please login first")
         return
 
     HOST = st.session_state.HOST.rstrip("/")
-
     BASE_URL = f"{HOST}/resource-server/api/time_off_policy_sets"
     PAYCODES_URL = f"{HOST}/resource-server/api/paycodes"
 
@@ -29,14 +22,11 @@ def timeoff_policy_sets_ui():
     }
 
     # ==================================================
-    # DELETE (ALWAYS VISIBLE)
+    # DELETE
     # ==================================================
     st.subheader("🗑️ Delete Time-off Policy Sets")
 
-    delete_ids = st.text_input(
-        "Enter IDs (comma separated)",
-        placeholder="Example: 16,18"
-    )
+    delete_ids = st.text_input("Enter IDs (comma separated)", placeholder="16,18")
 
     if st.button("Delete Time-off Policy Sets"):
         ids = [i.strip() for i in delete_ids.split(",") if i.strip().isdigit()]
@@ -63,27 +53,14 @@ def timeoff_policy_sets_ui():
     ])
 
     if st.button("⬇️ Download Template"):
-        # Sheet-2 → Paycodes
-        paycodes_resp = requests.get(PAYCODES_URL, headers=headers)
-        paycodes_df = (
-            pd.DataFrame([
-                {
-                    "id": p.get("id"),
-                    "code": p.get("code"),
-                    "description": p.get("description")
-                }
-                for p in paycodes_resp.json()
-            ]) if paycodes_resp.status_code == 200
-            else pd.DataFrame(columns=["id", "code", "description"])
-        )
+        paycodes = requests.get(PAYCODES_URL, headers=headers).json()
+        paycodes_df = pd.DataFrame([
+            {"id": p["id"], "code": p["code"], "description": p["description"]}
+            for p in paycodes
+        ])
 
-        # Sheet-3 → Existing Time-off Policy Sets
         sets_resp = requests.get(BASE_URL, headers=headers)
-        sets_df = (
-            pd.DataFrame(sets_resp.json())
-            if sets_resp.status_code == 200
-            else pd.DataFrame()
-        )
+        sets_df = pd.DataFrame(sets_resp.json()) if sets_resp.status_code == 200 else pd.DataFrame()
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -104,11 +81,7 @@ def timeoff_policy_sets_ui():
     # ==================================================
     st.subheader("📤 Upload Time-off Policy Sets")
 
-    uploaded_file = st.file_uploader(
-        "Upload CSV or Excel",
-        ["csv", "xlsx", "xls"]
-    )
-
+    uploaded_file = st.file_uploader("Upload CSV or Excel", ["csv", "xlsx", "xls"])
     if not uploaded_file:
         return
 
@@ -123,16 +96,10 @@ def timeoff_policy_sets_ui():
     if not st.button("🚀 Process Upload", type="primary"):
         return
 
-    # ==================================================
-    # PROCESSING
-    # ==================================================
     with st.spinner("⏳ Processing Time-off Policy Sets..."):
         grouped = {}
         results = []
 
-        # -----------------------------
-        # GROUP ROWS (ID WINS)
-        # -----------------------------
         for _, row in df.iterrows():
             raw_id = str(row.get("id", "")).strip()
             name = str(row.get("name", "")).strip()
@@ -140,11 +107,12 @@ def timeoff_policy_sets_ui():
             policy_id = int(row["timeoff_policy_id"])
             paycode_id = int(row["paycode_id"])
 
-            group_key = raw_id if raw_id.isdigit() else name
+            numeric_id = int(raw_id) if raw_id.isdigit() else None
+            group_key = numeric_id if numeric_id is not None else name
 
             if group_key not in grouped:
                 grouped[group_key] = {
-                    "id": int(raw_id) if raw_id.isdigit() else None,
+                    "id": numeric_id,
                     "name": name,
                     "description": description,
                     "entries": []
@@ -155,9 +123,6 @@ def timeoff_policy_sets_ui():
                 "paycode": {"id": paycode_id}
             })
 
-        # -----------------------------
-        # API CALLS
-        # -----------------------------
         for item in grouped.values():
             payload = {
                 "name": item["name"],
@@ -166,7 +131,6 @@ def timeoff_policy_sets_ui():
             }
 
             if item["id"] is not None:
-                # ✅ UPDATE
                 payload["id"] = item["id"]
                 r = requests.put(
                     f"{BASE_URL}/{item['id']}",
@@ -175,12 +139,7 @@ def timeoff_policy_sets_ui():
                 )
                 action = "Update"
             else:
-                # ✅ CREATE
-                r = requests.post(
-                    BASE_URL,
-                    headers=headers,
-                    json=payload
-                )
+                r = requests.post(BASE_URL, headers=headers, json=payload)
                 action = "Create"
 
             results.append({
@@ -190,8 +149,5 @@ def timeoff_policy_sets_ui():
                 "Status": "Success" if r.status_code in (200, 201) else "Failed"
             })
 
-    # ==================================================
-    # RESULT
-    # ==================================================
     st.subheader("📊 Result")
     st.dataframe(pd.DataFrame(results), use_container_width=True)
