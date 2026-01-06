@@ -45,6 +45,7 @@ def paycode_event_sets_ui():
 
     if st.button("⬇️ Download Template", use_container_width=True):
         r = requests.get(EVENTS_URL, headers=headers)
+
         events_df = (
             pd.DataFrame([
                 {
@@ -109,7 +110,7 @@ def paycode_event_sets_ui():
                             "entries": []
                         }
 
-                        # ---------------- BUILD ENTRIES ----------------
+                        # ---------- BUILD ENTRIES ----------
                         for i in range(1, 6):
                             event_val = row.get(f"PaycodeEvent{i}", "")
                             priority_val = row.get(f"Priority{i}", "")
@@ -126,17 +127,20 @@ def paycode_event_sets_ui():
                         if not payload["entries"]:
                             raise ValueError("At least one Paycode Event is required")
 
-                        # ---------------- CREATE / UPDATE ----------------
                         raw_id = str(row.get("id", "")).strip()
 
+                        # ---------- UPDATE (PUT) ----------
                         if raw_id.isdigit():
-                            payload["id"] = int(raw_id)
+                            set_id = int(raw_id)
+
                             r = requests.put(
-                                f"{SETS_URL}/{payload['id']}",
+                                f"{SETS_URL}/{set_id}",
                                 headers=headers,
-                                json=payload
+                                json=payload   # ✅ NO id in payload
                             )
                             action = "Update"
+
+                        # ---------- CREATE (POST) ----------
                         else:
                             r = requests.post(
                                 SETS_URL,
