@@ -10,11 +10,15 @@ def timeoff_policy_sets_ui():
     st.header("🏖️ Time-off Policy Sets")
     st.caption("Create, Update, Delete and Download Time-off Policy Sets")
 
-    if "token" not in st.session_state:
+    # --------------------------------------------------
+    # PRE-CHECK
+    # --------------------------------------------------
+    if "token" not in st.session_state or not st.session_state.token:
         st.error("Please login first")
         return
 
     HOST = st.session_state.HOST.rstrip("/")
+
     BASE_URL = f"{HOST}/resource-server/api/time_off_policy_sets"
     PAYCODES_URL = f"{HOST}/resource-server/api/paycodes"
 
@@ -25,11 +29,14 @@ def timeoff_policy_sets_ui():
     }
 
     # ==================================================
-    # DELETE (VISIBLE ALWAYS)
+    # DELETE (ALWAYS VISIBLE)
     # ==================================================
     st.subheader("🗑️ Delete Time-off Policy Sets")
 
-    delete_ids = st.text_input("Enter IDs (comma separated)", placeholder="Example: 16,18")
+    delete_ids = st.text_input(
+        "Enter IDs (comma separated)",
+        placeholder="Example: 16,18"
+    )
 
     if st.button("Delete Time-off Policy Sets"):
         ids = [i.strip() for i in delete_ids.split(",") if i.strip().isdigit()]
@@ -56,14 +63,27 @@ def timeoff_policy_sets_ui():
     ])
 
     if st.button("⬇️ Download Template"):
-        paycodes = requests.get(PAYCODES_URL, headers=headers).json()
-        paycodes_df = pd.DataFrame([
-            {"id": p["id"], "code": p["code"], "description": p["description"]}
-            for p in paycodes
-        ])
+        # Sheet-2 → Paycodes
+        paycodes_resp = requests.get(PAYCODES_URL, headers=headers)
+        paycodes_df = (
+            pd.DataFrame([
+                {
+                    "id": p.get("id"),
+                    "code": p.get("code"),
+                    "description": p.get("description")
+                }
+                for p in paycodes_resp.json()
+            ]) if paycodes_resp.status_code == 200
+            else pd.DataFrame(columns=["id", "code", "description"])
+        )
 
+        # Sheet-3 → Existing Time-off Policy Sets
         sets_resp = requests.get(BASE_URL, headers=headers)
-        sets_df = pd.DataFrame(sets_resp.json()) if sets_resp.status_code == 200 else pd.DataFrame()
+        sets_df = (
+            pd.DataFrame(sets_resp.json())
+            if sets_resp.status_code == 200
+            else pd.DataFrame()
+        )
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -110,31 +130,34 @@ def timeoff_policy_sets_ui():
         grouped = {}
         results = []
 
+        # -----------------------------
+        # GROUP ROWS (ID WINS)
+        # -----------------------------
         for _, row in df.iterrows():
-            raw_id = str(row["id"]).strip()
-            name = str(row["name"]).strip()
-            description = str(row["description"]).strip() or name
+            raw_id = str(row.get("id", "")).strip()
+            name = str(row.get("name", "")).strip()
+            description = str(row.get("description", "")).strip() or name
             policy_id = int(row["timeoff_policy_id"])
             paycode_id = int(row["paycode_id"])
 
-            key = raw_id if raw_id else name
+            group_key = raw_id if raw_id.isdigit() else name
 
-            if key not in grouped:
-                grouped[key] = {
+            if group_key not in grouped:
+                grouped[group_key] = {
+                    "id": int(raw_id) if raw_id.isdigit() else None,
                     "name": name,
                     "description": description,
-                    "entries": [],
-                    "_id": int(raw_id) if raw_id.isdigit() else None
+                    "entries": []
                 }
 
-            grouped[key]["entries"].append({
+            grouped[group_key]["entries"].append({
                 "id": policy_id,
                 "paycode": {"id": paycode_id}
             })
 
-        # ==================================================
+        # -----------------------------
         # API CALLS
-        # ==================================================
+        # -----------------------------
         for item in grouped.values():
             payload = {
                 "name": item["name"],
@@ -142,15 +165,17 @@ def timeoff_policy_sets_ui():
                 "entries": item["entries"]
             }
 
-            if item["_id"]:
-                payload["id"] = item["_id"]
+            if item["id"] is not None:
+                # ✅ UPDATE
+                payload["id"] = item["id"]
                 r = requests.put(
-                    f"{BASE_URL}/{item['_id']}",
+                    f"{BASE_URL}/{item['id']}",
                     headers=headers,
                     json=payload
                 )
                 action = "Update"
             else:
+                # ✅ CREATE
                 r = requests.post(
                     BASE_URL,
                     headers=headers,
