@@ -104,13 +104,36 @@ def paycode_event_sets_ui():
                         if not name:
                             raise ValueError("Name is mandatory")
 
+                        raw_id = str(row.get("id", "")).strip()
+                        is_update = raw_id.isdigit()
+
+                        # ----------------------------------------------
+                        # FETCH EXISTING SET (ONLY FOR UPDATE)
+                        # ----------------------------------------------
+                        existing_entry_map = {}
+
+                        if is_update:
+                            set_id = int(raw_id)
+                            get_r = requests.get(f"{SETS_URL}/{set_id}", headers=headers)
+
+                            if get_r.status_code != 200:
+                                raise ValueError(f"Unable to fetch existing set ID {set_id}")
+
+                            existing_data = get_r.json()
+                            for e in existing_data.get("entries", []):
+                                pe_id = e.get("paycodeEvent", {}).get("id")
+                                if pe_id:
+                                    existing_entry_map[pe_id] = e.get("id")
+
+                        # ----------------------------------------------
+                        # BUILD PAYLOAD
+                        # ----------------------------------------------
                         payload = {
                             "name": name,
                             "description": str(row.get("description", "")).strip() or name,
                             "entries": []
                         }
 
-                        # ---------- BUILD ENTRIES ----------
                         for i in range(1, 6):
                             event_val = row.get(f"PaycodeEvent{i}", "")
                             priority_val = row.get(f"Priority{i}", "")
@@ -118,29 +141,34 @@ def paycode_event_sets_ui():
                             if str(event_val).strip() == "":
                                 continue
 
-                            payload["entries"].append({
-                                "paycodeEvent": {"id": int(float(event_val))},
-                                "priority": int(priority_val) if str(priority_val).isdigit() else i,
+                            event_id = int(float(event_val))
+                            priority = int(float(priority_val)) if str(priority_val).strip() else i
+
+                            entry = {
+                                "paycodeEvent": {"id": event_id},
+                                "priority": priority,
                                 "overridable": False
-                            })
+                            }
+
+                            # ✅ REQUIRED FOR UPDATE
+                            if event_id in existing_entry_map:
+                                entry["id"] = existing_entry_map[event_id]
+
+                            payload["entries"].append(entry)
 
                         if not payload["entries"]:
                             raise ValueError("At least one Paycode Event is required")
 
-                        raw_id = str(row.get("id", "")).strip()
-
-                        # ---------- UPDATE (PUT) ----------
-                        if raw_id.isdigit():
-                            set_id = int(raw_id)
-
+                        # ----------------------------------------------
+                        # CREATE / UPDATE
+                        # ----------------------------------------------
+                        if is_update:
                             r = requests.put(
                                 f"{SETS_URL}/{set_id}",
                                 headers=headers,
-                                json=payload   # ✅ NO id in payload
+                                json=payload
                             )
                             action = "Update"
-
-                        # ---------- CREATE (POST) ----------
                         else:
                             r = requests.post(
                                 SETS_URL,
@@ -178,7 +206,7 @@ def paycode_event_sets_ui():
 
     ids_input = st.text_input(
         "Enter Paycode Event Set IDs (comma-separated)",
-        placeholder="Example: 82,83"
+        placeholder="Example: 392,390"
     )
 
     if st.button("Delete Paycode Event Sets", use_container_width=True):
