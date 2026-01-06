@@ -10,13 +10,20 @@ def paycode_event_sets_ui():
     st.header("🧩 Paycode Event Sets")
     st.caption("Create, update, delete and download Paycode Event Sets")
 
+    # --------------------------------------------------
+    # PRECHECK
+    # --------------------------------------------------
+    if "token" not in st.session_state or not st.session_state.token:
+        st.error("Please login first")
+        return
+
     HOST = st.session_state.HOST.rstrip("/")
     SETS_URL = f"{HOST}/resource-server/api/paycode_event_sets"
     EVENTS_URL = f"{HOST}/resource-server/api/paycode_events"
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
-        "Content-Type": "application/json;charset=UTF-8",
+        "Content-Type": "application/json",
         "Accept": "application/json"
     }
 
@@ -26,7 +33,9 @@ def paycode_event_sets_ui():
     st.subheader("📥 Download Upload Template")
 
     template_df = pd.DataFrame(columns=[
-        "id", "name", "description",
+        "id",
+        "name",
+        "description",
         "PaycodeEvent1", "Priority1",
         "PaycodeEvent2", "Priority2",
         "PaycodeEvent3", "Priority3",
@@ -36,7 +45,6 @@ def paycode_event_sets_ui():
 
     if st.button("⬇️ Download Template", use_container_width=True):
         r = requests.get(EVENTS_URL, headers=headers)
-
         events_df = (
             pd.DataFrame([
                 {
@@ -45,8 +53,9 @@ def paycode_event_sets_ui():
                     "description": e.get("description")
                 }
                 for e in r.json()
-            ]) if r.status_code == 200 else
-            pd.DataFrame(columns=["id", "name", "description"])
+            ])
+            if r.status_code == 200
+            else pd.DataFrame(columns=["id", "name", "description"])
         )
 
         output = io.BytesIO()
@@ -58,7 +67,8 @@ def paycode_event_sets_ui():
             "⬇️ Download Excel",
             data=output.getvalue(),
             file_name="paycode_event_sets_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
         )
 
     st.divider()
@@ -68,7 +78,10 @@ def paycode_event_sets_ui():
     # ==================================================
     st.subheader("📤 Upload Paycode Event Sets")
 
-    uploaded_file = st.file_uploader("Upload CSV or Excel", ["csv", "xlsx", "xls"])
+    uploaded_file = st.file_uploader(
+        "Upload CSV or Excel",
+        ["csv", "xlsx", "xls"]
+    )
 
     if uploaded_file:
         df = (
@@ -77,65 +90,54 @@ def paycode_event_sets_ui():
             else pd.read_excel(uploaded_file)
         ).fillna("")
 
-        st.info(f"Rows detected: {len(df)}")
+        st.success(f"Rows detected: {len(df)}")
+        st.dataframe(df, use_container_width=True)
 
-        if st.button("🚀 Process Upload", type="primary"):
+        if st.button("🚀 Process Upload", type="primary", use_container_width=True):
             results = []
 
             with st.spinner("⏳ Processing Paycode Event Sets..."):
-                for row_no, row in df.iterrows():
+                for idx, row in df.iterrows():
                     try:
                         name = str(row.get("name", "")).strip()
                         if not name:
                             raise ValueError("Name is mandatory")
 
-                        raw_id = str(row.get("id", "")).strip()
-                        description = str(row.get("description", "")).strip() or name
-
                         payload = {
                             "name": name,
-                            "description": description
+                            "description": str(row.get("description", "")).strip() or name,
+                            "entries": []
                         }
 
-                        # ---------------- ENTRIES (OPTIONAL) ----------------
-                        entries = []
-
+                        # ---------------- BUILD ENTRIES ----------------
                         for i in range(1, 6):
-                            ev = row.get(f"PaycodeEvent{i}")
-                            pr = row.get(f"Priority{i}")
+                            event_val = row.get(f"PaycodeEvent{i}", "")
+                            priority_val = row.get(f"Priority{i}", "")
 
-                            if ev in ("", None):
+                            if str(event_val).strip() == "":
                                 continue
 
-                            entries.append({
-                                "paycodeEvent": {"id": int(float(ev))},
-                                "priority": int(pr) if str(pr).isdigit() else i,
+                            payload["entries"].append({
+                                "paycodeEvent": {"id": int(float(event_val))},
+                                "priority": int(priority_val) if str(priority_val).isdigit() else i,
                                 "overridable": False
                             })
 
-                        # ---------------- UPDATE ----------------
+                        if not payload["entries"]:
+                            raise ValueError("At least one Paycode Event is required")
+
+                        # ---------------- CREATE / UPDATE ----------------
+                        raw_id = str(row.get("id", "")).strip()
+
                         if raw_id.isdigit():
-                            set_id = int(raw_id)
-                            payload["id"] = set_id
-
-                            # ✅ Only send entries if provided
-                            if entries:
-                                payload["entries"] = entries
-
+                            payload["id"] = int(raw_id)
                             r = requests.put(
-                                f"{SETS_URL}/{set_id}",
+                                f"{SETS_URL}/{payload['id']}",
                                 headers=headers,
                                 json=payload
                             )
                             action = "Update"
-
-                        # ---------------- CREATE ----------------
                         else:
-                            if not entries:
-                                raise ValueError("Entries are mandatory for Create")
-
-                            payload["entries"] = entries
-
                             r = requests.post(
                                 SETS_URL,
                                 headers=headers,
@@ -144,17 +146,17 @@ def paycode_event_sets_ui():
                             action = "Create"
 
                         results.append({
-                            "Row": row_no + 1,
+                            "Row": idx + 1,
                             "Name": name,
                             "Action": action,
-                            "Entries": len(entries),
+                            "Entries": len(payload["entries"]),
                             "Status": "Success" if r.status_code in (200, 201) else "Failed"
                         })
 
                     except Exception as e:
                         results.append({
-                            "Row": row_no + 1,
-                            "Name": row.get("name"),
+                            "Row": idx + 1,
+                            "Name": row.get("name", ""),
                             "Action": "Error",
                             "Entries": "",
                             "Status": str(e)
@@ -175,16 +177,15 @@ def paycode_event_sets_ui():
         placeholder="Example: 82,83"
     )
 
-    if st.button("Delete Paycode Event Sets"):
+    if st.button("Delete Paycode Event Sets", use_container_width=True):
         ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
-
         with st.spinner("⏳ Deleting..."):
             for sid in ids:
                 r = requests.delete(f"{SETS_URL}/{sid}", headers=headers)
                 if r.status_code in (200, 204):
                     st.success(f"Deleted ID {sid}")
                 else:
-                    st.error(f"Failed to delete ID {sid}")
+                    st.error(f"Failed to delete {sid}")
 
     st.divider()
 
@@ -197,7 +198,7 @@ def paycode_event_sets_ui():
         with st.spinner("⏳ Fetching data..."):
             r = requests.get(SETS_URL, headers=headers)
             if r.status_code != 200:
-                st.error("❌ Failed to fetch Paycode Event Sets")
+                st.error("Failed to fetch Paycode Event Sets")
                 return
 
             rows = []
@@ -208,20 +209,40 @@ def paycode_event_sets_ui():
                     "description": s.get("description")
                 }
 
-                for idx, entry in enumerate(
+                for i, entry in enumerate(
                     sorted(s.get("entries", []), key=lambda x: x.get("priority", 0)),
                     start=1
                 ):
-                    base[f"PaycodeEvent{idx}"] = entry.get("paycodeEvent", {}).get("id")
-                    base[f"Priority{idx}"] = entry.get("priority")
+                    base[f"PaycodeEvent{i}"] = entry.get("paycodeEvent", {}).get("id")
+                    base[f"Priority{i}"] = entry.get("priority")
 
                 rows.append(base)
 
-            df_out = pd.DataFrame(rows)
+            sets_df = pd.DataFrame(rows)
+
+            r2 = requests.get(EVENTS_URL, headers=headers)
+            events_df = (
+                pd.DataFrame([
+                    {
+                        "id": e.get("id"),
+                        "name": e.get("name"),
+                        "description": e.get("description")
+                    }
+                    for e in r2.json()
+                ])
+                if r2.status_code == 200
+                else pd.DataFrame(columns=["id", "name", "description"])
+            )
+
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                sets_df.to_excel(writer, index=False, sheet_name="Paycode_Event_Sets")
+                events_df.to_excel(writer, index=False, sheet_name="Available_Paycode_Events")
 
             st.download_button(
-                "⬇️ Download CSV",
-                data=df_out.to_csv(index=False),
-                file_name="paycode_event_sets_export.csv",
-                mime="text/csv"
+                "⬇️ Download Excel",
+                data=output.getvalue(),
+                file_name="paycode_event_sets_export.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
             )
