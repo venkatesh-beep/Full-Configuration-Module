@@ -37,13 +37,13 @@ def timecard_updation_ui():
 
     template_df = pd.DataFrame(columns=[
         "externalNumber",
-        "attendanceDate",
+        "attendanceDate(YYYY-MM-DD)",
         "paycode_id"
     ])
 
     if st.button("⬇️ Download Template", use_container_width=True):
-        # Fetch paycodes
         r = requests.get(PAYCODES_URL, headers=HEADERS_GET)
+
         paycodes_df = (
             pd.DataFrame([
                 {
@@ -85,7 +85,6 @@ def timecard_updation_ui():
         st.info("Expected columns: externalNumber, attendanceDate, paycode_id")
         return
 
-    # Read file
     df = (
         pd.read_csv(uploaded_file)
         if uploaded_file.name.endswith(".csv")
@@ -93,7 +92,9 @@ def timecard_updation_ui():
     )
 
     df = df.fillna("")
-    df["attendanceDate"] = pd.to_datetime(df["attendanceDate"]).dt.strftime("%Y-%m-%d")
+    df["attendanceDate"] = pd.to_datetime(
+        df["attendanceDate"], errors="coerce"
+    ).dt.strftime("%Y-%m-%d")
 
     st.success(f"File loaded successfully — {len(df)} rows")
     st.dataframe(df, use_container_width=True)
@@ -107,7 +108,7 @@ def timecard_updation_ui():
     st.divider()
 
     # --------------------------------------------------
-    # Fetch Paycodes Map (for status display)
+    # Fetch Paycode Map
     # --------------------------------------------------
     paycode_map = {}
     r = requests.get(PAYCODES_URL, headers=HEADERS_GET)
@@ -125,6 +126,7 @@ def timecard_updation_ui():
 
     with st.spinner("Updating timecards… please wait"):
         for _, row in df.iterrows():
+
             external_number = str(row["externalNumber"]).strip()
             attendance_date = row["attendanceDate"]
             paycode_id = int(row["paycode_id"])
@@ -135,7 +137,7 @@ def timecard_updation_ui():
             r = session.get(
                 GET_URL,
                 params={
-                    "attributes": "attendancePunches(organizationLocation|shiftTemplate),schedule(shiftTemplate)",
+                    "attributes": "attendancePaycode",
                     "startDate": attendance_date,
                     "endDate": attendance_date,
                     "externalNumber": external_number
@@ -143,46 +145,94 @@ def timecard_updation_ui():
             )
 
             if r.status_code != 200:
+                results.append({
+                    "externalNumber": external_number,
+                    "attendanceDate": attendance_date,
+                    "paycode_id": paycode_id,
+                    "Status": f"FAILED - GET {r.status_code}"
+                })
                 continue
 
             try:
                 json_resp = r.json()
             except Exception:
+                results.append({
+                    "externalNumber": external_number,
+                    "attendanceDate": attendance_date,
+                    "paycode_id": paycode_id,
+                    "Status": "FAILED - Invalid JSON"
+                })
                 continue
 
             data = json_resp if isinstance(json_resp, list) else json_resp.get("data", [])
             if not data:
+                results.append({
+                    "externalNumber": external_number,
+                    "attendanceDate": attendance_date,
+                    "paycode_id": paycode_id,
+                    "Status": "FAILED - No timecard found"
+                })
                 continue
 
             card = data[0]
             entries = card.get("entries", [])
             if not entries:
+                results.append({
+                    "externalNumber": external_number,
+                    "attendanceDate": attendance_date,
+                    "paycode_id": paycode_id,
+                    "Status": "FAILED - No entries"
+                })
                 continue
 
-            entry = entries[0]
+            # ✅ Find correct attendance entry
+            target_entry = None
+            for e in entries:
+                if e.get("attendancePaycode"):
+                    target_entry = e
+                    break
 
-            employee_id = entry.get("employee", {}).get("id")
-            version = entry.get("attendancePaycode", {}).get("version", 0)
-            entry_index = entry.get("index", 0)
+            if not target_entry:
+                results.append({
+                    "externalNumber": external_number,
+                    "attendanceDate": attendance_date,
+                    "paycode_id": paycode_id,
+                    "Status": "FAILED - No attendance paycode entry"
+                })
+                continue
 
-            if not employee_id:
+            employee_id = target_entry.get("employee", {}).get("id")
+            entry_index = target_entry.get("index")
+            version = target_entry.get("attendancePaycode", {}).get("version")
+
+            if not employee_id or entry_index is None:
+                results.append({
+                    "externalNumber": external_number,
+                    "attendanceDate": attendance_date,
+                    "paycode_id": paycode_id,
+                    "Status": "FAILED - Missing employee/index"
+                })
                 continue
 
             # -------------------------------
             # STEP 2: POST UPDATE
             # -------------------------------
+            attendance_paycode = {
+                "employee": {"id": employee_id},
+                "attendanceDate": attendance_date,
+                "paycode": {"id": paycode_id}
+            }
+
+            if version is not None:
+                attendance_paycode["version"] = version
+
             payload = {
                 "attendanceDate": attendance_date,
                 "entries": [
                     {
                         "index": entry_index,
                         "employee": {"id": employee_id},
-                        "attendancePaycode": {
-                            "employee": {"id": employee_id},
-                            "attendanceDate": attendance_date,
-                            "paycode": {"id": paycode_id},
-                            "version": version
-                        }
+                        "attendancePaycode": attendance_paycode
                     }
                 ]
             }
@@ -201,12 +251,21 @@ def timecard_updation_ui():
                     "paycode": paycode_map.get(paycode_id, ""),
                     "Status": "SUCCESS"
                 })
+            else:
+                results.append({
+                    "externalNumber": external_number,
+                    "attendanceDate": attendance_date,
+                    "paycode_id": paycode_id,
+                    "Status": f"FAILED - POST {r2.status_code}"
+                })
 
     # --------------------------------------------------
     # Results
     # --------------------------------------------------
-    if results:
-        st.success(f"✅ Successfully updated {len(results)} timecards")
-        st.dataframe(pd.DataFrame(results), use_container_width=True)
+    result_df = pd.DataFrame(results)
+
+    if not result_df.empty:
+        st.success("✅ Timecard processing completed")
+        st.dataframe(result_df, use_container_width=True)
     else:
-        st.warning("No timecards were updated")
+        st.warning("No rows processed")
