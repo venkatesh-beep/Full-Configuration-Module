@@ -37,7 +37,7 @@ def timecard_updation_ui():
 
     template_df = pd.DataFrame(columns=[
         "externalNumber",
-        "attendanceDate(YYYY-MM-DD)",
+        "attendanceDate",
         "paycode_id"
     ])
 
