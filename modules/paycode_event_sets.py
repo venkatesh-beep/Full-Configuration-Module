@@ -42,13 +42,31 @@ def paycode_event_sets_ui():
     ])
 
     if st.button("⬇️ Download Template", use_container_width=True):
-        r = requests.get(EVENTS_URL, headers=headers)
 
+        # ---- Sheet 2: Paycode Events
+        r1 = requests.get(EVENTS_URL, headers=headers)
         events_df = (
             pd.DataFrame([
-                {"id": e["id"], "name": e["name"], "description": e["description"]}
-                for e in r.json()
-            ]) if r.status_code == 200 else pd.DataFrame(
+                {
+                    "id": e["id"],
+                    "name": e["name"],
+                    "description": e["description"]
+                } for e in r1.json()
+            ]) if r1.status_code == 200 else pd.DataFrame(
+                columns=["id", "name", "description"]
+            )
+        )
+
+        # ---- Sheet 3: Paycode Event Sets (NEW)
+        r2 = requests.get(SETS_URL, headers=headers)
+        sets_df = (
+            pd.DataFrame([
+                {
+                    "id": s["id"],
+                    "name": s["name"],
+                    "description": s["description"]
+                } for s in r2.json()
+            ]) if r2.status_code == 200 else pd.DataFrame(
                 columns=["id", "name", "description"]
             )
         )
@@ -57,6 +75,7 @@ def paycode_event_sets_ui():
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             template_df.to_excel(writer, index=False, sheet_name="Paycode_Event_Sets")
             events_df.to_excel(writer, index=False, sheet_name="Available_Paycode_Events")
+            sets_df.to_excel(writer, index=False, sheet_name="Available_Paycode_Sets")
 
         st.download_button(
             "⬇️ Download Excel",
@@ -89,7 +108,7 @@ def paycode_event_sets_ui():
             results = []
 
             # -------------------------------
-            # NORMALIZE DATA
+            # NORMALIZE
             # -------------------------------
             def parse_id(x):
                 try:
@@ -110,14 +129,18 @@ def paycode_event_sets_ui():
                 # ==================================================
                 for set_id, group in id_groups:
                     try:
+                        set_id = int(set_id)
                         name = group.iloc[0]["name"]
                         description = str(group.iloc[0].get("description", "")).strip() or name
 
                         payload = {
+                            "id": set_id,
                             "name": name,
                             "description": description,
                             "entries": []
                         }
+
+                        seen = set()
 
                         for _, row in group.iterrows():
                             for i in range(1, 6):
@@ -127,8 +150,13 @@ def paycode_event_sets_ui():
                                 if str(ev).strip() == "":
                                     continue
 
+                                ev_id = int(float(ev))
+                                if ev_id in seen:
+                                    continue
+                                seen.add(ev_id)
+
                                 payload["entries"].append({
-                                    "paycodeEvent": {"id": int(float(ev))},
+                                    "paycodeEvent": {"id": ev_id},
                                     "priority": int(float(pr)) if str(pr).strip() else 1,
                                     "overridable": False
                                 })
@@ -176,6 +204,8 @@ def paycode_event_sets_ui():
                             "entries": []
                         }
 
+                        seen = set()
+
                         for _, row in group.iterrows():
                             for i in range(1, 6):
                                 ev = row.get(f"PaycodeEvent{i}", "")
@@ -184,8 +214,13 @@ def paycode_event_sets_ui():
                                 if str(ev).strip() == "":
                                     continue
 
+                                ev_id = int(float(ev))
+                                if ev_id in seen:
+                                    continue
+                                seen.add(ev_id)
+
                                 payload["entries"].append({
-                                    "paycodeEvent": {"id": int(float(ev))},
+                                    "paycodeEvent": {"id": ev_id},
                                     "priority": int(float(pr)) if str(pr).strip() else 1,
                                     "overridable": False
                                 })
