@@ -31,15 +31,29 @@ def accruals_ui():
     # ==================================================
     st.subheader("📥 Download Upload Template")
 
-    template_df = pd.DataFrame(columns=[
-        "id",
-        "name",
-        "description"
-    ])
+    template_df = pd.DataFrame(columns=["id", "name", "description"])
 
     if st.button("⬇️ Download Template", use_container_width=True):
+
+        # ---- Sheet 2: Existing Accruals (NEW)
+        r = requests.get(ACCRUALS_URL, headers=headers)
+        existing_df = (
+            pd.DataFrame([
+                {
+                    "id": a.get("id"),
+                    "name": a.get("name"),
+                    "description": a.get("description")
+                } for a in r.json()
+            ]) if r.status_code == 200 else pd.DataFrame(
+                columns=["id", "name", "description"]
+            )
+        )
+
         output = io.BytesIO()
-        template_df.to_excel(output, index=False)
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            template_df.to_excel(writer, index=False, sheet_name="Accruals_Upload")
+            existing_df.to_excel(writer, index=False, sheet_name="Existing_Accruals")
+
         st.download_button(
             "⬇️ Download Excel",
             data=output.getvalue(),
@@ -48,6 +62,8 @@ def accruals_ui():
         )
 
     st.divider()
+
+    #_toggle
 
     # ==================================================
     # 2️⃣ UPLOAD & PROCESS
@@ -70,6 +86,7 @@ def accruals_ui():
         st.dataframe(df, use_container_width=True)
 
         if st.button("🚀 Submit Accruals", type="primary", use_container_width=True):
+
             results = []
 
             with st.spinner("⏳ Processing Accruals..."):
@@ -84,28 +101,36 @@ def accruals_ui():
                         if not name:
                             raise Exception("Name is mandatory")
 
-                        raw_id = row.get("id", "")
+                        # ✅ SAFE ID PARSING
                         accrual_id = None
                         try:
-                            accrual_id = int(float(raw_id))
+                            accrual_id = int(float(row.get("id", "")))
                         except:
                             accrual_id = None
 
+                        # -------------------------------
+                        # PAYLOAD
+                        # -------------------------------
                         payload = {
                             "name": name,
                             "description": description
                         }
 
                         # -------------------------------
-                        # CREATE / UPDATE
+                        # UPDATE (PUT)
                         # -------------------------------
                         if accrual_id:
+                            payload["id"] = accrual_id  # ✅ REQUIRED
                             r = requests.put(
                                 f"{ACCRUALS_URL}/{accrual_id}",
                                 headers=headers,
                                 json=payload
                             )
                             action = "UPDATE"
+
+                        # -------------------------------
+                        # CREATE (POST)
+                        # -------------------------------
                         else:
                             r = requests.post(
                                 ACCRUALS_URL,
@@ -119,9 +144,9 @@ def accruals_ui():
                             "ID": accrual_id or "",
                             "Name": name,
                             "Action": action,
-                            "Status": "Success"
+                            "Status": "SUCCESS"
                             if r.status_code in (200, 201)
-                            else f"Failed ({r.status_code})"
+                            else f"FAILED ({r.status_code})"
                         })
 
                     except Exception as e:
@@ -176,7 +201,6 @@ def accruals_ui():
     if st.button("Download Existing Accruals", use_container_width=True):
         with st.spinner("⏳ Fetching..."):
             r = requests.get(ACCRUALS_URL, headers=headers)
-
             if r.status_code != 200:
                 st.error("Failed to fetch accruals")
                 return
