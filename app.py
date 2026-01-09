@@ -199,5 +199,5 @@ elif menu == "Timecard Updation":
 
 
 # ================= AUTO REFRESH =================
-time.sleep(1)
+time.sleep(600)
 st.rerun()
