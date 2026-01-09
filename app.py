@@ -4,13 +4,11 @@ import time
 # ================= IMPORT MODULE UIs =================
 from services.auth import login_ui
 
-# ---- Existing Modules ----
 from modules.paycodes import paycodes_ui
 from modules.paycode_events import paycode_events_ui
 from modules.paycode_combinations import paycode_combinations_ui
 from modules.paycode_event_sets import paycode_event_sets_ui
 
-# ---- Future / Coming Soon Modules ----
 from modules.shift_templates import shift_templates_ui
 from modules.shift_template_sets import shift_template_sets_ui
 from modules.schedule_patterns import schedule_patterns_ui
@@ -48,96 +46,102 @@ if "HOST" not in st.session_state:
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
-# ================= APP HEADER =================
-st.title("⚙️ Configuration Portal")
-st.caption(
-    "Centralized configuration for Paycodes, Shifts, Schedules, "
-    "Accruals, Timeoff, Regularization, Overtime and more"
-)
+if "username" not in st.session_state:
+    st.session_state.username = "User"
 
 # ================= LOGIN FLOW =================
 if not st.session_state.token:
+    st.title("⚙️ Configuration Portal")
+    st.caption(
+        "Centralized configuration for Paycodes, Shifts, Schedules, "
+        "Accruals, Timeoff, Regularization, Overtime and more"
+    )
     login_ui()
     st.stop()
 
-# ================= NORMALIZED HOST (SAFE) =================
-# IMPORTANT: do NOT write back to session_state.HOST
+# ================= NORMALIZED HOST =================
 BASE_HOST = st.session_state.HOST.rstrip("/")
 
-# ================= SESSION TIMER (30 MINUTES) =================
-TOKEN_VALIDITY_SECONDS = 30 * 60
+# ================= SESSION TIMER CONFIG =================
+TOKEN_VALIDITY_SECONDS = 30 * 60  # 30 minutes
 
-issued_at = st.session_state.get("token_issued_at")
+# ================= TOP HEADER (USERNAME + LIVE TIMER) =================
+header_placeholder = st.empty()
 
-if issued_at:
-    elapsed = time.time() - issued_at
-    remaining = max(0, int(TOKEN_VALIDITY_SECONDS - elapsed))
+issued_at = st.session_state.token_issued_at
+now = time.time()
 
-    if remaining <= 0:
-        st.warning("🔒 Session expired. Please login again.")
-        st.session_state.clear()
-        st.rerun()
+elapsed = now - issued_at if issued_at else 0
+remaining = max(0, int(TOKEN_VALIDITY_SECONDS - elapsed))
 
-    minutes = remaining // 60
-    seconds = remaining % 60
+if remaining <= 0:
+    st.warning("🔒 Session expired. Please login again.")
+    st.session_state.clear()
+    st.rerun()
 
-    with st.sidebar:
-        st.markdown("### ⏳ Session Timer")
-        st.info(f"Expires in **{minutes:02d}:{seconds:02d}**")
+hrs = remaining // 3600
+mins = (remaining % 3600) // 60
+secs = remaining % 60
+
+with header_placeholder.container():
+    col1, col2, col3 = st.columns([4, 3, 1])
+
+    with col1:
+        st.markdown(
+            f"### 👤 Logged in as: **{st.session_state.username}**"
+        )
+
+    with col2:
+        st.markdown(
+            f"### ⏱️ Session Expires In: **{hrs:02d}:{mins:02d}:{secs:02d}**"
+        )
 
         if remaining <= 300:
             st.warning("⚠️ Session expiring soon")
 
+    with col3:
+        if st.button("🚪 Logout"):
+            st.session_state.clear()
+            st.rerun()
+
+st.divider()
+
+# ================= AUTO REFRESH TIMER =================
+time.sleep(1)
+st.rerun()
+
 # ================= SIDEBAR =================
 with st.sidebar:
-    st.markdown("### 🔧 Settings")
-
-    st.text_input(
-        "Base Host URL",
-        key="HOST",
-        help="Example: https://saas-beeforce.labour.tech/"
-    )
-
-    st.markdown("---")
+    st.markdown("### 📂 Configuration Modules")
 
     menu = st.radio(
-        "📂 Configuration Modules",
+        "Select Module",
         [
-            # ---- Paycode Core ----
             "Paycodes",
             "Paycode Events",
             "Paycode Combinations",
             "Paycode Event Sets",
 
-            # ---- Shift & Schedule ----
             "Shift Templates",
             "Shift Template Sets",
             "Schedule Patterns",
             "Schedule Pattern Sets",
 
-            # ---- Accruals ----
             "Accruals",
             "Accrual Policies",
             "Accrual Policy Sets",
 
-            # ---- Timeoff ----
             "Timeoff Policies",
             "Timeoff Policy Sets",
 
-            # ---- Regularization & Others ----
             "Regularization Policies",
             "Regularization Policy Sets",
+
             "Roles",
             "Overtime Policies",
             "Timecard Updation"
         ]
     )
-
-    st.markdown("---")
-
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
 
 # ================= MAIN CONTENT =================
 if menu == "Paycodes":
