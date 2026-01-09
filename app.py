@@ -40,7 +40,7 @@ st.set_page_config(
 if "token" not in st.session_state:
     st.session_state.token = None
 
-# 🔑 GUARANTEE HOST EXISTS (HIDDEN)
+# 🔑 Guarantee HOST exists (hidden from UI)
 if "HOST" not in st.session_state or not st.session_state.HOST:
     st.session_state.HOST = "https://saas-beeforce.labour.tech"
 
@@ -48,7 +48,8 @@ if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
 if "username" not in st.session_state:
-    st.session_state.username = "User"
+    st.session_state.username = None
+
 
 # ================= LOGIN FLOW =================
 if not st.session_state.token:
@@ -58,11 +59,9 @@ if not st.session_state.token:
         "Accruals, Timeoff, Regularization, Overtime and more"
     )
 
-    login_ui()   # <-- must set token, token_issued_at, username
-    st.stop()    # 🔴 CRITICAL: STOP HERE (NO rerun loop)
+    login_ui()   # must set token, token_issued_at, username
+    st.stop()    # 🚫 do NOT run timer or rerun while logging in
 
-# ================= NORMALIZED HOST =================
-BASE_HOST = st.session_state.HOST.rstrip("/")
 
 # ================= SESSION TIMER CONFIG =================
 TOKEN_VALIDITY_SECONDS = 30 * 60  # 30 minutes
@@ -82,29 +81,27 @@ hrs = remaining // 3600
 mins = (remaining % 3600) // 60
 secs = remaining % 60
 
-# ================= TOP HEADER =================
-with st.container():
-    col1, col2, col3 = st.columns([4, 3, 1])
-
-    with col1:
-        st.markdown(f"### 👤 Logged in as: **{st.session_state.username}**")
-
-    with col2:
-        st.markdown(
-            f"### ⏱️ Session Expires In: **{hrs:02d}:{mins:02d}:{secs:02d}**"
-        )
-        if remaining <= 300:
-            st.warning("⚠️ Session expiring soon")
-
-    with col3:
-        if st.button("🚪 Logout"):
-            st.session_state.clear()
-            st.rerun()
-
-st.divider()
 
 # ================= SIDEBAR =================
 with st.sidebar:
+    st.markdown("## 👤 Session")
+
+    # ✅ ACTUAL USERNAME
+    st.success(f"Logged in as **{st.session_state.username}**")
+
+    # ⏱️ LIVE SESSION TIMER
+    st.info(f"⏱️ Expires in **{hrs:02d}:{mins:02d}:{secs:02d}**")
+
+    if remaining <= 300:
+        st.warning("⚠️ Session expiring soon")
+
+    # 🚪 LOGOUT
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+    st.markdown("---")
+
     st.markdown("### 📂 Configuration Modules")
 
     menu = st.radio(
@@ -135,6 +132,7 @@ with st.sidebar:
             "Timecard Updation"
         ]
     )
+
 
 # ================= MAIN CONTENT =================
 if menu == "Paycodes":
@@ -191,6 +189,7 @@ elif menu == "Overtime Policies":
 elif menu == "Timecard Updation":
     timecard_updation_ui()
 
-# ================= AUTO REFRESH (ONLY AFTER RENDER) =================
+
+# ================= AUTO REFRESH (AFTER RENDER ONLY) =================
 time.sleep(1)
 st.rerun()
