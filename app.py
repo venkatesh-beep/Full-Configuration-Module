@@ -40,8 +40,9 @@ st.set_page_config(
 if "token" not in st.session_state:
     st.session_state.token = None
 
-if "HOST" not in st.session_state:
-    st.session_state.HOST = "https://saas-beeforce.labour.tech/"
+# 🔑 GUARANTEE HOST EXISTS (HIDDEN)
+if "HOST" not in st.session_state or not st.session_state.HOST:
+    st.session_state.HOST = "https://saas-beeforce.labour.tech"
 
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
@@ -56,17 +57,15 @@ if not st.session_state.token:
         "Centralized configuration for Paycodes, Shifts, Schedules, "
         "Accruals, Timeoff, Regularization, Overtime and more"
     )
-    login_ui()
-    st.stop()
+
+    login_ui()   # <-- must set token, token_issued_at, username
+    st.stop()    # 🔴 CRITICAL: STOP HERE (NO rerun loop)
 
 # ================= NORMALIZED HOST =================
 BASE_HOST = st.session_state.HOST.rstrip("/")
 
 # ================= SESSION TIMER CONFIG =================
 TOKEN_VALIDITY_SECONDS = 30 * 60  # 30 minutes
-
-# ================= TOP HEADER (USERNAME + LIVE TIMER) =================
-header_placeholder = st.empty()
 
 issued_at = st.session_state.token_issued_at
 now = time.time()
@@ -83,19 +82,17 @@ hrs = remaining // 3600
 mins = (remaining % 3600) // 60
 secs = remaining % 60
 
-with header_placeholder.container():
+# ================= TOP HEADER =================
+with st.container():
     col1, col2, col3 = st.columns([4, 3, 1])
 
     with col1:
-        st.markdown(
-            f"### 👤 Logged in as: **{st.session_state.username}**"
-        )
+        st.markdown(f"### 👤 Logged in as: **{st.session_state.username}**")
 
     with col2:
         st.markdown(
             f"### ⏱️ Session Expires In: **{hrs:02d}:{mins:02d}:{secs:02d}**"
         )
-
         if remaining <= 300:
             st.warning("⚠️ Session expiring soon")
 
@@ -105,10 +102,6 @@ with header_placeholder.container():
             st.rerun()
 
 st.divider()
-
-# ================= AUTO REFRESH TIMER =================
-time.sleep(1)
-st.rerun()
 
 # ================= SIDEBAR =================
 with st.sidebar:
@@ -197,3 +190,7 @@ elif menu == "Overtime Policies":
 
 elif menu == "Timecard Updation":
     timecard_updation_ui()
+
+# ================= AUTO REFRESH (ONLY AFTER RENDER) =================
+time.sleep(1)
+st.rerun()
