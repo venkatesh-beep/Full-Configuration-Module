@@ -40,7 +40,7 @@ st.set_page_config(
 if "token" not in st.session_state:
     st.session_state.token = None
 
-# 🔑 Guarantee HOST exists (hidden from UI)
+# 🔐 Hidden HOST (required for APIs)
 if "HOST" not in st.session_state or not st.session_state.HOST:
     st.session_state.HOST = "https://saas-beeforce.labour.tech"
 
@@ -59,11 +59,11 @@ if not st.session_state.token:
         "Accruals, Timeoff, Regularization, Overtime and more"
     )
 
-    login_ui()   # must set token, token_issued_at, username
-    st.stop()    # 🚫 do NOT run timer or rerun while logging in
+    login_ui()      # must set token, token_issued_at, username
+    st.stop()       # ❗ prevent rerun loop
 
 
-# ================= SESSION TIMER CONFIG =================
+# ================= SESSION TIMER =================
 TOKEN_VALIDITY_SECONDS = 30 * 60  # 30 minutes
 
 issued_at = st.session_state.token_issued_at
@@ -84,24 +84,24 @@ secs = remaining % 60
 
 # ================= SIDEBAR =================
 with st.sidebar:
+
+    # -------- SESSION INFO --------
     st.markdown("## 👤 Session")
 
-    # ✅ ACTUAL USERNAME
-    st.success(f"Logged in as **{st.session_state.username}**")
+    st.success(
+        f"Logged in as **{st.session_state.username}**"
+    )
 
-    # ⏱️ LIVE SESSION TIMER
-    st.info(f"⏱️ Expires in **{hrs:02d}:{mins:02d}:{secs:02d}**")
+    st.info(
+        f"⏱️ Expires in **{hrs:02d}:{mins:02d}:{secs:02d}**"
+    )
 
     if remaining <= 300:
         st.warning("⚠️ Session expiring soon")
 
-    # 🚪 LOGOUT
-    if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
-
     st.markdown("---")
 
+    # -------- MODULE NAVIGATION --------
     st.markdown("### 📂 Configuration Modules")
 
     menu = st.radio(
@@ -132,6 +132,14 @@ with st.sidebar:
             "Timecard Updation"
         ]
     )
+
+    # -------- LOGOUT AT BOTTOM --------
+    st.markdown("---")
+    st.markdown("### 🚪 Account")
+
+    if st.button("Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
 
 
 # ================= MAIN CONTENT =================
@@ -190,6 +198,6 @@ elif menu == "Timecard Updation":
     timecard_updation_ui()
 
 
-# ================= AUTO REFRESH (AFTER RENDER ONLY) =================
+# ================= AUTO REFRESH =================
 time.sleep(1)
 st.rerun()
