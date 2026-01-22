@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
+from openpyxl.styles import PatternFill, Font
 
 # ======================================================
 # MAIN UI
@@ -21,9 +22,9 @@ def employee_lookup_table_ui():
     }
 
     # ==================================================
-    # HELPER: EXTRACT DATA + HEADERS
+    # HELPER: FETCH LOOKUP TABLE
     # ==================================================
-    def extract_from_get():
+    def fetch_lookup_table():
         r = requests.get(GET_URL, headers=headers_auth, timeout=30)
         if r.status_code != 200:
             return None, None
@@ -31,12 +32,15 @@ def employee_lookup_table_ui():
         raw = r.json()
 
         headers_meta = raw.get("headers", [])
-        headers_meta = sorted(headers_meta, key=lambda x: x.get("sequence", 999))
+        headers_meta = sorted(
+            headers_meta,
+            key=lambda x: x.get("sequence", 999)
+        )
 
-        if "content" in raw:
-            data = raw.get("content", [])
-        elif "data" in raw:
-            data = raw.get("data", [])
+        if "content" in raw and isinstance(raw["content"], list):
+            data = raw["content"]
+        elif "data" in raw and isinstance(raw["data"], list):
+            data = raw["data"]
         else:
             data = []
 
@@ -48,22 +52,50 @@ def employee_lookup_table_ui():
     st.subheader("📥 Download Upload Template")
 
     if st.button("⬇️ Download Template", use_container_width=True):
-        with st.spinner("Fetching data..."):
-            headers_meta, data = extract_from_get()
+        with st.spinner("Fetching employee lookup metadata..."):
 
+            headers_meta, data = fetch_lookup_table()
             if not headers_meta:
                 st.error("❌ Failed to fetch employee lookup metadata")
                 return
 
             columns = [h["data"] for h in headers_meta]
+            input_columns = [h["data"] for h in headers_meta if h.get("type") == "INPUT"]
 
             template_df = pd.DataFrame(columns=columns)
-            existing_df = pd.DataFrame(data)[columns] if data else pd.DataFrame(columns=columns)
+            existing_df = (
+                pd.DataFrame(data).reindex(columns=columns)
+                if data else pd.DataFrame(columns=columns)
+            )
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                template_df.to_excel(writer, index=False, sheet_name="Template")
-                existing_df.to_excel(writer, index=False, sheet_name="Existing_Data")
+                template_df.to_excel(
+                    writer,
+                    index=False,
+                    sheet_name="Template"
+                )
+                existing_df.to_excel(
+                    writer,
+                    index=False,
+                    sheet_name="Existing_Data"
+                )
+
+                # ---------- HIGHLIGHT INPUT COLUMNS ----------
+                ws = writer.book["Template"]
+
+                red_fill = PatternFill(
+                    start_color="FFC7CE",
+                    end_color="FFC7CE",
+                    fill_type="solid"
+                )
+                bold_font = Font(bold=True)
+
+                for col_idx, col_name in enumerate(columns, start=1):
+                    if col_name in input_columns:
+                        cell = ws.cell(row=1, column=col_idx)
+                        cell.fill = red_fill
+                        cell.font = bold_font
 
             st.download_button(
                 "⬇️ Download Excel",
@@ -75,7 +107,7 @@ def employee_lookup_table_ui():
     st.divider()
 
     # ==================================================
-    # UPLOAD DATA
+    # UPLOAD DATA (WITH INPUT VALIDATION)
     # ==================================================
     st.subheader("📤 Upload Employee Lookup Data")
 
@@ -86,29 +118,59 @@ def employee_lookup_table_ui():
 
     if uploaded_file:
         df_upload = pd.read_excel(uploaded_file).fillna("")
-
         st.info(f"Rows detected: {len(df_upload)}")
 
-        if st.button("🚀 Upload & Save", type="primary"):
-            with st.spinner("Uploading data..."):
+        if st.button("🚀 Validate & Upload", type="primary"):
+            with st.spinner("Validating and uploading data..."):
 
-                headers_meta, _ = extract_from_get()
-
+                headers_meta, _ = fetch_lookup_table()
                 if not headers_meta:
-                    st.error("❌ Failed to fetch headers for upload")
+                    st.error("❌ Failed to fetch headers for validation")
                     return
 
-                allowed_columns = [h["data"] for h in headers_meta]
+                input_columns = [
+                    h["data"] for h in headers_meta if h.get("type") == "INPUT"
+                ]
+                all_columns = [h["data"] for h in headers_meta]
 
-                # Build data rows
+                validation_errors = []
                 data_rows = []
-                for _, row in df_upload.iterrows():
+
+                for idx, row in df_upload.iterrows():
+                    excel_row = idx + 2
                     record = {}
-                    for col in allowed_columns:
-                        if col in df_upload.columns and str(row[col]).strip() != "":
-                            record[col] = str(row[col]).strip()
+                    row_has_error = False
+
+                    # ---------- INPUT VALIDATION ----------
+                    for col in input_columns:
+                        if col not in df_upload.columns or str(row[col]).strip() == "":
+                            validation_errors.append({
+                                "Row": excel_row,
+                                "Field": col,
+                                "Error": "INPUT field cannot be empty"
+                            })
+                            row_has_error = True
+
+                    if row_has_error:
+                        continue
+
+                    # ---------- BUILD DATA ----------
+                    for col in all_columns:
+                        if col in df_upload.columns:
+                            value = str(row[col]).strip()
+                            if value != "":
+                                record[col] = value
+
                     if record:
                         data_rows.append(record)
+
+                if validation_errors:
+                    st.error("❌ Validation failed. Fix the errors below and re-upload.")
+                    st.dataframe(
+                        pd.DataFrame(validation_errors),
+                        use_container_width=True
+                    )
+                    return
 
                 if not data_rows:
                     st.warning("No valid rows found to upload")
@@ -144,15 +206,19 @@ def employee_lookup_table_ui():
     st.subheader("⬇️ Download Existing Employee Lookup Data")
 
     if st.button("Download Existing Data", use_container_width=True):
-        with st.spinner("Downloading data..."):
-            headers_meta, data = extract_from_get()
+        with st.spinner("Downloading employee lookup data..."):
 
-            if not headers_meta or not data:
-                st.warning("No data available")
+            headers_meta, data = fetch_lookup_table()
+            if not headers_meta:
+                st.error("❌ Failed to fetch metadata")
                 return
 
             columns = [h["data"] for h in headers_meta]
-            df = pd.DataFrame(data)[columns]
+
+            df = (
+                pd.DataFrame(data).reindex(columns=columns)
+                if data else pd.DataFrame(columns=columns)
+            )
 
             st.download_button(
                 "⬇️ Download CSV",
