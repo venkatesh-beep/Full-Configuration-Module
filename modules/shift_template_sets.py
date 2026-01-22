@@ -69,11 +69,7 @@ def shift_template_sets_ui():
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                template_df.to_excel(
-                    writer,
-                    index=False,
-                    sheet_name="Template"
-                )
+                template_df.to_excel(writer, index=False, sheet_name="Template")
 
                 if not shifts_df.empty:
                     shifts_df.to_excel(
@@ -112,7 +108,7 @@ def shift_template_sets_ui():
             pd.read_csv(uploaded_file)
             if uploaded_file.name.endswith(".csv")
             else pd.read_excel(io.BytesIO(file_bytes))
-        ).fillna("")
+        )
 
         st.info(f"Rows detected: {len(df)}")
 
@@ -131,20 +127,32 @@ def shift_template_sets_ui():
                     entries = []
                     for i in range(1, 51):
                         eid = row.get(f"entryId{i}")
-                        if eid != "":
-                            entries.append({"id": int(eid)})
+
+                        # SAFETY: ignore empty / NaN / None
+                        if eid is None or pd.isna(eid) or str(eid).strip() == "":
+                            continue
+
+                        entries.append({"id": int(float(eid))})
+
+                    if not entries:
+                        raise ValueError("At least one entryId is required")
 
                     payload = {
-                        "name": row.get("name"),
-                        "description": row.get("description") or row.get("name"),
+                        "name": str(row.get("name")).strip(),
+                        "description": (
+                            str(row.get("description")).strip()
+                            if str(row.get("description")).strip()
+                            else str(row.get("name")).strip()
+                        ),
                         "entries": entries
                     }
 
-                    raw_id = str(row.get("id")).strip()
+                    # ---------------- CREATE vs UPDATE ----------------
+                    raw_id = row.get("id")
 
-                    if raw_id.isdigit():
+                    if raw_id is not None and not pd.isna(raw_id):
                         r = requests.put(
-                            f"{BASE_URL}/{int(raw_id)}",
+                            f"{BASE_URL}/{int(float(raw_id))}",
                             headers=headers,
                             json=payload
                         )
@@ -159,7 +167,7 @@ def shift_template_sets_ui():
 
                     results.append({
                         "Row": row_no + 1,
-                        "Name": row.get("name"),
+                        "Name": payload["name"],
                         "Action": action,
                         "HTTP Status": r.status_code,
                         "Status": "Success" if r.status_code in (200, 201) else "Failed",
