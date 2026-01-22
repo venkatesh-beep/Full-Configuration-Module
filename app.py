@@ -10,11 +10,12 @@ from modules.paycode_events import paycode_events_ui
 from modules.paycode_combinations import paycode_combinations_ui
 from modules.paycode_event_sets import paycode_event_sets_ui
 
-# ---- Future / Coming Soon Modules ----
 from modules.shift_templates import shift_templates_ui
 from modules.shift_template_sets import shift_template_sets_ui
 from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
+
+from modules.employee_lookup_table import employee_lookup_table_ui  # ✅ NEW
 
 from modules.accruals import accruals_ui
 from modules.accrual_policies import accrual_policies_ui
@@ -60,8 +61,7 @@ if not st.session_state.token:
     login_ui()
     st.stop()
 
-# ================= NORMALIZED HOST (SAFE) =================
-# IMPORTANT: do NOT write back to session_state.HOST
+# ================= NORMALIZED HOST =================
 BASE_HOST = st.session_state.HOST.rstrip("/")
 
 # ================= SESSION TIMER (30 MINUTES) =================
@@ -115,6 +115,9 @@ with st.sidebar:
             "Schedule Patterns",
             "Schedule Pattern Sets",
 
+            # ---- Employee ----
+            "Employee Lookup Table",   # ✅ NEW
+
             # ---- Accruals ----
             "Accruals",
             "Accrual Policies",
@@ -163,6 +166,9 @@ elif menu == "Schedule Patterns":
 
 elif menu == "Schedule Pattern Sets":
     schedule_pattern_sets_ui()
+
+elif menu == "Employee Lookup Table":        # ✅ NEW
+    employee_lookup_table_ui()
 
 elif menu == "Accruals":
     accruals_ui()
