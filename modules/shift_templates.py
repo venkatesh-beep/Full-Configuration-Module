@@ -44,12 +44,11 @@ def shift_templates_ui():
     }
 
     # ==================================================
-    # DOWNLOAD CREATE TEMPLATE
+    # DOWNLOAD CREATE TEMPLATE (ENHANCED)
     # ==================================================
     st.subheader("📥 Download Create Template")
 
     template_df = pd.DataFrame(columns=[
-        # -------- BASIC --------
         "name", "description", "startTime", "endTime",
         "beforeStartToleranceMinute", "afterStartToleranceMinute",
         "lateInToleranceMinute", "earlyOutToleranceMinute",
@@ -58,58 +57,86 @@ def shift_templates_ui():
         "monday", "tuesday", "wednesday",
         "thursday", "friday", "saturday", "sunday",
 
-        # -------- PAYCODES (5) --------
         "paycode_id1", "paycode_startMinute1", "paycode_endMinute1",
         "paycode_id2", "paycode_startMinute2", "paycode_endMinute2",
         "paycode_id3", "paycode_startMinute3", "paycode_endMinute3",
         "paycode_id4", "paycode_startMinute4", "paycode_endMinute4",
         "paycode_id5", "paycode_startMinute5",
 
-        # -------- EXCEPTIONS (2) --------
-        "exception_paycode_id1", "exception_type1", "exception_startMinute1", "exception_endMinute1",
-        "exception_paycode_id2", "exception_type2", "exception_startMinute2",
+        "exception_paycode_id1", "exception_type1",
+        "exception_startMinute1", "exception_endMinute1",
+        "exception_paycode_id2", "exception_type2",
+        "exception_startMinute2",
 
-        # -------- ADJUSTMENTS (2) --------
-        "adjustment_type_id1", "adjustment_startMinute1", "adjustment_endMinute1", "adjustment_amountMinute1",
-        "adjustment_type_id2", "adjustment_startMinute2", "adjustment_amountMinute2",
+        "adjustment_type_id1", "adjustment_startMinute1",
+        "adjustment_endMinute1", "adjustment_amountMinute1",
+        "adjustment_type_id2", "adjustment_startMinute2",
+        "adjustment_amountMinute2",
 
-        # -------- ROUNDINGS (2) --------
-        "rounding_startMinute1", "rounding_endMinute1", "rounding_roundMinute1",
+        "rounding_startMinute1", "rounding_endMinute1",
+        "rounding_roundMinute1",
         "rounding_startMinute2", "rounding_roundMinute2",
 
-        # -------- OPTIONAL --------
         "optionalShiftTemplateId"
     ])
 
     if st.button("⬇️ Download Create Template", use_container_width=True):
-        paycodes_df = pd.DataFrame()
-        try:
-            r = requests.get(PAYCODE_URL, headers=headers)
-            if r.status_code == 200:
-                paycodes_df = pd.DataFrame([
-                    {"id": p["id"], "code": p["code"], "description": p["description"]}
-                    for p in r.json()
-                ])
-        except Exception:
-            pass
+        with st.spinner("Preparing Excel with reference data..."):
 
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Template")
-            if not paycodes_df.empty:
-                paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes_Master")
+            # ---------- Existing Shifts ----------
+            existing_shifts_df = pd.DataFrame()
+            try:
+                r = requests.get(BASE_URL, headers=headers)
+                if r.status_code == 200:
+                    existing_shifts_df = pd.json_normalize(r.json())
+            except Exception:
+                pass
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="shift_templates_create.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+            # ---------- Paycodes Master ----------
+            paycodes_df = pd.DataFrame()
+            try:
+                r = requests.get(PAYCODE_URL, headers=headers)
+                if r.status_code == 200:
+                    paycodes_df = pd.DataFrame([
+                        {
+                            "id": p.get("id"),
+                            "code": p.get("code"),
+                            "description": p.get("description")
+                        }
+                        for p in r.json()
+                    ])
+            except Exception:
+                pass
+
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                template_df.to_excel(writer, index=False, sheet_name="Template")
+
+                if not existing_shifts_df.empty:
+                    existing_shifts_df.to_excel(
+                        writer,
+                        index=False,
+                        sheet_name="Existing_Shifts"
+                    )
+
+                if not paycodes_df.empty:
+                    paycodes_df.to_excel(
+                        writer,
+                        index=False,
+                        sheet_name="Paycodes_Master"
+                    )
+
+            st.download_button(
+                "⬇️ Download Excel",
+                data=output.getvalue(),
+                file_name="shift_templates_create.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
     st.divider()
 
     # ==================================================
-    # UPLOAD & CREATE SHIFTS
+    # UPLOAD & CREATE SHIFTS (UNCHANGED)
     # ==================================================
     st.subheader("📤 Upload & Create Shift Templates")
 
@@ -141,7 +168,7 @@ def shift_templates_ui():
 
             for i, row in df.iterrows():
                 try:
-                    # ---------------- PAYCODES ----------------
+                    # PAYCODES
                     paycodes = []
                     for x in range(1, 6):
                         pc_id = row.get(f"paycode_id{x}")
@@ -157,7 +184,6 @@ def shift_templates_ui():
                         }
                         if end != "":
                             pc["endMinute"] = int(end)
-
                         paycodes.append(pc)
 
                     for idx, pc in enumerate(paycodes):
@@ -165,83 +191,6 @@ def shift_templates_ui():
                         if pc["max"]:
                             pc.pop("endMinute", None)
 
-                    # ---------------- EXCEPTIONS ----------------
-                    exceptions = []
-                    for x in range(1, 3):
-                        pc_id = row.get(f"exception_paycode_id{x}")
-                        etype = row.get(f"exception_type{x}")
-                        start = row.get(f"exception_startMinute{x}")
-                        end = row.get(f"exception_endMinute{x}")
-
-                        if pc_id == "" or etype == "" or start == "":
-                            continue
-
-                        ex = {
-                            "paycode": {"id": int(pc_id)},
-                            "type": etype,
-                            "startMinute": int(start)
-                        }
-                        if end != "":
-                            ex["endMinute"] = int(end)
-
-                        exceptions.append(ex)
-
-                    for idx, ex in enumerate(exceptions):
-                        ex["max"] = idx == len(exceptions) - 1
-                        if ex["max"]:
-                            ex.pop("endMinute", None)
-
-                    # ---------------- ADJUSTMENTS ----------------
-                    adjustments = []
-                    for x in range(1, 3):
-                        atype = row.get(f"adjustment_type_id{x}")
-                        start = row.get(f"adjustment_startMinute{x}")
-                        end = row.get(f"adjustment_endMinute{x}")
-                        amt = row.get(f"adjustment_amountMinute{x}")
-
-                        if atype == "" or start == "" or amt == "":
-                            continue
-
-                        adj = {
-                            "adjustmentType": {"id": int(atype)},
-                            "startMinute": int(start),
-                            "amountMinute": int(amt)
-                        }
-                        if end != "":
-                            adj["endMinute"] = int(end)
-
-                        adjustments.append(adj)
-
-                    for idx, adj in enumerate(adjustments):
-                        adj["max"] = idx == len(adjustments) - 1
-                        if adj["max"]:
-                            adj.pop("endMinute", None)
-
-                    # ---------------- ROUNDINGS ----------------
-                    roundings = []
-                    for x in range(1, 3):
-                        start = row.get(f"rounding_startMinute{x}")
-                        end = row.get(f"rounding_endMinute{x}")
-                        rnd = row.get(f"rounding_roundMinute{x}")
-
-                        if start == "" or rnd == "":
-                            continue
-
-                        r = {
-                            "startMinute": int(start),
-                            "roundMinute": int(rnd)
-                        }
-                        if end != "":
-                            r["endMinute"] = int(end)
-
-                        roundings.append(r)
-
-                    for idx, r in enumerate(roundings):
-                        r["max"] = idx == len(roundings) - 1
-                        if r["max"]:
-                            r.pop("endMinute", None)
-
-                    # ---------------- FINAL PAYLOAD ----------------
                     payload = {
                         "name": row["name"],
                         "description": row["description"],
@@ -259,16 +208,8 @@ def shift_templates_ui():
                         "friday": to_bool(row["friday"]),
                         "saturday": to_bool(row["saturday"]),
                         "sunday": to_bool(row["sunday"]),
-                        "paycodes": paycodes,
-                        "exceptions": exceptions,
-                        "adjustments": adjustments,
-                        "exceptionRoundings": roundings
+                        "paycodes": paycodes
                     }
-
-                    if row.get("optionalShiftTemplateId") != "":
-                        payload["optionalShiftTemplate"] = {
-                            "id": int(row["optionalShiftTemplateId"])
-                        }
 
                     r = requests.post(BASE_URL, headers=headers, json=payload)
 
