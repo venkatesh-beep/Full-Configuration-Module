@@ -33,35 +33,21 @@ def shift_template_sets_ui():
     st.subheader("📥 Download Upload Template")
 
     template_df = pd.DataFrame(columns=[
-        "id",
+        "id",                    # keep for UPDATE
         "name",
         "description",
-        "entryId1",
-        "entryId2",
-        "entryId3",
-        "entryId4",
-        "entryId5",
-        "entryId6",
-        "entryId7",
-        "entryId8",
-        "entryId9",
-        "entryId10",
-        "entryId11",
-        "entryId12",
-        "entryId13",
-        "entryId14",
-        "entryId15",
-        "entryId16",
-        "entryId17",
-        "entryId18",
-        "entryId19",
-        "entryId20"
+
+        # Entry IDs (Shift Template IDs)
+        "entryId1", "entryId2", "entryId3", "entryId4", "entryId5",
+        "entryId6", "entryId7", "entryId8", "entryId9", "entryId10",
+        "entryId11", "entryId12", "entryId13", "entryId14", "entryId15",
+        "entryId16", "entryId17", "entryId18", "entryId19", "entryId20"
     ])
 
     if st.button("⬇️ Download Shift Template Set Template", use_container_width=True):
         with st.spinner("Preparing Excel..."):
 
-            # -------- Existing Shift Templates (Reference) --------
+            # -------- Existing Shift Templates (Reference Sheet) --------
             shifts_df = pd.DataFrame()
             try:
                 r = requests.get(SHIFT_TEMPLATE_URL, headers=headers)
@@ -134,12 +120,15 @@ def shift_template_sets_ui():
                 try:
                     # -------- BUILD ENTRIES --------
                     entries = []
+
                     for i in range(1, 21):
                         entry_id = row.get(f"entryId{i}")
                         if entry_id == "":
                             continue
+
                         entries.append({
-                            "id": int(entry_id)
+                            "id": int(entry_id),
+                            "overridable": False   # 🔥 REQUIRED BY BACKEND
                         })
 
                     if not entries:
@@ -216,7 +205,7 @@ def shift_template_sets_ui():
     st.divider()
 
     # ==================================================
-    # DOWNLOAD EXISTING SETS
+    # DOWNLOAD EXISTING SETS (FLATTENED)
     # ==================================================
     st.subheader("⬇️ Download Existing Shift Template Sets")
 
@@ -232,7 +221,8 @@ def shift_template_sets_ui():
                         "set_id": s.get("id"),
                         "set_name": s.get("name"),
                         "set_description": s.get("description"),
-                        "entry_id": e.get("id")
+                        "entry_id": e.get("id"),
+                        "overridable": e.get("overridable")
                     })
 
             df = pd.DataFrame(rows)
