@@ -14,12 +14,18 @@ def file_hash(file_bytes):
 # ======================================================
 # MAIN UI
 # ======================================================
-def shift_template_set_ui():
+def shift_template_sets_ui():
     st.header("🧩 Shift Template Sets")
     st.caption("Create, update, delete and download Shift Template Sets")
 
-    BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycode_event_sets"
-    SHIFT_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/shift_templates"
+    BASE_URL = (
+        st.session_state.HOST.rstrip("/")
+        + "/resource-server/api/paycode_event_sets"
+    )
+    SHIFT_URL = (
+        st.session_state.HOST.rstrip("/")
+        + "/resource-server/api/shift_templates"
+    )
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -45,7 +51,7 @@ def shift_template_set_ui():
     if st.button("⬇️ Download Shift Template Set Template", use_container_width=True):
         with st.spinner("Preparing Excel template..."):
 
-            # -------- Existing Shift Templates --------
+            # -------- Existing Shift Templates (Sheet 2) --------
             shifts_df = pd.DataFrame()
             try:
                 r = requests.get(SHIFT_URL, headers=headers)
@@ -63,9 +69,18 @@ def shift_template_set_ui():
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                template_df.to_excel(writer, index=False, sheet_name="Template")
+                template_df.to_excel(
+                    writer,
+                    index=False,
+                    sheet_name="Template"
+                )
+
                 if not shifts_df.empty:
-                    shifts_df.to_excel(writer, index=False, sheet_name="Existing_Shifts")
+                    shifts_df.to_excel(
+                        writer,
+                        index=False,
+                        sheet_name="Existing_Shifts"
+                    )
 
             st.download_button(
                 "⬇️ Download Excel",
@@ -81,7 +96,10 @@ def shift_template_set_ui():
     # ==================================================
     st.subheader("📤 Upload Shift Template Sets")
 
-    uploaded_file = st.file_uploader("Upload Excel / CSV", ["xlsx", "xls", "csv"])
+    uploaded_file = st.file_uploader(
+        "Upload Excel or CSV file",
+        ["xlsx", "xls", "csv"]
+    )
 
     if "processed_set_file_hash" not in st.session_state:
         st.session_state.processed_set_file_hash = None
