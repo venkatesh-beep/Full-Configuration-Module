@@ -3,7 +3,6 @@ import pandas as pd
 import requests
 import io
 import hashlib
-import json
 
 # ======================================================
 # FILE HASH (PREVENT REPROCESS)
@@ -156,7 +155,7 @@ def shift_template_sets_ui():
                         record_id = int(float(raw_id))
 
                         payload = {
-                            "id": record_id,              # ✅ REQUIRED FOR UPDATE
+                            "id": record_id,
                             "name": name,
                             "description": description,
                             "entries": [{"id": eid} for eid in sorted(entry_ids)]
@@ -181,10 +180,6 @@ def shift_template_sets_ui():
                             json=payload
                         )
                         action = "Create"
-
-                    # 🔍 SHOW JSON PAYLOAD
-                    with st.expander(f"📦 JSON Payload (Row {row_no + 1})"):
-                        st.code(json.dumps(payload, indent=2), language="json")
 
                     results.append({
                         "Row": row_no + 1,
