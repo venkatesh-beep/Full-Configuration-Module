@@ -3,7 +3,6 @@ import pandas as pd
 import requests
 import io
 import hashlib
-import json
 
 # ======================================================
 # SAFE BOOLEAN PARSER
@@ -36,6 +35,7 @@ def shift_templates_ui():
     st.caption("Create, update, delete and download Shift Templates")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/shift_templates"
+    PAYCODE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -44,7 +44,7 @@ def shift_templates_ui():
     }
 
     # ==================================================
-    # DOWNLOAD UPLOAD TEMPLATE
+    # DOWNLOAD UPLOAD TEMPLATE (3 SHEETS)
     # ==================================================
     st.subheader("📥 Download Upload Template")
 
@@ -66,7 +66,6 @@ def shift_templates_ui():
         "saturday",
         "sunday",
 
-        # Paycodes (max 10 slots)
         "paycode_id1", "paycode_startMinute1", "paycode_endMinute1",
         "paycode_id2", "paycode_startMinute2", "paycode_endMinute2",
         "paycode_id3", "paycode_startMinute3", "paycode_endMinute3",
@@ -75,16 +74,50 @@ def shift_templates_ui():
     ])
 
     if st.button("⬇️ Download Shift Template Upload File", use_container_width=True):
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="ShiftTemplates")
+        with st.spinner("Preparing Excel file..."):
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="shift_templates_upload_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+            # -------- Existing Shifts --------
+            shifts_df = pd.DataFrame()
+            try:
+                r = requests.get(BASE_URL, headers=headers)
+                if r.status_code == 200:
+                    shifts_df = pd.json_normalize(r.json())
+            except Exception:
+                pass
+
+            # -------- Paycodes Master --------
+            paycodes_df = pd.DataFrame()
+            try:
+                r = requests.get(PAYCODE_URL, headers=headers)
+                if r.status_code == 200:
+                    paycodes_df = pd.DataFrame([
+                        {
+                            "id": pc.get("id"),
+                            "code": pc.get("code"),
+                            "description": pc.get("description")
+                        }
+                        for pc in r.json()
+                    ])
+            except Exception:
+                pass
+
+            # -------- Write Excel --------
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                template_df.to_excel(writer, index=False, sheet_name="Template")
+
+                if not shifts_df.empty:
+                    shifts_df.to_excel(writer, index=False, sheet_name="Existing_Shifts")
+
+                if not paycodes_df.empty:
+                    paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes_Master")
+
+            st.download_button(
+                "⬇️ Download Excel",
+                data=output.getvalue(),
+                file_name="shift_templates_upload_template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
     st.divider()
 
@@ -109,8 +142,7 @@ def shift_templates_ui():
             pd.read_csv(uploaded_file)
             if uploaded_file.name.endswith(".csv")
             else pd.read_excel(io.BytesIO(file_bytes))
-        )
-        df = df.fillna("")
+        ).fillna("")
 
         st.info(f"Rows detected: {len(df)}")
 
@@ -121,14 +153,10 @@ def shift_templates_ui():
                 return
 
             st.session_state.processed_shift_file_hash = current_hash
-
             results = []
 
             for row_no, row in df.iterrows():
                 try:
-                    # -------------------------
-                    # PAYCODES (DYNAMIC)
-                    # -------------------------
                     paycodes = []
 
                     for i in range(1, 6):
@@ -152,7 +180,6 @@ def shift_templates_ui():
                     if not paycodes:
                         raise ValueError("At least one paycode is required")
 
-                    # enforce max=true on last paycode
                     for idx, pc in enumerate(paycodes):
                         pc["max"] = idx == len(paycodes) - 1
                         if pc["max"]:
@@ -163,12 +190,9 @@ def shift_templates_ui():
                         "description": row.get("description"),
                         "startTime": row.get("startTime"),
                         "endTime": row.get("endTime"),
-
                         "beforeStartToleranceMinute": int(row.get("beforeStartToleranceMinute")),
                         "afterStartToleranceMinute": int(row.get("afterStartToleranceMinute")),
-
                         "report": to_bool(row.get("report")),
-
                         "monday": to_bool(row.get("monday")),
                         "tuesday": to_bool(row.get("tuesday")),
                         "wednesday": to_bool(row.get("wednesday")),
@@ -176,25 +200,16 @@ def shift_templates_ui():
                         "friday": to_bool(row.get("friday")),
                         "saturday": to_bool(row.get("saturday")),
                         "sunday": to_bool(row.get("sunday")),
-
                         "paycodes": paycodes
                     }
 
                     raw_id = str(row.get("id")).strip()
 
                     if raw_id.isdigit():
-                        r = requests.put(
-                            f"{BASE_URL}/{int(raw_id)}",
-                            headers=headers,
-                            json=payload
-                        )
+                        r = requests.put(f"{BASE_URL}/{int(raw_id)}", headers=headers, json=payload)
                         action = "Update"
                     else:
-                        r = requests.post(
-                            BASE_URL,
-                            headers=headers,
-                            json=payload
-                        )
+                        r = requests.post(BASE_URL, headers=headers, json=payload)
                         action = "Create"
 
                     results.append({
