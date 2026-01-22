@@ -28,11 +28,11 @@ def file_hash(file_bytes):
 
 
 # ======================================================
-# MAIN UI (CREATE ONLY)
+# MAIN UI
 # ======================================================
 def shift_templates_ui():
     st.header("🕒 Shift Templates")
-    st.caption("Create Shift Templates (Create only – no update)")
+    st.caption("Create, delete and download Shift Templates")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/shift_templates"
     PAYCODE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
@@ -50,39 +50,34 @@ def shift_templates_ui():
 
     template_df = pd.DataFrame(columns=[
         # -------- BASIC --------
-        "name",
-        "description",
-        "startTime",
-        "endTime",
-        "beforeStartToleranceMinute",
-        "afterStartToleranceMinute",
-        "lateInToleranceMinute",
-        "earlyOutToleranceMinute",
+        "name", "description", "startTime", "endTime",
+        "beforeStartToleranceMinute", "afterStartToleranceMinute",
+        "lateInToleranceMinute", "earlyOutToleranceMinute",
         "report",
 
         "monday", "tuesday", "wednesday",
         "thursday", "friday", "saturday", "sunday",
 
-        # -------- PAYCODES (5 slots) --------
+        # -------- PAYCODES (5) --------
         "paycode_id1", "paycode_startMinute1", "paycode_endMinute1",
         "paycode_id2", "paycode_startMinute2", "paycode_endMinute2",
         "paycode_id3", "paycode_startMinute3", "paycode_endMinute3",
         "paycode_id4", "paycode_startMinute4", "paycode_endMinute4",
         "paycode_id5", "paycode_startMinute5",
 
-        # -------- EXCEPTIONS (2 slots) --------
+        # -------- EXCEPTIONS (2) --------
         "exception_paycode_id1", "exception_type1", "exception_startMinute1", "exception_endMinute1",
         "exception_paycode_id2", "exception_type2", "exception_startMinute2",
 
-        # -------- ADJUSTMENTS (2 slots) --------
+        # -------- ADJUSTMENTS (2) --------
         "adjustment_type_id1", "adjustment_startMinute1", "adjustment_endMinute1", "adjustment_amountMinute1",
         "adjustment_type_id2", "adjustment_startMinute2", "adjustment_amountMinute2",
 
-        # -------- ROUNDINGS (2 slots) --------
+        # -------- ROUNDINGS (2) --------
         "rounding_startMinute1", "rounding_endMinute1", "rounding_roundMinute1",
         "rounding_startMinute2", "rounding_roundMinute2",
 
-        # -------- OPTIONAL SHIFT --------
+        # -------- OPTIONAL --------
         "optionalShiftTemplateId"
     ])
 
@@ -114,7 +109,7 @@ def shift_templates_ui():
     st.divider()
 
     # ==================================================
-    # UPLOAD & CREATE SHIFT TEMPLATES
+    # UPLOAD & CREATE SHIFTS
     # ==================================================
     st.subheader("📤 Upload & Create Shift Templates")
 
@@ -138,7 +133,7 @@ def shift_templates_ui():
         if st.button("🚀 Create Shifts", type="primary"):
 
             if st.session_state.processed_shift_hash == current_hash:
-                st.warning("⚠ File already processed")
+                st.warning("⚠ This file was already processed")
                 return
 
             st.session_state.processed_shift_hash = current_hash
@@ -295,3 +290,44 @@ def shift_templates_ui():
                     })
 
             st.dataframe(pd.DataFrame(results), use_container_width=True)
+
+    st.divider()
+
+    # ==================================================
+    # DELETE SHIFT TEMPLATES (UNCHANGED)
+    # ==================================================
+    st.subheader("🗑️ Delete Shift Templates")
+
+    ids_input = st.text_input(
+        "Enter Shift Template IDs (comma-separated)",
+        placeholder="Example: 165,166,167"
+    )
+
+    if st.button("Delete Shift Templates"):
+        ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
+        for sid in ids:
+            r = requests.delete(f"{BASE_URL}/{sid}", headers=headers)
+            if r.status_code in (200, 204):
+                st.success(f"Deleted Shift Template ID {sid}")
+            else:
+                st.error(f"Failed to delete {sid} → {r.text}")
+
+    st.divider()
+
+    # ==================================================
+    # DOWNLOAD EXISTING SHIFT TEMPLATES (UNCHANGED)
+    # ==================================================
+    st.subheader("⬇️ Download Existing Shift Templates")
+
+    if st.button("Download Existing Shift Templates", use_container_width=True):
+        r = requests.get(BASE_URL, headers=headers)
+        if r.status_code != 200:
+            st.error("❌ Failed to fetch shift templates")
+        else:
+            df = pd.json_normalize(r.json())
+            st.download_button(
+                "⬇️ Download CSV",
+                data=df.to_csv(index=False),
+                file_name="shift_templates_export.csv",
+                mime="text/csv"
+            )
