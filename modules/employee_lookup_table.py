@@ -21,6 +21,51 @@ def employee_lookup_table_ui():
     }
 
     # ==================================================
+    # HELPER: EXTRACT DATA + ORDER COLUMNS
+    # ==================================================
+    def extract_and_order(raw):
+        # -------- Extract rows --------
+        if isinstance(raw, list):
+            data = raw
+            ordered_cols = None
+        elif isinstance(raw, dict):
+            if "content" in raw:
+                data = raw.get("content", [])
+            elif "data" in raw:
+                data = raw.get("data", [])
+            else:
+                data = []
+
+            # -------- Column order from headers --------
+            headers_meta = raw.get("headers", [])
+            headers_meta = sorted(
+                headers_meta,
+                key=lambda x: x.get("sequence", 999)
+            )
+
+            ordered_cols = [
+                h.get("data")
+                for h in headers_meta
+                if h.get("data")
+            ]
+        else:
+            data = []
+            ordered_cols = None
+
+        if not data:
+            return None, None
+
+        df = pd.json_normalize(data)
+
+        # -------- Apply column order --------
+        if ordered_cols:
+            existing_cols = [c for c in ordered_cols if c in df.columns]
+            remaining_cols = [c for c in df.columns if c not in existing_cols]
+            df = df[existing_cols + remaining_cols]
+
+        return df, ordered_cols
+
+    # ==================================================
     # DOWNLOAD TEMPLATE
     # ==================================================
     st.subheader("📥 Download Upload Template")
@@ -32,37 +77,33 @@ def employee_lookup_table_ui():
 
             if r.status_code != 200:
                 st.error("❌ Failed to fetch employee lookup data")
-                st.code(f"{r.status_code}\n{r.text}")
                 return
 
             raw = r.json()
+            df, ordered_cols = extract_and_order(raw)
 
-            # ---- SAFE EXTRACTION ----
-            if isinstance(raw, list):
-                data = raw
-            elif isinstance(raw, dict):
-                if "content" in raw and isinstance(raw["content"], list):
-                    data = raw["content"]
-                elif "data" in raw and isinstance(raw["data"], list):
-                    data = raw["data"]
-                else:
-                    data = []
-            else:
-                data = []
-
-            if not data:
+            if df is None:
                 st.warning("No data available in employee lookup table")
                 return
 
-            df = pd.json_normalize(data)
-
+            # Sheet 1: headers only
             template_df = pd.DataFrame(columns=df.columns)
+
+            # Sheet 2: existing data
             existing_df = df.copy()
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                template_df.to_excel(writer, index=False, sheet_name="Template")
-                existing_df.to_excel(writer, index=False, sheet_name="Existing_Data")
+                template_df.to_excel(
+                    writer,
+                    index=False,
+                    sheet_name="Template"
+                )
+                existing_df.to_excel(
+                    writer,
+                    index=False,
+                    sheet_name="Existing_Data"
+                )
 
             st.download_button(
                 "⬇️ Download Excel",
@@ -85,29 +126,14 @@ def employee_lookup_table_ui():
 
             if r.status_code != 200:
                 st.error("❌ Failed to fetch employee lookup data")
-                st.code(f"{r.status_code}\n{r.text}")
                 return
 
             raw = r.json()
+            df, _ = extract_and_order(raw)
 
-            # ---- SAFE EXTRACTION ----
-            if isinstance(raw, list):
-                data = raw
-            elif isinstance(raw, dict):
-                if "content" in raw and isinstance(raw["content"], list):
-                    data = raw["content"]
-                elif "data" in raw and isinstance(raw["data"], list):
-                    data = raw["data"]
-                else:
-                    data = []
-            else:
-                data = []
-
-            if not data:
+            if df is None:
                 st.warning("No data available to download")
                 return
-
-            df = pd.json_normalize(data)
 
             st.download_button(
                 "⬇️ Download CSV",
