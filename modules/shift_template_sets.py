@@ -149,33 +149,42 @@ def shift_template_sets_ui():
                     if not entry_ids:
                         raise ValueError("At least one entryId is required")
 
-                    payload = {
-                        "name": name,
-                        "description": description,
-                        "entries": [{"id": eid} for eid in sorted(entry_ids)]
-                    }
-
-                    # 🔍 SHOW JSON
-                    with st.expander(f"📦 JSON Payload (Row {row_no + 1})"):
-                        st.code(json.dumps(payload, indent=2), language="json")
-
-                    # ---------------- CREATE / UPDATE ----------------
+                    # ---------------- CREATE vs UPDATE ----------------
                     raw_id = row.get("id")
 
                     if raw_id is not None and not pd.isna(raw_id):
+                        record_id = int(float(raw_id))
+
+                        payload = {
+                            "id": record_id,              # ✅ REQUIRED FOR UPDATE
+                            "name": name,
+                            "description": description,
+                            "entries": [{"id": eid} for eid in sorted(entry_ids)]
+                        }
+
                         r = requests.put(
-                            f"{BASE_URL}/{int(float(raw_id))}",
+                            f"{BASE_URL}/{record_id}",
                             headers=headers,
                             json=payload
                         )
                         action = "Update"
                     else:
+                        payload = {
+                            "name": name,
+                            "description": description,
+                            "entries": [{"id": eid} for eid in sorted(entry_ids)]
+                        }
+
                         r = requests.post(
                             BASE_URL,
                             headers=headers,
                             json=payload
                         )
                         action = "Create"
+
+                    # 🔍 SHOW JSON PAYLOAD
+                    with st.expander(f"📦 JSON Payload (Row {row_no + 1})"):
+                        st.code(json.dumps(payload, indent=2), language="json")
 
                     results.append({
                         "Row": row_no + 1,
