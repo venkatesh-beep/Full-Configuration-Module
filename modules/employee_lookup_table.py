@@ -10,9 +10,10 @@ def employee_lookup_table_ui():
     st.header("👤 Employee Lookup Table")
     st.caption("Download template and existing employee lookup data")
 
+    # 🔑 USE SAME HOST AS LOGIN (VERY IMPORTANT)
     API_URL = (
-        "https://saas-beeforce-uat.beeforce.in:7501"
-        "/resource-server/api/employee_lookup_table"
+        st.session_state.HOST.rstrip("/")
+        + "/resource-server/api/employee_lookup_table"
     )
 
     headers = {
@@ -28,10 +29,15 @@ def employee_lookup_table_ui():
     if st.button("⬇️ Download Template", use_container_width=True):
         with st.spinner("Fetching employee lookup data..."):
 
-            r = requests.get(API_URL, headers=headers)
+            try:
+                r = requests.get(API_URL, headers=headers, timeout=30)
+            except Exception as e:
+                st.error(f"❌ Request failed: {e}")
+                return
 
             if r.status_code != 200:
                 st.error("❌ Failed to fetch employee lookup data")
+                st.code(f"Status Code: {r.status_code}\nResponse: {r.text}")
                 return
 
             data = r.json()
@@ -40,7 +46,7 @@ def employee_lookup_table_ui():
                 st.warning("No data available in employee lookup table")
                 return
 
-            # Normalize data
+            # Normalize data (data fields only)
             df = pd.json_normalize(data)
 
             # -------- Sheet 1: Template (headers only) --------
@@ -78,10 +84,15 @@ def employee_lookup_table_ui():
 
     if st.button("Download Existing Data", use_container_width=True):
         with st.spinner("Downloading data..."):
-            r = requests.get(API_URL, headers=headers)
+            try:
+                r = requests.get(API_URL, headers=headers, timeout=30)
+            except Exception as e:
+                st.error(f"❌ Request failed: {e}")
+                return
 
             if r.status_code != 200:
                 st.error("❌ Failed to fetch employee lookup data")
+                st.code(f"Status Code: {r.status_code}\nResponse: {r.text}")
                 return
 
             data = r.json()
