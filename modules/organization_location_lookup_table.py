@@ -7,8 +7,8 @@ from openpyxl.styles import PatternFill, Font
 # ======================================================
 # MAIN UI
 # ======================================================
-def organization_location_lookup_table.ui():
-    st.header(" ✱ Organization Location Lookup Table")
+def organization_location_lookup_table_ui():
+    st.header("🏢 Organization Location Lookup Table")
     st.caption("Download, upload and manage Organization Location Lookup Table")
 
     BASE_URL = st.session_state.HOST.rstrip("/")
@@ -31,9 +31,8 @@ def organization_location_lookup_table.ui():
 
         raw = r.json()
 
-        headers_meta = raw.get("headers", [])
         headers_meta = sorted(
-            headers_meta,
+            raw.get("headers", []),
             key=lambda x: x.get("sequence", 999)
         )
 
@@ -52,11 +51,11 @@ def organization_location_lookup_table.ui():
     st.subheader("📥 Download Upload Template")
 
     if st.button("⬇️ Download Template", use_container_width=True):
-        with st.spinner("Fetching employee lookup metadata..."):
+        with st.spinner("Fetching lookup metadata..."):
 
             headers_meta, data = fetch_lookup_table()
             if not headers_meta:
-                st.error("❌ Failed to fetch employee lookup metadata")
+                st.error("❌ Failed to fetch lookup metadata")
                 return
 
             columns = [h["data"] for h in headers_meta]
@@ -100,7 +99,7 @@ def organization_location_lookup_table.ui():
             st.download_button(
                 "⬇️ Download Excel",
                 data=output.getvalue(),
-                file_name="organization_location_lookup_table.xlsx",
+                file_name="organization_location_lookup_template.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
@@ -109,7 +108,7 @@ def organization_location_lookup_table.ui():
     # ==================================================
     # UPLOAD DATA (WITH INPUT VALIDATION)
     # ==================================================
-    st.subheader("📤 Upload Organization Location Tookup Table")
+    st.subheader("📤 Upload Organization Location Lookup Table")
 
     uploaded_file = st.file_uploader(
         "Upload Excel file filled using the template",
@@ -206,7 +205,7 @@ def organization_location_lookup_table.ui():
     st.subheader("⬇️ Download Existing Organization Location Lookup Data")
 
     if st.button("Download Existing Data", use_container_width=True):
-        with st.spinner("Downloading Organization Location Lookup Data..."):
+        with st.spinner("Downloading data..."):
 
             headers_meta, data = fetch_lookup_table()
             if not headers_meta:
@@ -223,6 +222,6 @@ def organization_location_lookup_table.ui():
             st.download_button(
                 "⬇️ Download CSV",
                 data=df.to_csv(index=False),
-                file_name="employee_lookup_data.csv",
+                file_name="organization_location_lookup_data.csv",
                 mime="text/csv"
             )
