@@ -16,7 +16,7 @@ from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
 
 from modules.employee_lookup_table import employee_lookup_table_ui  # ✅ NEW
-from modules.employee_lookup_table import organization_location_lookup_table.ui  # ✅ NEW
+from modules.organization_location_lookup_table import organization_location_lookup_table.ui  # ✅ NEW
 
 from modules.accruals import accruals_ui
 from modules.accrual_policies import accrual_policies_ui
