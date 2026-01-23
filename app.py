@@ -172,8 +172,8 @@ elif menu == "Schedule Pattern Sets":
 elif menu == "Employee Lookup Table":        # ✅ NEW
     employee_lookup_table_ui()
     
-elif menu == "Employee Lookup Table":        # ✅ NEW
-    organization_location_lookup_table.ui()
+elif menu == "Organization Location Lookup Table":        # ✅ NEW
+    organization_location_lookup_table_ui()
 
 elif menu == "Accruals":
     accruals_ui()
