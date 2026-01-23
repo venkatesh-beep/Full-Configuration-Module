@@ -9,7 +9,7 @@ from openpyxl.styles import PatternFill, Font
 # ======================================================
 def employee_lookup_table_ui():
     st.header("👤 Employee Lookup Table")
-    st.caption("Download, upload and manage employee lookup table")
+    st.caption("Download and upload Employee Lookup Table")
 
     BASE_URL = st.session_state.HOST.rstrip("/")
     GET_URL = BASE_URL + "/resource-server/api/employee_lookup_table"
@@ -31,9 +31,8 @@ def employee_lookup_table_ui():
 
         raw = r.json()
 
-        headers_meta = raw.get("headers", [])
         headers_meta = sorted(
-            headers_meta,
+            raw.get("headers", []),
             key=lambda x: x.get("sequence", 999)
         )
 
@@ -47,42 +46,36 @@ def employee_lookup_table_ui():
         return headers_meta, data
 
     # ==================================================
-    # DOWNLOAD TEMPLATE
+    # DOWNLOAD EXISTING DATA (AUTO DOWNLOAD)
     # ==================================================
-    st.subheader("📥 Download Upload Template")
+    st.subheader("⬇️ Download Existing Data")
 
-    if st.button("⬇️ Download Template", use_container_width=True):
-        with st.spinner("Fetching employee lookup metadata..."):
+    if st.button("⬇️ Download Existing Employee Lookup Data", use_container_width=True):
+        with st.spinner("Preparing download..."):
 
             headers_meta, data = fetch_lookup_table()
             if not headers_meta:
-                st.error("❌ Failed to fetch employee lookup metadata")
+                st.error("❌ Failed to fetch employee lookup data")
                 return
 
             columns = [h["data"] for h in headers_meta]
             input_columns = [h["data"] for h in headers_meta if h.get("type") == "INPUT"]
 
-            template_df = pd.DataFrame(columns=columns)
-            existing_df = (
+            df = (
                 pd.DataFrame(data).reindex(columns=columns)
                 if data else pd.DataFrame(columns=columns)
             )
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                template_df.to_excel(
-                    writer,
-                    index=False,
-                    sheet_name="Template"
-                )
-                existing_df.to_excel(
+                df.to_excel(
                     writer,
                     index=False,
                     sheet_name="Existing_Data"
                 )
 
                 # ---------- HIGHLIGHT INPUT COLUMNS ----------
-                ws = writer.book["Template"]
+                ws = writer.book["Existing_Data"]
 
                 red_fill = PatternFill(
                     start_color="FFC7CE",
@@ -98,21 +91,22 @@ def employee_lookup_table_ui():
                         cell.font = bold_font
 
             st.download_button(
-                "⬇️ Download Excel",
+                label="⬇️ Download",
                 data=output.getvalue(),
-                file_name="employee_lookup_template.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                file_name="employee_lookup_data.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
             )
 
     st.divider()
 
     # ==================================================
-    # UPLOAD DATA (WITH INPUT VALIDATION)
+    # UPLOAD DATA (UNCHANGED LOGIC)
     # ==================================================
     st.subheader("📤 Upload Employee Lookup Data")
 
     uploaded_file = st.file_uploader(
-        "Upload Excel file filled using the template",
+        "Upload Excel file (same format as downloaded)",
         ["xlsx", "xls"]
     )
 
@@ -193,36 +187,7 @@ def employee_lookup_table_ui():
                 )
 
                 if r.status_code in (200, 201):
-                    st.success("✅ Employee lookup table updated successfully")
+                    st.success("✅ Employee Lookup Table updated successfully")
                 else:
                     st.error("❌ Upload failed")
                     st.code(f"{r.status_code}\n{r.text}")
-
-    st.divider()
-
-    # ==================================================
-    # DOWNLOAD EXISTING DATA
-    # ==================================================
-    st.subheader("⬇️ Download Existing Employee Lookup Data")
-
-    if st.button("Download Existing Data", use_container_width=True):
-        with st.spinner("Downloading employee lookup data..."):
-
-            headers_meta, data = fetch_lookup_table()
-            if not headers_meta:
-                st.error("❌ Failed to fetch metadata")
-                return
-
-            columns = [h["data"] for h in headers_meta]
-
-            df = (
-                pd.DataFrame(data).reindex(columns=columns)
-                if data else pd.DataFrame(columns=columns)
-            )
-
-            st.download_button(
-                "⬇️ Download CSV",
-                data=df.to_csv(index=False),
-                file_name="employee_lookup_data.csv",
-                mime="text/csv"
-            )
