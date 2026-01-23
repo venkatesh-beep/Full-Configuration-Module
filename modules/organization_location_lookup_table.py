@@ -178,7 +178,7 @@ def organization_location_lookup_table_ui():
                 payload = {
                     "action": "SAVE",
                     "table": {
-                        "entityType": "EMPLOYEE",
+                        "entityType": "ORGANIZATION_LOCATION",
                         "headers": headers_meta,
                         "data": data_rows
                     }
