@@ -4,7 +4,7 @@ import time
 # ================= IMPORT MODULE UIs =================
 from services.auth import login_ui
 
-# ---- Existing Modules ----
+# ---- Core Modules ----
 from modules.paycodes import paycodes_ui
 from modules.paycode_events import paycode_events_ui
 from modules.paycode_combinations import paycode_combinations_ui
@@ -15,16 +15,29 @@ from modules.shift_template_sets import shift_template_sets_ui
 from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
 
-from modules.employee_lookup_table import employee_lookup_table_ui  # ✅ NEW
-from modules.organization_location_lookup_table import organization_location_lookup_table_ui  # ✅ NEW
+# ---- Lookup Tables (SAFE IMPORTS) ----
+try:
+    from modules.employee_lookup_table import employee_lookup_table_ui
+except Exception as e:
+    employee_lookup_table_ui = None
+    EMP_LOOKUP_ERROR = str(e)
 
+try:
+    from modules.organization_location_lookup_table import organization_location_lookup_table_ui
+except Exception as e:
+    organization_location_lookup_table_ui = None
+    ORG_LOC_LOOKUP_ERROR = str(e)
+
+# ---- Accruals ----
 from modules.accruals import accruals_ui
 from modules.accrual_policies import accrual_policies_ui
 from modules.accrual_policy_sets import accrual_policy_sets_ui
 
+# ---- Timeoff ----
 from modules.timeoff_policies import timeoff_policies_ui
 from modules.timeoff_policy_sets import timeoff_policy_sets_ui
 
+# ---- Regularization & Others ----
 from modules.regularization_policies import regularization_policies_ui
 from modules.regularization_policy_sets import regularization_policy_sets_ui
 
@@ -67,7 +80,6 @@ BASE_HOST = st.session_state.HOST.rstrip("/")
 
 # ================= SESSION TIMER (30 MINUTES) =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
-
 issued_at = st.session_state.get("token_issued_at")
 
 if issued_at:
@@ -79,12 +91,9 @@ if issued_at:
         st.session_state.clear()
         st.rerun()
 
-    minutes = remaining // 60
-    seconds = remaining % 60
-
     with st.sidebar:
         st.markdown("### ⏳ Session Timer")
-        st.info(f"Expires in **{minutes:02d}:{seconds:02d}**")
+        st.info(f"Expires in **{remaining // 60:02d}:{remaining % 60:02d}**")
 
         if remaining <= 300:
             st.warning("⚠️ Session expiring soon")
@@ -104,32 +113,26 @@ with st.sidebar:
     menu = st.radio(
         "📂 Configuration Modules",
         [
-            # ---- Paycode Core ----
             "Paycodes",
             "Paycode Events",
             "Paycode Combinations",
             "Paycode Event Sets",
 
-            # ---- Shift & Schedule ----
             "Shift Templates",
             "Shift Template Sets",
             "Schedule Patterns",
             "Schedule Pattern Sets",
 
-            # ---- Employee ----
-            "Employee Lookup Table",   # ✅ NEW
-            "Organization Location Lookup Table",   # ✅ NEW
+            "Employee Lookup Table",
+            "Organization Location Lookup Table",
 
-            # ---- Accruals ----
             "Accruals",
             "Accrual Policies",
             "Accrual Policy Sets",
 
-            # ---- Timeoff ----
             "Timeoff Policies",
             "Timeoff Policy Sets",
 
-            # ---- Regularization & Others ----
             "Regularization Policies",
             "Regularization Policy Sets",
             "Roles",
@@ -169,11 +172,19 @@ elif menu == "Schedule Patterns":
 elif menu == "Schedule Pattern Sets":
     schedule_pattern_sets_ui()
 
-elif menu == "Employee Lookup Table":        # ✅ NEW
-    employee_lookup_table_ui()
-    
-elif menu == "Organization Location Lookup Table":        # ✅ NEW
-    organization_location_lookup_table_ui()
+elif menu == "Employee Lookup Table":
+    if employee_lookup_table_ui:
+        employee_lookup_table_ui()
+    else:
+        st.error("❌ Failed to load Employee Lookup Table module")
+        st.code(EMP_LOOKUP_ERROR)
+
+elif menu == "Organization Location Lookup Table":
+    if organization_location_lookup_table_ui:
+        organization_location_lookup_table_ui()
+    else:
+        st.error("❌ Failed to load Organization Location Lookup Table module")
+        st.code(ORG_LOC_LOOKUP_ERROR)
 
 elif menu == "Accruals":
     accruals_ui()
