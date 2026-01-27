@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
-from io import BytesIO
 
 
 def punch_ui():
@@ -41,13 +40,13 @@ def punch_ui():
                 return
 
             try:
-                # Always force seconds to :00
+                # Always enforce seconds as :00
                 punch_datetime = datetime.strptime(
                     f"{punch_date} {punch_time}:00",
                     "%Y-%m-%d %H:%M:%S"
                 ).strftime("%Y-%m-%d %H:%M:%S")
             except ValueError:
-                st.error("Invalid time format. Use HH:MM only")
+                st.error("Invalid time format. Please use HH:MM")
                 return
 
             payload = {
@@ -94,30 +93,8 @@ def punch_ui():
         - seconds will be auto-set to `00`
         """)
 
-        # ---------------- TEMPLATE DOWNLOAD ----------------
-        template_df = pd.DataFrame({
-            "externalNumber": ["WFHHH3"],
-            "date": ["2026-01-19"],
-            "time": ["18:10"]
-        })
-
-        buffer = BytesIO()
-        template_df.to_excel(buffer, index=False)
-        buffer.seek(0)
-
-        st.download_button(
-            "⬇ Download Excel Template",
-            data=buffer,
-            file_name="punch_bulk_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-
-        st.divider()
-
-        # ---------------- FILE UPLOAD ----------------
         file = st.file_uploader(
-            "Upload Filled Excel File",
+            "Upload Excel File",
             type=["xlsx"]
         )
 
@@ -138,7 +115,7 @@ def punch_ui():
 
                 for _, row in df.iterrows():
                     try:
-                        # Always enforce seconds = 00
+                        # Force seconds to :00
                         punch_datetime = f"{row['date']} {row['time']}:00"
 
                         payload = {
@@ -183,15 +160,13 @@ def punch_ui():
 
                 total = success + failed
 
-                # ---------------- SUMMARY METRICS ----------------
+                # ---------------- SUMMARY ----------------
                 st.markdown("### 📊 Upload Summary")
-
                 c1, c2, c3 = st.columns(3)
                 c1.metric("📄 Total Records", total)
                 c2.metric("✅ Uploaded", success)
                 c3.metric("❌ Failed", failed)
 
                 st.divider()
-
                 st.markdown("### 🧾 Upload Results")
                 st.dataframe(pd.DataFrame(results), use_container_width=True)
