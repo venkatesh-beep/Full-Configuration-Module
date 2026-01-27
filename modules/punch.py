@@ -2,13 +2,13 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
+from io import BytesIO
 
 def punch_ui():
     st.header("🕒 Punch Update")
 
     BASE_HOST = st.session_state.HOST.rstrip("/")
     API_URL = f"{BASE_HOST}/resource-server/api/punches/action/"
-
     token = st.session_state.token
 
     tab1, tab2 = st.tabs(["➕ Single Punch", "📤 Bulk Punch Upload"])
@@ -19,18 +19,34 @@ def punch_ui():
     with tab1:
         st.subheader("Single Punch Update")
 
-        external_number = st.text_input("External Number")
-        punch_date = st.date_input("Punch Date")
-        punch_time = st.time_input("Punch Time")
+        col1, col2 = st.columns(2)
+        with col1:
+            external_number = st.text_input("External Number")
+            punch_date = st.date_input("Punch Date")
+
+        with col2:
+            punch_time_text = st.text_input(
+                "Punch Time (HH:MM or HH:MM:SS)",
+                placeholder="12:22 or 18:10:30"
+            )
 
         if st.button("Submit Punch"):
-            if not external_number:
-                st.error("External Number is mandatory")
+            if not external_number or not punch_time_text:
+                st.error("External Number and Time are mandatory")
                 return
 
-            punch_datetime = datetime.combine(
-                punch_date, punch_time
-            ).strftime("%Y-%m-%d %H:%M:%S")
+            # Normalize time
+            if len(punch_time_text) == 5:  # HH:MM
+                punch_time_text += ":00"
+
+            try:
+                punch_datetime = datetime.strptime(
+                    f"{punch_date} {punch_time_text}",
+                    "%Y-%m-%d %H:%M:%S"
+                ).strftime("%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                st.error("Invalid time format. Use HH:MM or HH:MM:SS")
+                return
 
             payload = {
                 "action": "ADD_NO_TYPE",
@@ -55,7 +71,7 @@ def punch_ui():
             )
 
             if response.status_code == 200:
-                st.success("✅ Punch updated successfully")
+                st.success(f"✅ Punch updated at {punch_datetime}")
             else:
                 st.error(f"❌ Failed ({response.status_code})")
                 st.json(response.text)
@@ -67,15 +83,35 @@ def punch_ui():
         st.subheader("Bulk Punch Upload")
 
         st.markdown("""
-        **Excel format required**
+        **Excel format**
         ```
         externalNumber | date | time
         ```
         - date → YYYY-MM-DD  
-        - time → HH:MM:SS
+        - time → HH:MM or HH:MM:SS
         """)
 
-        file = st.file_uploader("Upload Excel File", type=["xlsx"])
+        # ---------- TEMPLATE DOWNLOAD ----------
+        template_df = pd.DataFrame({
+            "externalNumber": ["WFHHH3"],
+            "date": ["2026-01-19"],
+            "time": ["18:10"]
+        })
+
+        buffer = BytesIO()
+        template_df.to_excel(buffer, index=False)
+        buffer.seek(0)
+
+        st.download_button(
+            label="⬇ Download Excel Template",
+            data=buffer,
+            file_name="punch_bulk_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        st.divider()
+
+        file = st.file_uploader("Upload Filled Excel File", type=["xlsx"])
 
         if file:
             df = pd.read_excel(file)
@@ -92,7 +128,11 @@ def punch_ui():
 
                 for _, row in df.iterrows():
                     try:
-                        punch_datetime = f"{row['date']} {row['time']}"
+                        time_val = str(row["time"])
+                        if len(time_val) == 5:
+                            time_val += ":00"
+
+                        punch_datetime = f"{row['date']} {time_val}"
 
                         payload = {
                             "action": "ADD_NO_TYPE",
