@@ -8,14 +8,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ================= LIGHT UI + FIX TOP BAR =================
+# ================= FULL UI FIX CSS =================
 st.markdown("""
 <style>
 
-/* ===== REMOVE TOP EMPTY BAR ===== */
-.block-container {
-    padding-top: 1rem !important;
-}
+/* ===== REMOVE STREAMLIT TOP BAR COMPLETELY ===== */
+header { display: none; }
+.block-container { padding-top: 0rem !important; }
+[data-testid="stAppViewContainer"] { padding-top: 0rem !important; }
 
 /* ================= GLOBAL ================= */
 html, body, [class*="css"] {
@@ -92,10 +92,11 @@ input {
 if "token" not in st.session_state:
     st.session_state.token = None
 
+# 🔥 DO NOT RESET USERNAME IF IT EXISTS
 if "username" not in st.session_state:
-    st.session_state.username = ""
+    st.session_state.username = None
 
-# ✅ ALWAYS INIT HOST (CRITICAL)
+# 🔥 ALWAYS INIT HOST
 if "HOST" not in st.session_state:
     st.session_state.HOST = "https://saas-beeforce.labour.tech/"
 
@@ -134,18 +135,14 @@ from modules.punch import punch_ui
 
 # ================= SIDEBAR =================
 with st.sidebar:
-    st.markdown(
-        '<div class="sidebar-title">⚙️ Configuration Portal</div>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<div class="sidebar-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
 
-    # ✅ NEVER SHOW NONE
-    display_user = st.session_state.username or "Logged User"
-
-    st.markdown(
-        f'<div class="user-badge">👤 {display_user}</div>',
-        unsafe_allow_html=True
-    )
+    # ✅ SHOW REAL USERNAME ONLY
+    if st.session_state.username:
+        st.markdown(
+            f'<div class="user-badge">👤 {st.session_state.username}</div>',
+            unsafe_allow_html=True
+        )
 
     st.markdown("---")
 
