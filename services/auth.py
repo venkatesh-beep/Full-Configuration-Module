@@ -13,61 +13,40 @@ if not CLIENT_AUTH:
 DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
 
 # ======================================================
-# LOGIN UI (UI IMPROVED – LOGIC SAME)
+# LOGIN UI (PROPER STREAMLIT WAY)
 # ======================================================
 def login_ui():
 
-    # ---------- PAGE BACKGROUND ----------
+    # ---------- PAGE STYLE ----------
     st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
         background: linear-gradient(135deg, #EEF2FF, #F8FAFF);
-        height: 100%;
     }
 
-    /* Center container */
-    .login-container {
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    /* Login card */
     .login-card {
-        width: 420px;
         background: white;
-        padding: 36px;
-        border-radius: 20px;
-        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.12);
+        padding: 32px;
+        border-radius: 18px;
         border: 1px solid #E5E7EB;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.10);
     }
 
-    /* Title */
     .login-title {
-        font-size: 28px;
+        font-size: 26px;
         font-weight: 800;
         color: #1E3A8A;
         text-align: center;
         margin-bottom: 6px;
     }
 
-    /* Subtitle */
     .login-subtitle {
         font-size: 14px;
         color: #64748B;
         text-align: center;
-        margin-bottom: 28px;
+        margin-bottom: 24px;
     }
 
-    /* Inputs */
-    input {
-        border-radius: 10px !important;
-        padding: 10px !important;
-        font-size: 14px !important;
-    }
-
-    /* Login button */
     .stButton > button {
         background: linear-gradient(135deg, #4F46E5, #6366F1);
         color: white;
@@ -81,64 +60,71 @@ def login_ui():
         background: linear-gradient(135deg, #4338CA, #4F46E5);
     }
 
+    input {
+        border-radius: 10px !important;
+        font-size: 14px !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    # ---------- LOGIN CARD ----------
-    st.markdown("""
-    <div class="login-container">
-        <div class="login-card">
-            <div class="login-title">⚙️ Configuration Portal</div>
-            <div class="login-subtitle">
-                Secure access to enterprise configuration
-            </div>
-    """, unsafe_allow_html=True)
+    # ---------- CENTERED LAYOUT ----------
+    left, center, right = st.columns([1.2, 1, 1.2])
 
-    # ---------- FORM ----------
-    st.text_input(
-        "Base Host URL",
-        DEFAULT_HOST,
-        key="HOST",
-        help="Example: https://saas-beeforce.labour.tech/"
-    )
+    with center:
+        with st.container():
+            st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
-    username = st.text_input(
-        "Username",
-        placeholder="Enter your username"
-    )
+            st.markdown(
+                '<div class="login-title">⚙️ Configuration Portal</div>',
+                unsafe_allow_html=True
+            )
+            st.markdown(
+                '<div class="login-subtitle">Secure enterprise configuration access</div>',
+                unsafe_allow_html=True
+            )
 
-    password = st.text_input(
-        "Password",
-        type="password",
-        placeholder="Enter your password"
-    )
+            # ---------- LOGIN FORM ----------
+            with st.form("login_form", clear_on_submit=False):
+                st.text_input(
+                    "Base Host URL",
+                    DEFAULT_HOST,
+                    key="HOST"
+                )
 
-    # ---------- LOGIN ACTION ----------
-    if st.button("Login", use_container_width=True):
-        r = requests.post(
-            st.session_state.HOST.rstrip("/") + "/authorization-server/oauth/token",
-            data={
-                "username": username,
-                "password": password,
-                "grant_type": "password"
-            },
-            headers={
-                "Authorization": CLIENT_AUTH,
-                "Content-Type": "application/x-www-form-urlencoded"
-            }
-        )
+                username = st.text_input(
+                    "Username",
+                    placeholder="Enter your username"
+                )
 
-        if r.status_code != 200:
-            st.error("❌ Invalid username or password")
-        else:
-            st.session_state.token = r.json()["access_token"]
-            st.session_state.token_issued_at = time.time()
-            st.session_state.username = username  # ✅ STORED CORRECTLY
-            st.success("✅ Login successful")
-            st.rerun()
+                password = st.text_input(
+                    "Password",
+                    type="password",
+                    placeholder="Enter your password"
+                )
 
-    # ---------- CLOSE CARD ----------
-    st.markdown("""
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+                submit = st.form_submit_button("Login", use_container_width=True)
+
+                if submit:
+                    r = requests.post(
+                        st.session_state.HOST.rstrip("/") + "/authorization-server/oauth/token",
+                        data={
+                            "username": username,
+                            "password": password,
+                            "grant_type": "password"
+                        },
+                        headers={
+                            "Authorization": CLIENT_AUTH,
+                            "Content-Type": "application/x-www-form-urlencoded"
+                        }
+                    )
+
+                    if r.status_code != 200:
+                        st.error("❌ Invalid username or password")
+                    else:
+                        st.session_state.token = r.json()["access_token"]
+                        st.session_state.token_issued_at = time.time()
+                        st.session_state.username = username
+                        st.success("✅ Login successful")
+                        st.rerun()
+
+            st.markdown('</div>', unsafe_allow_html=True)
