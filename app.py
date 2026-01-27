@@ -83,12 +83,16 @@ input {
 </style>
 """, unsafe_allow_html=True)
 
-# ================= SESSION STATE =================
+# ================= SESSION STATE INIT =================
 if "token" not in st.session_state:
     st.session_state.token = None
 
 if "username" not in st.session_state:
     st.session_state.username = None
+
+# ✅ CRITICAL FIX — HOST MUST ALWAYS EXIST
+if "HOST" not in st.session_state:
+    st.session_state.HOST = "https://saas-beeforce.labour.tech/"
 
 if "menu" not in st.session_state:
     st.session_state.menu = "Paycodes"
@@ -126,6 +130,7 @@ from modules.punch import punch_ui
 # ================= SIDEBAR =================
 with st.sidebar:
     st.markdown('<div class="sidebar-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
+
     st.markdown(
         f'<div class="user-badge">👤 {st.session_state.username}</div>',
         unsafe_allow_html=True
@@ -162,6 +167,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
+
     if st.button("Logout"):
         st.session_state.clear()
         st.rerun()
@@ -194,4 +200,5 @@ ROUTES = {
 }
 
 ROUTES[menu]()
+
 st.markdown("</div>", unsafe_allow_html=True)
