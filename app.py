@@ -1,6 +1,5 @@
 import streamlit as st
 import time
-from streamlit_option_menu import option_menu  # For better menu styling
 
 # ================= IMPORT MODULE UIs =================
 from services.auth import login_ui
@@ -109,6 +108,11 @@ st.markdown("""
         background-color: #fff3e0;
         border-left: 5px solid #ff9800;
     }
+    .menu-category {
+        font-weight: bold;
+        color: #4CAF50;
+        margin-top: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -157,8 +161,10 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Grouped menu using option_menu for better UX
-    menu_options = {
+    # Grouped menu using selectboxes for hierarchical navigation
+    st.markdown('<div class="menu-category">📂 Configuration Modules</div>', unsafe_allow_html=True)
+    
+    menu_categories = {
         "Paycodes & Events": ["Paycodes", "Paycode Events", "Paycode Combinations", "Paycode Event Sets"],
         "Shifts & Schedules": ["Shift Templates", "Shift Template Sets", "Schedule Patterns", "Schedule Pattern Sets"],
         "Lookup Tables": ["Employee Lookup Table", "Organization Location Lookup Table"],
@@ -168,23 +174,18 @@ with st.sidebar:
         "Updates": ["Timecard Updation", "Punch Update"]
     }
     
-    selected_category = option_menu(
-        "📂 Configuration Modules",
-        list(menu_options.keys()),
-        icons=["cash", "calendar", "table", "piggy-bank", "clock", "shield", "sync"],
-        menu_icon="list",
-        default_index=0,
-        orientation="vertical"
+    selected_category = st.selectbox(
+        "Select Category",
+        list(menu_categories.keys()),
+        help="Choose a category to view available modules"
     )
     
-    # Sub-menu for selected category
     if selected_category:
-        sub_menu = st.selectbox(
+        menu = st.selectbox(
             f"Select {selected_category} Module",
-            menu_options[selected_category],
-            key="sub_menu"
+            menu_categories[selected_category],
+            help="Choose a specific module to configure"
         )
-        menu = sub_menu
     
     st.markdown("---")
     
