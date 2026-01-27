@@ -4,7 +4,6 @@ import time
 # ================= IMPORT MODULE UIs =================
 from services.auth import login_ui
 
-# ---- Core Modules ----
 from modules.paycodes import paycodes_ui
 from modules.paycode_events import paycode_events_ui
 from modules.paycode_combinations import paycode_combinations_ui
@@ -16,29 +15,13 @@ from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
 from modules.punch import punch_ui
 
-# ---- Lookup Tables ----
-try:
-    from modules.employee_lookup_table import employee_lookup_table_ui
-except Exception as e:
-    employee_lookup_table_ui = None
-    EMP_LOOKUP_ERROR = str(e)
-
-try:
-    from modules.organization_location_lookup_table import organization_location_lookup_table_ui
-except Exception as e:
-    organization_location_lookup_table_ui = None
-    ORG_LOC_LOOKUP_ERROR = str(e)
-
-# ---- Accruals ----
 from modules.accruals import accruals_ui
 from modules.accrual_policies import accrual_policies_ui
 from modules.accrual_policy_sets import accrual_policy_sets_ui
 
-# ---- Timeoff ----
 from modules.timeoff_policies import timeoff_policies_ui
 from modules.timeoff_policy_sets import timeoff_policy_sets_ui
 
-# ---- Regularization & Others ----
 from modules.regularization_policies import regularization_policies_ui
 from modules.regularization_policy_sets import regularization_policy_sets_ui
 
@@ -46,234 +29,150 @@ from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
 
-
 # ================= PAGE CONFIG =================
 st.set_page_config(
-    page_title="⚙️ Configuration Portal",
+    page_title="Configuration Portal",
     page_icon="⚙️",
     layout="wide",
 )
 
-# ================= SESSION STATE INIT =================
-if "token" not in st.session_state:
-    st.session_state.token = None
-if "HOST" not in st.session_state:
-    st.session_state.HOST = "https://saas-beeforce.labour.tech/"
-if "token_issued_at" not in st.session_state:
-    st.session_state.token_issued_at = None
+# ================= SESSION =================
+st.session_state.setdefault("token", None)
+st.session_state.setdefault("HOST", "https://saas-beeforce.labour.tech/")
+st.session_state.setdefault("active_module", None)
 
-# ================= CUSTOM PREMIUM CSS =================
+# ================= PREMIUM CSS =================
 st.markdown("""
-    <style>
-        /* ==== GENERAL PAGE STYLE ==== */
-        body {
-            background-color: #f8f9fb;
-        }
-        .main-header {
-            font-size: 2.6em;
-            font-weight: 800;
-            color: #2E8B57;
-            text-align: center;
-            margin-top: 20px;
-            margin-bottom: 10px;
-        }
-        .caption-text {
-            text-align: center;
-            font-size: 1.1em;
-            color: #6c757d;
-            margin-bottom: 40px;
-        }
-        .sidebar .sidebar-content {
-            background-color: #f0f2f6;
-            border-right: 1px solid #e1e1e1;
-        }
-        .stButton>button {
-            background: linear-gradient(135deg, #4CAF50, #2E8B57);
-            color: white;
-            font-weight: 600;
-            border-radius: 8px;
-            border: none;
-            padding: 0.6em 1.5em;
-            transition: all 0.3s ease;
-            width: 100%;
-        }
-        .stButton>button:hover {
-            background: linear-gradient(135deg, #45a049, #238A4C);
-            transform: translateY(-2px);
-        }
-        .menu-category {
-            font-weight: bold;
-            color: #2E8B57;
-            margin-top: 20px;
-            font-size: 1rem;
-        }
-        .stSelectbox label {
-            font-weight: 600 !important;
-            color: #444 !important;
-        }
-        .module-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            justify-content: left;
-            margin-top: 15px;
-        }
-        .module-card {
-            background: #ffffff;
-            border: 1px solid #e1e1e1;
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-            width: 210px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .module-card:hover {
-            background: #e8f5ee;
-            border-color: #4CAF50;
-            transform: translateY(-4px);
-        }
-        .module-card h4 {
-            font-size: 1em;
-            color: #2E8B57;
-            margin-bottom: 0.3em;
-        }
-        .error-box {
-            background-color: #ffebee;
-            border-left: 5px solid #f44336;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 8px;
-        }
-        hr {
-            border: 1px solid #eaeaea;
-            margin: 30px 0;
-        }
-        footer {
-            text-align: center;
-            color: #777;
-            font-size: 0.9em;
-            margin-top: 40px;
-            padding-bottom: 20px;
-        }
-    </style>
+<style>
+body {
+    background-color: #F6F8FC;
+}
+.main-title {
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #111827;
+}
+.subtitle {
+    color: #6B7280;
+    font-size: 1.05rem;
+    margin-bottom: 2rem;
+}
+.sidebar-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+.card {
+    background: #FFFFFF;
+    border-radius: 14px;
+    padding: 20px;
+    border: 1px solid #E5E7EB;
+    transition: all 0.25s ease;
+    height: 100%;
+}
+.card:hover {
+    transform: translateY(-6px);
+    border-color: #4F46E5;
+    box-shadow: 0 12px 24px rgba(79,70,229,0.12);
+}
+.card h4 {
+    color: #111827;
+    font-size: 1.05rem;
+    margin-bottom: 6px;
+}
+.card p {
+    font-size: 0.9rem;
+    color: #6B7280;
+}
+.stButton > button {
+    background-color: #4F46E5;
+    color: white;
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.55rem 1rem;
+}
+.stButton > button:hover {
+    background-color: #4338CA;
+}
+hr {
+    margin: 2.5rem 0;
+}
+</style>
 """, unsafe_allow_html=True)
 
-
-# ================= HEADER =================
-st.markdown('<div class="main-header">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
-st.markdown('<div class="caption-text">Centralized control for Paycodes, Schedules, Accruals, and Policies.</div>', unsafe_allow_html=True)
-
-# ================= LOGIN FLOW =================
+# ================= LOGIN =================
 if not st.session_state.token:
     login_ui()
     st.stop()
 
-# ================= NORMALIZED HOST =================
-BASE_HOST = st.session_state.HOST.rstrip("/")
+# ================= HEADER =================
+st.markdown('<div class="main-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="subtitle">Enterprise-grade control for shifts, paycodes, policies & workforce rules.</div>',
+    unsafe_allow_html=True
+)
 
 # ================= SIDEBAR =================
 with st.sidebar:
-    st.markdown("### 🔧 Settings Menu")
-    # Only show the host field before login
-    if not st.session_state.token:
-        st.text_input(
-            "Base Host URL",
-            key="HOST",
-            help="Example: https://saas-beeforce.labour.tech/",
-        )
+    st.markdown("### 🧭 Navigation")
 
-    st.markdown("#### 📂 Configuration Categories")
-
-    # Fewer clicks — direct submenu grid
-    menu_categories = {
-        "Paycodes & Events": ["Paycodes", "Paycode Events", "Paycode Combinations", "Paycode Event Sets"],
-        "Shifts & Schedules": ["Shift Templates", "Shift Template Sets", "Schedule Patterns", "Schedule Pattern Sets"],
-        "Lookup Tables": ["Employee Lookup Table", "Organization Location Lookup Table"],
+    menu = {
+        "Paycodes": ["Paycodes", "Paycode Events", "Paycode Combinations", "Paycode Event Sets"],
+        "Shifts": ["Shift Templates", "Shift Template Sets"],
+        "Schedules": ["Schedule Patterns", "Schedule Pattern Sets"],
         "Accruals": ["Accruals", "Accrual Policies", "Accrual Policy Sets"],
         "Timeoff": ["Timeoff Policies", "Timeoff Policy Sets"],
-        "Policies & Roles": ["Regularization Policies", "Regularization Policy Sets", "Roles", "Overtime Policies"],
-        "Updates": ["Timecard Updation", "Punch Update"]
+        "Policies": ["Regularization Policies", "Regularization Policy Sets", "Overtime Policies"],
+        "Admin": ["Roles", "Timecard Updation", "Punch Update"]
     }
 
-    selected_category = st.selectbox(
-        "Select Category",
-        list(menu_categories.keys()),
-        help="Choose a category to view available modules."
-    )
+    category = st.radio("Category", menu.keys())
 
     st.markdown("---")
     if st.button("🚪 Logout"):
         st.session_state.clear()
         st.rerun()
 
+# ================= MODULE GRID =================
+st.subheader(f"{category}")
 
-# ================= MAIN CONTENT AREA =================
-if selected_category:
-    st.subheader(f"📁 {selected_category}")
+cols = st.columns(3)
+for idx, module in enumerate(menu[category]):
+    with cols[idx % 3]:
+        with st.container():
+            st.markdown(f"""
+            <div class="card">
+                <h4>{module}</h4>
+                <p>Manage {module.lower()} configuration</p>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("Open", key=module):
+                st.session_state.active_module = module
 
-    modules = menu_categories[selected_category]
+# ================= MODULE RENDER =================
+if st.session_state.active_module:
+    st.markdown("---")
+    st.subheader(f"🧩 {st.session_state.active_module}")
 
-    # Create beautiful module cards
-    st.markdown('<div class="module-grid">', unsafe_allow_html=True)
-    cols = st.columns(3)
-    for i, module_name in enumerate(modules):
-        if cols[i % 3].button(module_name, key=f"mod_{module_name}"):
-            st.session_state["active_module"] = module_name
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ================= RENDER SELECTED MODULE =================
-if "active_module" in st.session_state:
-    selected_module = st.session_state["active_module"]
-    st.markdown(f"---\n### 🧩 {selected_module}\n")
-    with st.spinner("Loading module..."):
-        if selected_module == "Paycodes":
-            paycodes_ui()
-        elif selected_module == "Paycode Events":
-            paycode_events_ui()
-        elif selected_module == "Paycode Combinations":
-            paycode_combinations_ui()
-        elif selected_module == "Paycode Event Sets":
-            paycode_event_sets_ui()
-        elif selected_module == "Shift Templates":
-            shift_templates_ui()
-        elif selected_module == "Shift Template Sets":
-            shift_template_sets_ui()
-        elif selected_module == "Schedule Patterns":
-            schedule_patterns_ui()
-        elif selected_module == "Schedule Pattern Sets":
-            schedule_pattern_sets_ui()
-        elif selected_module == "Employee Lookup Table":
-            if employee_lookup_table_ui:
-                employee_lookup_table_ui()
-            else:
-                st.markdown('<div class="error-box">❌ Failed to load Employee Lookup Table</div>', unsafe_allow_html=True)
-        elif selected_module == "Organization Location Lookup Table":
-            if organization_location_lookup_table_ui:
-                organization_location_lookup_table_ui()
-            else:
-                st.markdown('<div class="error-box">❌ Failed to load Organization Lookup Table</div>', unsafe_allow_html=True)
-        elif selected_module == "Accruals":
-            accruals_ui()
-        elif selected_module == "Accrual Policies":
-            accrual_policies_ui()
-        elif selected_module == "Accrual Policy Sets":
-            accrual_policy_sets_ui()
-        elif selected_module == "Timeoff Policies":
-            timeoff_policies_ui()
-        elif selected_module == "Timeoff Policy Sets":
-            timeoff_policy_sets_ui()
-        elif selected_module == "Regularization Policies":
-            regularization_policies_ui()
-        elif selected_module == "Regularization Policy Sets":
-            regularization_policy_sets_ui()
-        elif selected_module == "Roles":
-            roles_ui()
-        elif selected_module == "Overtime Policies":
-            overtime_policies_ui()
-        elif selected_module == "Timecard Updation":
-            timecard_updation_ui()
-        elif selected_module == "Punch Update":
-            punch_ui()
-
+    with st.spinner("Loading module…"):
+        {
+            "Paycodes": paycodes_ui,
+            "Paycode Events": paycode_events_ui,
+            "Paycode Combinations": paycode_combinations_ui,
+            "Paycode Event Sets": paycode_event_sets_ui,
+            "Shift Templates": shift_templates_ui,
+            "Shift Template Sets": shift_template_sets_ui,
+            "Schedule Patterns": schedule_patterns_ui,
+            "Schedule Pattern Sets": schedule_pattern_sets_ui,
+            "Accruals": accruals_ui,
+            "Accrual Policies": accrual_policies_ui,
+            "Accrual Policy Sets": accrual_policy_sets_ui,
+            "Timeoff Policies": timeoff_policies_ui,
+            "Timeoff Policy Sets": timeoff_policy_sets_ui,
+            "Regularization Policies": regularization_policies_ui,
+            "Regularization Policy Sets": regularization_policy_sets_ui,
+            "Overtime Policies": overtime_policies_ui,
+            "Roles": roles_ui,
+            "Timecard Updation": timecard_updation_ui,
+            "Punch Update": punch_ui,
+        }[st.session_state.active_module]()
