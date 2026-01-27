@@ -1,5 +1,4 @@
 import streamlit as st
-import time
 
 # ================= IMPORT MODULE UIs =================
 from services.auth import login_ui
@@ -13,7 +12,6 @@ from modules.shift_templates import shift_templates_ui
 from modules.shift_template_sets import shift_template_sets_ui
 from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
-from modules.punch import punch_ui
 
 from modules.accruals import accruals_ui
 from modules.accrual_policies import accrual_policies_ui
@@ -28,6 +26,7 @@ from modules.regularization_policy_sets import regularization_policy_sets_ui
 from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
+from modules.punch import punch_ui
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -36,10 +35,27 @@ st.set_page_config(
     layout="wide",
 )
 
-# ================= SESSION =================
+# ================= SESSION STATE =================
 st.session_state.setdefault("token", None)
 st.session_state.setdefault("HOST", "https://saas-beeforce.labour.tech/")
 st.session_state.setdefault("active_module", None)
+st.session_state.setdefault("sidebar_collapsed", False)
+st.session_state.setdefault("user_name", "Admin")
+
+# ================= LOGIN =================
+if not st.session_state.token:
+    login_ui()
+    st.stop()
+
+# ================= HIDE SIDEBAR WHEN MODULE OPEN =================
+if st.session_state.sidebar_collapsed:
+    st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
 # ================= PREMIUM CSS =================
 st.markdown("""
@@ -48,27 +64,22 @@ body {
     background-color: #F6F8FC;
 }
 .main-title {
-    font-size: 2.4rem;
+    font-size: 2.3rem;
     font-weight: 700;
     color: #111827;
 }
 .subtitle {
     color: #6B7280;
     font-size: 1.05rem;
-    margin-bottom: 2rem;
-}
-.sidebar-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: 1.8rem;
 }
 .card {
     background: #FFFFFF;
     border-radius: 14px;
-    padding: 20px;
+    padding: 22px;
     border: 1px solid #E5E7EB;
     transition: all 0.25s ease;
-    height: 100%;
+    cursor: pointer;
 }
 .card:hover {
     transform: translateY(-6px);
@@ -84,78 +95,122 @@ body {
     font-size: 0.9rem;
     color: #6B7280;
 }
-.stButton > button {
-    background-color: #4F46E5;
-    color: white;
-    border-radius: 10px;
+.back-btn button {
+    background-color: transparent;
+    border: none;
+    color: #4F46E5;
     font-weight: 600;
-    padding: 0.55rem 1rem;
 }
-.stButton > button:hover {
-    background-color: #4338CA;
-}
-hr {
-    margin: 2.5rem 0;
+.back-btn button:hover {
+    text-decoration: underline;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ================= LOGIN =================
-if not st.session_state.token:
-    login_ui()
-    st.stop()
-
 # ================= HEADER =================
-st.markdown('<div class="main-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="subtitle">Enterprise-grade control for shifts, paycodes, policies & workforce rules.</div>',
-    unsafe_allow_html=True
-)
+col1, col2 = st.columns([6, 2])
+
+with col1:
+    st.markdown('<div class="main-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="subtitle">Enterprise-grade control for shifts, paycodes, policies & workforce rules.</div>',
+        unsafe_allow_html=True
+    )
+
+with col2:
+    st.markdown(
+        f"""
+        <div style="text-align:right; padding-top:14px; font-weight:600; color:#374151;">
+            👤 {st.session_state.user_name}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ================= SIDEBAR =================
-with st.sidebar:
-    st.markdown("### 🧭 Navigation")
+if not st.session_state.sidebar_collapsed:
+    with st.sidebar:
+        st.markdown("### 🧭 Navigation")
 
-    menu = {
-        "Paycodes": ["Paycodes", "Paycode Events", "Paycode Combinations", "Paycode Event Sets"],
-        "Shifts": ["Shift Templates", "Shift Template Sets"],
-        "Schedules": ["Schedule Patterns", "Schedule Pattern Sets"],
-        "Accruals": ["Accruals", "Accrual Policies", "Accrual Policy Sets"],
-        "Timeoff": ["Timeoff Policies", "Timeoff Policy Sets"],
-        "Policies": ["Regularization Policies", "Regularization Policy Sets", "Overtime Policies"],
-        "Admin": ["Roles", "Timecard Updation", "Punch Update"]
-    }
+        menu = {
+            "Admin": [
+                "Roles",
+                "Timecard Updation",
+                "Punch Update"
+            ],
+            "Paycodes": [
+                "Paycodes",
+                "Paycode Events",
+                "Paycode Combinations",
+                "Paycode Event Sets"
+            ],
+            "Shifts & Schedules": [
+                "Shift Templates",
+                "Shift Template Sets",
+                "Schedule Patterns",
+                "Schedule Pattern Sets"
+            ],
+            "Accruals": [
+                "Accruals",
+                "Accrual Policies",
+                "Accrual Policy Sets"
+            ],
+            "Timeoff": [
+                "Timeoff Policies",
+                "Timeoff Policy Sets"
+            ],
+            "Policies": [
+                "Regularization Policies",
+                "Regularization Policy Sets",
+                "Overtime Policies"
+            ]
+        }
 
-    category = st.radio("Category", menu.keys())
+        category = st.radio("Category", menu.keys())
 
-    st.markdown("---")
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
+        st.markdown("---")
+        if st.button("🚪 Logout"):
+            st.session_state.clear()
+            st.rerun()
 
-# ================= MODULE GRID =================
-st.subheader(f"{category}")
+# ================= TILE GRID (ONLY WHEN NO MODULE OPEN) =================
+if not st.session_state.active_module:
+    st.subheader(category)
 
-cols = st.columns(3)
-for idx, module in enumerate(menu[category]):
-    with cols[idx % 3]:
-        with st.container():
-            st.markdown(f"""
-            <div class="card">
-                <h4>{module}</h4>
-                <p>Manage {module.lower()} configuration</p>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("Open", key=module):
+    cols = st.columns(3)
+    for idx, module in enumerate(menu[category]):
+        with cols[idx % 3]:
+            st.markdown(
+                f"""
+                <div class="card">
+                    <h4>{module}</h4>
+                    <p>Manage {module.lower()} configuration</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            if st.button(" ", key=f"tile_{module}"):
                 st.session_state.active_module = module
+                st.session_state.sidebar_collapsed = True
+                st.rerun()
 
-# ================= MODULE RENDER =================
+# ================= MODULE VIEW (CLEAN SCREEN) =================
 if st.session_state.active_module:
     st.markdown("---")
-    st.subheader(f"🧩 {st.session_state.active_module}")
+
+    if st.button("← Back to Configuration", key="back", help="Return to module selection"):
+        st.session_state.active_module = None
+        st.session_state.sidebar_collapsed = False
+        st.rerun()
+
+    st.subheader(st.session_state.active_module)
 
     with st.spinner("Loading module…"):
         {
+            "Roles": roles_ui,
+            "Timecard Updation": timecard_updation_ui,
+            "Punch Update": punch_ui,
             "Paycodes": paycodes_ui,
             "Paycode Events": paycode_events_ui,
             "Paycode Combinations": paycode_combinations_ui,
@@ -172,7 +227,4 @@ if st.session_state.active_module:
             "Regularization Policies": regularization_policies_ui,
             "Regularization Policy Sets": regularization_policy_sets_ui,
             "Overtime Policies": overtime_policies_ui,
-            "Roles": roles_ui,
-            "Timecard Updation": timecard_updation_ui,
-            "Punch Update": punch_ui,
         }[st.session_state.active_module]()
