@@ -8,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ================= BEAUTIFUL CLEAN UI CSS =================
+# ================= CLEAN UI CSS =================
 st.markdown("""
 <style>
 
@@ -51,28 +51,13 @@ section[data-testid="stSidebar"] {
     margin-bottom: 14px;
 }
 
-/* Sidebar radio items */
-div[role="radiogroup"] > label {
-    background: #F8FAFC;
-    padding: 10px 14px;
-    border-radius: 10px;
-    margin-bottom: 6px;
-    border: 1px solid #E2E8F0;
-    transition: all 0.2s ease;
-}
-
-div[role="radiogroup"] > label:hover {
-    background: #EEF2FF;
-    border-color: #C7D2FE;
-}
-
 /* ================= MAIN MODULE CONTAINER ================= */
 .module-card {
     background: #FFFFFF;
     padding: 28px;
     border-radius: 18px;
-    border: none;                /* ✅ BORDER REMOVED */
-    box-shadow: none !important; /* ✅ NO SHADOW */
+    border: none;                /* no border */
+    box-shadow: none !important; /* no shadow */
 }
 
 /* ================= HEADINGS ================= */
@@ -157,6 +142,7 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # ✅ DEFAULT STREAMLIT RADIO (LIKE YOUR SCREENSHOT)
     menu = st.radio(
         "Modules",
         [
