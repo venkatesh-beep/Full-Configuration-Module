@@ -1,39 +1,39 @@
 import streamlit as st
-import requests
-import time   # 🔥 REQUIRED for timer
-
-CLIENT_AUTH = st.secrets["CLIENT_AUTH"]
-DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
 
 def login_ui():
-    st.subheader("🔐 Login")
+    st.markdown("""
+    <style>
+    .login-card {
+        max-width: 380px;
+        margin: 100px auto;
+        background: white;
+        padding: 30px;
+        border-radius: 14px;
+        border: 1px solid #E5E7EB;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+    .login-title {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    st.text_input("Base Host URL", DEFAULT_HOST, key="HOST")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    st.markdown('<div class="login-card">', unsafe_allow_html=True)
+    st.markdown('<div class="login-title">🔐 Login</div>', unsafe_allow_html=True)
 
-    if st.button("Login"):
-        r = requests.post(
-            st.session_state.HOST.rstrip("/") + "/authorization-server/oauth/token",
-            data={
-                "username": username,
-                "password": password,
-                "grant_type": "password"
-            },
-            headers={
-                "Authorization": CLIENT_AUTH,
-                "Content-Type": "application/x-www-form-urlencoded"
-            }
-        )
+    username = st.text_input("Username", placeholder="Enter username")
+    password = st.text_input("Password", type="password", placeholder="Enter password")
 
-        if r.status_code != 200:
-            st.error("❌ Invalid credentials")
-        else:
-            # ===============================
-            # STORE TOKEN + START TIMER
-            # ===============================
-            st.session_state.token = r.json()["access_token"]
-            st.session_state.token_issued_at = time.time()  # ⏱️ START 30-MIN TIMER
-
-            st.success("✅ Login successful")
+    if st.button("Sign In", use_container_width=True):
+        if username and password:
+            # 🔐 Replace with real authentication
+            st.session_state.token = "dummy-token"
+            st.session_state.username = username   # ✅ STORE USERNAME
             st.rerun()
+        else:
+            st.error("Please enter username and password")
+
+    st.markdown("</div>", unsafe_allow_html=True)
