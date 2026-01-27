@@ -8,58 +8,108 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ================= CLEAN UI CSS =================
+# ================= BEAUTIFUL CLEAN UI CSS =================
 st.markdown("""
 <style>
 
-/* Remove default top padding */
-.block-container {
-    padding-top: 1rem;
-}
-
-/* Global */
+/* ================= ROOT ================= */
 html, body, [class*="css"] {
     font-family: 'Inter', 'Segoe UI', sans-serif;
-    background-color: #F8FAFF;
+    background-color: #F3F6FD;
+    color: #0F172A;
 }
 
-/* Sidebar */
+/* ================= PAGE LAYOUT ================= */
+.block-container {
+    padding-top: 1.2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+/* ================= SIDEBAR ================= */
 section[data-testid="stSidebar"] {
     background-color: #FFFFFF;
-    border-right: 1px solid #E5E7EB;
+    border-right: 1px solid #E2E8F0;
 }
 
 /* Sidebar title */
 .sidebar-title {
     font-size: 22px;
     font-weight: 700;
-    color: #1E3A8A;
-    margin-bottom: 8px;
+    color: #4338CA;
+    margin-bottom: 10px;
 }
 
-/* Username */
+/* User badge */
 .user-badge {
     background: #EEF2FF;
-    color: #1E40AF;
-    padding: 8px 12px;
-    border-radius: 10px;
+    color: #3730A3;
+    padding: 10px 14px;
+    border-radius: 12px;
     font-size: 13px;
     font-weight: 600;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 
-/* Module container */
+/* Sidebar radio items */
+div[role="radiogroup"] > label {
+    background: #F8FAFC;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    border: 1px solid #E2E8F0;
+    transition: all 0.2s ease;
+}
+
+div[role="radiogroup"] > label:hover {
+    background: #EEF2FF;
+    border-color: #C7D2FE;
+}
+
+/* ================= MAIN MODULE CARD ================= */
 .module-card {
-    background: white;
-    padding: 24px;
+    background: #FFFFFF;           /* Pure white */
+    padding: 28px;
     border-radius: 18px;
     border: 1px solid #E5E7EB;
+    box-shadow: none !important;   /* ZERO SHADOW */
+}
+
+/* ================= HEADINGS ================= */
+h1, h2, h3 {
+    color: #1E293B;
+    font-weight: 700;
+}
+
+/* ================= BUTTONS ================= */
+.stButton > button {
+    background: #6366F1;
+    color: white;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-weight: 600;
+    border: none;
+}
+
+.stButton > button:hover {
+    background: #4F46E5;
+}
+
+/* ================= INPUTS ================= */
+input, textarea, select {
+    border-radius: 10px !important;
+    border: 1px solid #CBD5E1 !important;
+}
+
+/* ================= ALERTS ================= */
+.stAlert {
+    border-radius: 12px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ================= SESSION STATE (DO NOT OVERWRITE) =================
+# ================= SESSION STATE =================
 if "token" not in st.session_state:
     st.session_state.token = None
 
@@ -100,7 +150,6 @@ from modules.punch import punch_ui
 with st.sidebar:
     st.markdown('<div class="sidebar-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
 
-    # ✅ USERNAME IS NOW GUARANTEED
     st.markdown(
         f'<div class="user-badge">👤 {st.session_state.username}</div>',
         unsafe_allow_html=True
@@ -136,6 +185,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
+
     if st.button("Logout"):
         st.session_state.clear()
         st.rerun()
@@ -168,4 +218,5 @@ ROUTES = {
 }
 
 ROUTES[menu]()
+
 st.markdown("</div>", unsafe_allow_html=True)
