@@ -1,221 +1,197 @@
 import streamlit as st
-import time
+import pandas as pd
+import requests
+from datetime import datetime
+from io import BytesIO
 
-# ================= IMPORT MODULE UIs =================
-from services.auth import login_ui
 
-# ---- Core Modules ----
-from modules.paycodes import paycodes_ui
-from modules.paycode_events import paycode_events_ui
-from modules.paycode_combinations import paycode_combinations_ui
-from modules.paycode_event_sets import paycode_event_sets_ui
+def punch_ui():
+    st.header("🕒 Punch Update")
+    st.caption("Add or bulk upload employee punches")
 
-from modules.shift_templates import shift_templates_ui
-from modules.shift_template_sets import shift_template_sets_ui
-from modules.schedule_patterns import schedule_patterns_ui
-from modules.schedule_pattern_sets import schedule_pattern_sets_ui
-from modules.punch import punch_ui
+    BASE_HOST = st.session_state.HOST.rstrip("/")
+    API_URL = f"{BASE_HOST}/resource-server/api/punches/action/"
+    token = st.session_state.token
 
-# ---- Lookup Tables (SAFE IMPORTS) ----
-try:
-    from modules.employee_lookup_table import employee_lookup_table_ui
-except Exception as e:
-    employee_lookup_table_ui = None
-    EMP_LOOKUP_ERROR = str(e)
+    tab1, tab2 = st.tabs(["➕ Single Punch", "📤 Bulk Punch Upload"])
 
-try:
-    from modules.organization_location_lookup_table import organization_location_lookup_table_ui
-except Exception as e:
-    organization_location_lookup_table_ui = None
-    ORG_LOC_LOOKUP_ERROR = str(e)
+    # ======================================================
+    # SINGLE PUNCH
+    # ======================================================
+    with tab1:
+        st.subheader("Single Punch Update")
 
-# ---- Accruals ----
-from modules.accruals import accruals_ui
-from modules.accrual_policies import accrual_policies_ui
-from modules.accrual_policy_sets import accrual_policy_sets_ui
+        col1, col2, col3 = st.columns(3)
 
-# ---- Timeoff ----
-from modules.timeoff_policies import timeoff_policies_ui
-from modules.timeoff_policy_sets import timeoff_policy_sets_ui
+        with col1:
+            external_number = st.text_input("External Number")
 
-# ---- Regularization & Others ----
-from modules.regularization_policies import regularization_policies_ui
-from modules.regularization_policy_sets import regularization_policy_sets_ui
+        with col2:
+            punch_date = st.date_input("Punch Date")
 
-from modules.roles import roles_ui
-from modules.overtime_policies import overtime_policies_ui
-from modules.timecard_updation import timecard_updation_ui
+        with col3:
+            punch_time = st.text_input(
+                "Punch Time (HH:MM)",
+                placeholder="12:22"
+            )
 
-# ================= PAGE CONFIG =================
-st.set_page_config(
-    page_title="Configuration Portal",
-    page_icon="⚙️",
-    layout="wide"
-)
+        if st.button("✅ Submit Punch", use_container_width=True):
+            if not external_number or not punch_time:
+                st.error("External Number and Time are mandatory")
+                return
 
-# ================= SESSION STATE INIT =================
-if "token" not in st.session_state:
-    st.session_state.token = None
+            try:
+                # Always force seconds to :00
+                punch_datetime = datetime.strptime(
+                    f"{punch_date} {punch_time}:00",
+                    "%Y-%m-%d %H:%M:%S"
+                ).strftime("%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                st.error("Invalid time format. Use HH:MM only")
+                return
 
-if "HOST" not in st.session_state:
-    st.session_state.HOST = "https://saas-beeforce.labour.tech/"
+            payload = {
+                "action": "ADD_NO_TYPE",
+                "punch": {
+                    "employee": {
+                        "externalNumber": external_number
+                    },
+                    "punchTime": punch_datetime
+                }
+            }
 
-if "token_issued_at" not in st.session_state:
-    st.session_state.token_issued_at = None
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
 
-# ================= APP HEADER =================
-st.title("⚙️ Configuration Portal")
-st.caption(
-    "Centralized configuration for Paycodes, Shifts, Schedules, "
-    "Accruals, Timeoff, Regularization, Overtime and more"
-)
+            response = requests.post(
+                API_URL,
+                json=payload,
+                headers=headers,
+                verify=False
+            )
 
-# ================= LOGIN FLOW =================
-if not st.session_state.token:
-    login_ui()
-    st.stop()
+            if response.status_code == 200:
+                st.success(f"✅ Punch updated at {punch_datetime}")
+            else:
+                st.error(f"❌ Failed ({response.status_code})")
+                st.json(response.text)
 
-# ================= NORMALIZED HOST =================
-BASE_HOST = st.session_state.HOST.rstrip("/")
+    # ======================================================
+    # BULK PUNCH
+    # ======================================================
+    with tab2:
+        st.subheader("Bulk Punch Upload")
 
-# ================= SESSION TIMER (30 MINUTES) =================
-TOKEN_VALIDITY_SECONDS = 30 * 60
-issued_at = st.session_state.get("token_issued_at")
+        st.markdown("""
+        **Excel format (STRICT)**
+        ```
+        externalNumber | date | time
+        ```
+        - date → YYYY-MM-DD  
+        - time → HH:MM  
+        - seconds will be auto-set to `00`
+        """)
 
-if issued_at:
-    elapsed = time.time() - issued_at
-    remaining = max(0, int(TOKEN_VALIDITY_SECONDS - elapsed))
+        # ---------------- TEMPLATE DOWNLOAD ----------------
+        template_df = pd.DataFrame({
+            "externalNumber": ["WFHHH3"],
+            "date": ["2026-01-19"],
+            "time": ["18:10"]
+        })
 
-    if remaining <= 0:
-        st.warning("🔒 Session expired. Please login again.")
-        st.session_state.clear()
-        st.rerun()
+        buffer = BytesIO()
+        template_df.to_excel(buffer, index=False)
+        buffer.seek(0)
 
-    with st.sidebar:
-        st.markdown("### ⏳ Session Timer")
-        st.info(f"Expires in **{remaining // 60:02d}:{remaining % 60:02d}**")
+        st.download_button(
+            "⬇ Download Excel Template",
+            data=buffer,
+            file_name="punch_bulk_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
 
-        if remaining <= 300:
-            st.warning("⚠️ Session expiring soon")
+        st.divider()
 
-# ================= SIDEBAR =================
-with st.sidebar:
-    st.markdown("### 🔧 Settings")
+        # ---------------- FILE UPLOAD ----------------
+        file = st.file_uploader(
+            "Upload Filled Excel File",
+            type=["xlsx"]
+        )
 
-    st.text_input(
-        "Base Host URL",
-        key="HOST",
-        help="Example: https://saas-beeforce.labour.tech/"
-    )
+        if file:
+            df = pd.read_excel(file)
 
-    st.markdown("---")
+            st.markdown("### 📄 Uploaded Data Preview")
+            st.dataframe(df, use_container_width=True)
 
-    menu = st.radio(
-        "📂 Configuration Modules",
-        [
-            "Paycodes",
-            "Paycode Events",
-            "Paycode Combinations",
-            "Paycode Event Sets",
+            if st.button("🚀 Upload Punches", use_container_width=True):
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                }
 
-            "Shift Templates",
-            "Shift Template Sets",
-            "Schedule Patterns",
-            "Schedule Pattern Sets",
+                success, failed = 0, 0
+                results = []
 
-            "Employee Lookup Table",
-            "Organization Location Lookup Table",
+                for _, row in df.iterrows():
+                    try:
+                        # Always enforce seconds = 00
+                        punch_datetime = f"{row['date']} {row['time']}:00"
 
-            "Accruals",
-            "Accrual Policies",
-            "Accrual Policy Sets",
+                        payload = {
+                            "action": "ADD_NO_TYPE",
+                            "punch": {
+                                "employee": {
+                                    "externalNumber": str(row["externalNumber"])
+                                },
+                                "punchTime": punch_datetime
+                            }
+                        }
 
-            "Timeoff Policies",
-            "Timeoff Policy Sets",
+                        response = requests.post(
+                            API_URL,
+                            json=payload,
+                            headers=headers,
+                            verify=False
+                        )
 
-            "Regularization Policies",
-            "Regularization Policy Sets",
-            "Roles",
-            "Overtime Policies",
-            "Timecard Updation",
-            "Punch Update"   # ✅ FIXED
-        ]
-    )
+                        if response.status_code == 200:
+                            success += 1
+                            results.append({
+                                "External Number": row["externalNumber"],
+                                "Punch Time": punch_datetime,
+                                "Status": "✅ SUCCESS"
+                            })
+                        else:
+                            failed += 1
+                            results.append({
+                                "External Number": row["externalNumber"],
+                                "Punch Time": punch_datetime,
+                                "Status": f"❌ FAILED ({response.status_code})"
+                            })
 
-    st.markdown("---")
+                    except Exception as e:
+                        failed += 1
+                        results.append({
+                            "External Number": row.get("externalNumber"),
+                            "Punch Time": "N/A",
+                            "Status": str(e)
+                        })
 
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
+                total = success + failed
 
-# ================= MAIN CONTENT =================
-if menu == "Paycodes":
-    paycodes_ui()
+                # ---------------- SUMMARY METRICS ----------------
+                st.markdown("### 📊 Upload Summary")
 
-elif menu == "Paycode Events":
-    paycode_events_ui()
+                c1, c2, c3 = st.columns(3)
+                c1.metric("📄 Total Records", total)
+                c2.metric("✅ Uploaded", success)
+                c3.metric("❌ Failed", failed)
 
-elif menu == "Paycode Combinations":
-    paycode_combinations_ui()
+                st.divider()
 
-elif menu == "Paycode Event Sets":
-    paycode_event_sets_ui()
-
-elif menu == "Shift Templates":
-    shift_templates_ui()
-
-elif menu == "Shift Template Sets":
-    shift_template_sets_ui()
-
-elif menu == "Schedule Patterns":
-    schedule_patterns_ui()
-
-elif menu == "Schedule Pattern Sets":
-    schedule_pattern_sets_ui()
-
-elif menu == "Employee Lookup Table":
-    if employee_lookup_table_ui:
-        employee_lookup_table_ui()
-    else:
-        st.error("❌ Failed to load Employee Lookup Table module")
-        st.code(EMP_LOOKUP_ERROR)
-
-elif menu == "Organization Location Lookup Table":
-    if organization_location_lookup_table_ui:
-        organization_location_lookup_table_ui()
-    else:
-        st.error("❌ Failed to load Organization Location Lookup Table module")
-        st.code(ORG_LOC_LOOKUP_ERROR)
-
-elif menu == "Accruals":
-    accruals_ui()
-
-elif menu == "Accrual Policies":
-    accrual_policies_ui()
-
-elif menu == "Accrual Policy Sets":
-    accrual_policy_sets_ui()
-
-elif menu == "Timeoff Policies":
-    timeoff_policies_ui()
-
-elif menu == "Timeoff Policy Sets":
-    timeoff_policy_sets_ui()
-
-elif menu == "Regularization Policies":
-    regularization_policies_ui()
-
-elif menu == "Regularization Policy Sets":
-    regularization_policy_sets_ui()
-
-elif menu == "Roles":
-    roles_ui()
-
-elif menu == "Overtime Policies":
-    overtime_policies_ui()
-
-elif menu == "Timecard Updation":
-    timecard_updation_ui()
-
-elif menu == "Punch Update":
-    punch_ui()
+                st.markdown("### 🧾 Upload Results")
+                st.dataframe(pd.DataFrame(results), use_container_width=True)
