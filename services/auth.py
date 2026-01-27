@@ -13,25 +13,34 @@ if not CLIENT_AUTH:
 DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
 
 # ======================================================
-# LOGIN UI (PROPER STREAMLIT WAY)
+# LOGIN UI (MINOR UI FIXES ONLY)
 # ======================================================
 def login_ui():
 
-    # ---------- PAGE STYLE ----------
     st.markdown("""
     <style>
-    html, body, [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg, #EEF2FF, #F8FAFF);
-    }
-
-    .login-card {
+    /* REMOVE STREAMLIT TOP BAR / CONTAINER */
+    header { display: none; }
+    [data-testid="stAppViewContainer"] {
+        padding-top: 0rem !important;
         background: white;
-        padding: 32px;
-        border-radius: 18px;
-        border: 1px solid #E5E7EB;
-        box-shadow: 0 25px 50px rgba(0,0,0,0.10);
     }
 
+    /* PAGE BACKGROUND */
+    html, body {
+        background: white;
+    }
+
+    /* LOGIN CARD */
+    .login-card {
+        background: #FFFFFF;
+        padding: 32px;
+        border-radius: 16px;
+        border: 1px solid #E5E7EB;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    }
+
+    /* TITLES */
     .login-title {
         font-size: 26px;
         font-weight: 800;
@@ -47,8 +56,15 @@ def login_ui():
         margin-bottom: 24px;
     }
 
+    /* INPUTS */
+    input {
+        border-radius: 10px !important;
+        font-size: 14px !important;
+    }
+
+    /* BUTTON */
     .stButton > button {
-        background: linear-gradient(135deg, #4F46E5, #6366F1);
+        background: #4F46E5;
         color: white;
         font-weight: 600;
         border-radius: 10px;
@@ -57,18 +73,13 @@ def login_ui():
     }
 
     .stButton > button:hover {
-        background: linear-gradient(135deg, #4338CA, #4F46E5);
-    }
-
-    input {
-        border-radius: 10px !important;
-        font-size: 14px !important;
+        background: #4338CA;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # ---------- CENTERED LAYOUT ----------
-    left, center, right = st.columns([1.2, 1, 1.2])
+    # CENTER THE CARD USING STREAMLIT LAYOUT (CORRECT WAY)
+    left, center, right = st.columns([1.3, 1, 1.3])
 
     with center:
         with st.container():
@@ -83,7 +94,7 @@ def login_ui():
                 unsafe_allow_html=True
             )
 
-            # ---------- LOGIN FORM ----------
+            # LOGIN FORM
             with st.form("login_form", clear_on_submit=False):
                 st.text_input(
                     "Base Host URL",
