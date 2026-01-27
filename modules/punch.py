@@ -83,15 +83,22 @@ def punch_ui():
     with tab2:
         st.subheader("Bulk Punch Upload")
 
-        st.markdown("""
-        **Excel format (STRICT)**
-        ```
-        externalNumber | date | time
-        ```
-        - date → YYYY-MM-DD  
-        - time → HH:MM  
-        - seconds will be auto-set to `00`
-        """)
+        # -------- TEMPLATE DOWNLOAD --------
+        template_df = pd.DataFrame(columns=["externalNumber", "date", "time"])
+
+        template_buffer = BytesIO()
+        template_df.to_excel(template_buffer, index=False)
+        template_buffer.seek(0)
+
+        st.download_button(
+            "⬇ Download Excel Template",
+            data=template_buffer,
+            file_name="punch_upload_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+
+        st.divider()
 
         file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
@@ -160,7 +167,7 @@ def punch_ui():
                 total = success + failed
                 results_df = pd.DataFrame(results)
 
-                # ---------------- SUMMARY ----------------
+                # -------- SUMMARY --------
                 st.markdown("### 📊 Upload Summary")
                 c1, c2, c3 = st.columns(3)
                 c1.metric("📄 Total Records", total)
@@ -171,10 +178,7 @@ def punch_ui():
                 st.markdown("### 🧾 Upload Results")
                 st.dataframe(results_df, use_container_width=True)
 
-                # ---------------- DOWNLOADS ----------------
-                st.markdown("### ⬇ Download Reports")
-
-                # Full result
+                # -------- DOWNLOAD REPORTS --------
                 full_buffer = BytesIO()
                 results_df.to_excel(full_buffer, index=False)
                 full_buffer.seek(0)
@@ -187,7 +191,6 @@ def punch_ui():
                     use_container_width=True
                 )
 
-                # Failed only
                 failed_df = results_df[results_df["status"] != "SUCCESS"]
                 if not failed_df.empty:
                     failed_buffer = BytesIO()
