@@ -14,6 +14,7 @@ from modules.shift_templates import shift_templates_ui
 from modules.shift_template_sets import shift_template_sets_ui
 from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
+from modules.punch import punch_ui
 
 # ---- Lookup Tables (SAFE IMPORTS) ----
 try:
@@ -138,6 +139,7 @@ with st.sidebar:
             "Roles",
             "Overtime Policies",
             "Timecard Updation"
+            "Punch Update"
         ]
     )
 
@@ -215,3 +217,6 @@ elif menu == "Overtime Policies":
 
 elif menu == "Timecard Updation":
     timecard_updation_ui()
+
+elif menu == "Punch Update":
+    punch_ui()
