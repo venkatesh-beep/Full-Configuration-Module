@@ -4,8 +4,10 @@ import requests
 from datetime import datetime
 from io import BytesIO
 
+
 def punch_ui():
     st.header("🕒 Punch Update")
+    st.caption("Add or bulk upload employee punches")
 
     BASE_HOST = st.session_state.HOST.rstrip("/")
     API_URL = f"{BASE_HOST}/resource-server/api/punches/action/"
@@ -13,39 +15,39 @@ def punch_ui():
 
     tab1, tab2 = st.tabs(["➕ Single Punch", "📤 Bulk Punch Upload"])
 
-    # ===============================
+    # ======================================================
     # SINGLE PUNCH
-    # ===============================
+    # ======================================================
     with tab1:
         st.subheader("Single Punch Update")
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
+
         with col1:
             external_number = st.text_input("External Number")
-            punch_date = st.date_input("Punch Date")
 
         with col2:
-            punch_time_text = st.text_input(
-                "Punch Time (HH:MM or HH:MM:SS)",
-                placeholder="12:22 or 18:10:30"
+            punch_date = st.date_input("Punch Date")
+
+        with col3:
+            punch_time = st.text_input(
+                "Punch Time (HH:MM)",
+                placeholder="12:22"
             )
 
-        if st.button("Submit Punch"):
-            if not external_number or not punch_time_text:
+        if st.button("✅ Submit Punch", use_container_width=True):
+            if not external_number or not punch_time:
                 st.error("External Number and Time are mandatory")
                 return
 
-            # Normalize time
-            if len(punch_time_text) == 5:  # HH:MM
-                punch_time_text += ":00"
-
             try:
+                # Always force seconds to :00
                 punch_datetime = datetime.strptime(
-                    f"{punch_date} {punch_time_text}",
+                    f"{punch_date} {punch_time}:00",
                     "%Y-%m-%d %H:%M:%S"
                 ).strftime("%Y-%m-%d %H:%M:%S")
             except ValueError:
-                st.error("Invalid time format. Use HH:MM or HH:MM:SS")
+                st.error("Invalid time format. Use HH:MM only")
                 return
 
             payload = {
@@ -76,22 +78,23 @@ def punch_ui():
                 st.error(f"❌ Failed ({response.status_code})")
                 st.json(response.text)
 
-    # ===============================
+    # ======================================================
     # BULK PUNCH
-    # ===============================
+    # ======================================================
     with tab2:
         st.subheader("Bulk Punch Upload")
 
         st.markdown("""
-        **Excel format**
+        **Excel format (STRICT)**
         ```
         externalNumber | date | time
         ```
         - date → YYYY-MM-DD  
-        - time → HH:MM or HH:MM:SS
+        - time → HH:MM  
+        - seconds will be auto-set to `00`
         """)
 
-        # ---------- TEMPLATE DOWNLOAD ----------
+        # ---------------- TEMPLATE DOWNLOAD ----------------
         template_df = pd.DataFrame({
             "externalNumber": ["WFHHH3"],
             "date": ["2026-01-19"],
@@ -103,21 +106,28 @@ def punch_ui():
         buffer.seek(0)
 
         st.download_button(
-            label="⬇ Download Excel Template",
+            "⬇ Download Excel Template",
             data=buffer,
             file_name="punch_bulk_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
         )
 
         st.divider()
 
-        file = st.file_uploader("Upload Filled Excel File", type=["xlsx"])
+        # ---------------- FILE UPLOAD ----------------
+        file = st.file_uploader(
+            "Upload Filled Excel File",
+            type=["xlsx"]
+        )
 
         if file:
             df = pd.read_excel(file)
-            st.dataframe(df)
 
-            if st.button("Upload Bulk Punches"):
+            st.markdown("### 📄 Uploaded Data Preview")
+            st.dataframe(df, use_container_width=True)
+
+            if st.button("🚀 Upload Punches", use_container_width=True):
                 headers = {
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json"
@@ -128,11 +138,8 @@ def punch_ui():
 
                 for _, row in df.iterrows():
                     try:
-                        time_val = str(row["time"])
-                        if len(time_val) == 5:
-                            time_val += ":00"
-
-                        punch_datetime = f"{row['date']} {time_val}"
+                        # Always enforce seconds = 00
+                        punch_datetime = f"{row['date']} {row['time']}:00"
 
                         payload = {
                             "action": "ADD_NO_TYPE",
@@ -154,22 +161,37 @@ def punch_ui():
                         if response.status_code == 200:
                             success += 1
                             results.append({
-                                "externalNumber": row["externalNumber"],
-                                "status": "SUCCESS"
+                                "External Number": row["externalNumber"],
+                                "Punch Time": punch_datetime,
+                                "Status": "✅ SUCCESS"
                             })
                         else:
                             failed += 1
                             results.append({
-                                "externalNumber": row["externalNumber"],
-                                "status": f"FAILED ({response.status_code})"
+                                "External Number": row["externalNumber"],
+                                "Punch Time": punch_datetime,
+                                "Status": f"❌ FAILED ({response.status_code})"
                             })
 
                     except Exception as e:
                         failed += 1
                         results.append({
-                            "externalNumber": row.get("externalNumber"),
-                            "status": str(e)
+                            "External Number": row.get("externalNumber"),
+                            "Punch Time": "N/A",
+                            "Status": str(e)
                         })
 
-                st.success(f"Completed → Success: {success}, Failed: {failed}")
-                st.dataframe(pd.DataFrame(results))
+                total = success + failed
+
+                # ---------------- SUMMARY METRICS ----------------
+                st.markdown("### 📊 Upload Summary")
+
+                c1, c2, c3 = st.columns(3)
+                c1.metric("📄 Total Records", total)
+                c2.metric("✅ Uploaded", success)
+                c3.metric("❌ Failed", failed)
+
+                st.divider()
+
+                st.markdown("### 🧾 Upload Results")
+                st.dataframe(pd.DataFrame(results), use_container_width=True)
