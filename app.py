@@ -16,7 +16,7 @@ from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
 from modules.punch import punch_ui
 
-# ---- Lookup Tables (SAFE IMPORTS) ----
+# ---- Lookup Tables ----
 try:
     from modules.employee_lookup_table import employee_lookup_table_ui
 except Exception as e:
@@ -46,79 +46,124 @@ from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
 
+
 # ================= PAGE CONFIG =================
 st.set_page_config(
-    page_title="Configuration Portal",
+    page_title="⚙️ Configuration Portal",
     page_icon="⚙️",
     layout="wide",
-    initial_sidebar_state="expanded"
 )
 
 # ================= SESSION STATE INIT =================
 if "token" not in st.session_state:
     st.session_state.token = None
-
 if "HOST" not in st.session_state:
     st.session_state.HOST = "https://saas-beeforce.labour.tech/"
-
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
-# ================= CUSTOM CSS FOR BETTER UI =================
+# ================= CUSTOM PREMIUM CSS =================
 st.markdown("""
     <style>
-    .main-header {
-        font-size: 2.5em;
-        font-weight: bold;
-        color: #4CAF50;
-        text-align: center;
-        margin-bottom: 20px;
-    }
-    .caption-text {
-        text-align: center;
-        font-size: 1.1em;
-        color: #666;
-        margin-bottom: 30px;
-    }
-    .sidebar .sidebar-content {
-        background-color: #f0f2f6;
-    }
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 5px;
-        padding: 10px 20px;
-    }
-    .stButton>button:hover {
-        background-color: #45a049;
-    }
-    .error-box {
-        background-color: #ffebee;
-        border-left: 5px solid #f44336;
-        padding: 10px;
-        margin: 10px 0;
-    }
-    .session-timer {
-        background-color: #e8f5e8;
-        padding: 10px;
-        border-radius: 5px;
-        text-align: center;
-    }
-    .warning-timer {
-        background-color: #fff3e0;
-        border-left: 5px solid #ff9800;
-    }
-    .menu-category {
-        font-weight: bold;
-        color: #4CAF50;
-        margin-top: 20px;
-    }
+        /* ==== GENERAL PAGE STYLE ==== */
+        body {
+            background-color: #f8f9fb;
+        }
+        .main-header {
+            font-size: 2.6em;
+            font-weight: 800;
+            color: #2E8B57;
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        .caption-text {
+            text-align: center;
+            font-size: 1.1em;
+            color: #6c757d;
+            margin-bottom: 40px;
+        }
+        .sidebar .sidebar-content {
+            background-color: #f0f2f6;
+            border-right: 1px solid #e1e1e1;
+        }
+        .stButton>button {
+            background: linear-gradient(135deg, #4CAF50, #2E8B57);
+            color: white;
+            font-weight: 600;
+            border-radius: 8px;
+            border: none;
+            padding: 0.6em 1.5em;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        .stButton>button:hover {
+            background: linear-gradient(135deg, #45a049, #238A4C);
+            transform: translateY(-2px);
+        }
+        .menu-category {
+            font-weight: bold;
+            color: #2E8B57;
+            margin-top: 20px;
+            font-size: 1rem;
+        }
+        .stSelectbox label {
+            font-weight: 600 !important;
+            color: #444 !important;
+        }
+        .module-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: left;
+            margin-top: 15px;
+        }
+        .module-card {
+            background: #ffffff;
+            border: 1px solid #e1e1e1;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            width: 210px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .module-card:hover {
+            background: #e8f5ee;
+            border-color: #4CAF50;
+            transform: translateY(-4px);
+        }
+        .module-card h4 {
+            font-size: 1em;
+            color: #2E8B57;
+            margin-bottom: 0.3em;
+        }
+        .error-box {
+            background-color: #ffebee;
+            border-left: 5px solid #f44336;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        hr {
+            border: 1px solid #eaeaea;
+            margin: 30px 0;
+        }
+        footer {
+            text-align: center;
+            color: #777;
+            font-size: 0.9em;
+            margin-top: 40px;
+            padding-bottom: 20px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# ================= APP HEADER =================
+
+# ================= HEADER =================
 st.markdown('<div class="main-header">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
-st.markdown('<div class="caption-text">Centralized configuration for Paycodes, Shifts, Schedules, Accruals, Timeoff, Regularization, Overtime and more</div>', unsafe_allow_html=True)
+st.markdown('<div class="caption-text">Centralized control for Paycodes, Schedules, Accruals, and Policies.</div>', unsafe_allow_html=True)
 
 # ================= LOGIN FLOW =================
 if not st.session_state.token:
@@ -128,42 +173,20 @@ if not st.session_state.token:
 # ================= NORMALIZED HOST =================
 BASE_HOST = st.session_state.HOST.rstrip("/")
 
-# ================= SESSION TIMER (30 MINUTES) =================
-TOKEN_VALIDITY_SECONDS = 30 * 60
-issued_at = st.session_state.get("token_issued_at")
-
-if issued_at:
-    elapsed = time.time() - issued_at
-    remaining = max(0, int(TOKEN_VALIDITY_SECONDS - elapsed))
-
-    if remaining <= 0:
-        st.error("🔒 Session expired. Please login again.")
-        st.session_state.clear()
-        st.rerun()
-
-    with st.sidebar:
-        st.markdown("### ⏳ Session Timer")
-        if remaining <= 300:
-            st.markdown(f'<div class="session-timer warning-timer">⚠️ Expires in **{remaining // 60:02d}:{remaining % 60:02d}** - Session expiring soon!</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="session-timer">Expires in **{remaining // 60:02d}:{remaining % 60:02d}**</div>', unsafe_allow_html=True)
-
 # ================= SIDEBAR =================
 with st.sidebar:
-    st.markdown("### 🔧 Settings")
-    
-    st.text_input(
-        "Base Host URL",
-        key="HOST",
-        help="Example: https://saas-beeforce.labour.tech/",
-        placeholder="https://saas-beeforce.labour.tech/"
-    )
-    
-    st.markdown("---")
-    
-    # Grouped menu using selectboxes for hierarchical navigation
-    st.markdown('<div class="menu-category">📂 Configuration Modules</div>', unsafe_allow_html=True)
-    
+    st.markdown("### 🔧 Settings Menu")
+    # Only show the host field before login
+    if not st.session_state.token:
+        st.text_input(
+            "Base Host URL",
+            key="HOST",
+            help="Example: https://saas-beeforce.labour.tech/",
+        )
+
+    st.markdown("#### 📂 Configuration Categories")
+
+    # Fewer clicks — direct submenu grid
     menu_categories = {
         "Paycodes & Events": ["Paycodes", "Paycode Events", "Paycode Combinations", "Paycode Event Sets"],
         "Shifts & Schedules": ["Shift Templates", "Shift Template Sets", "Schedule Patterns", "Schedule Pattern Sets"],
@@ -173,107 +196,84 @@ with st.sidebar:
         "Policies & Roles": ["Regularization Policies", "Regularization Policy Sets", "Roles", "Overtime Policies"],
         "Updates": ["Timecard Updation", "Punch Update"]
     }
-    
+
     selected_category = st.selectbox(
         "Select Category",
         list(menu_categories.keys()),
-        help="Choose a category to view available modules"
+        help="Choose a category to view available modules."
     )
-    
-    if selected_category:
-        menu = st.selectbox(
-            f"Select {selected_category} Module",
-            menu_categories[selected_category],
-            help="Choose a specific module to configure"
-        )
-    
+
     st.markdown("---")
-    
-    if st.button("🚪 Logout", help="Click to logout and clear session"):
+    if st.button("🚪 Logout"):
         st.session_state.clear()
         st.rerun()
 
-# ================= MAIN CONTENT =================
-# Add a loading spinner for better UX
-with st.spinner("Loading module..."):
-    if menu == "Paycodes":
-        paycodes_ui()
-    
-    elif menu == "Paycode Events":
-        paycode_events_ui()
-    
-    elif menu == "Paycode Combinations":
-        paycode_combinations_ui()
-    
-    elif menu == "Paycode Event Sets":
-        paycode_event_sets_ui()
-    
-    elif menu == "Shift Templates":
-        shift_templates_ui()
-    
-    elif menu == "Shift Template Sets":
-        shift_template_sets_ui()
-    
-    elif menu == "Schedule Patterns":
-        schedule_patterns_ui()
-    
-    elif menu == "Schedule Pattern Sets":
-        schedule_pattern_sets_ui()
-    
-    elif menu == "Employee Lookup Table":
-        if employee_lookup_table_ui:
-            employee_lookup_table_ui()
-        else:
-            st.markdown('<div class="error-box">❌ Failed to load Employee Lookup Table module</div>', unsafe_allow_html=True)
-            with st.expander("Error Details"):
-                st.code(EMP_LOOKUP_ERROR)
-    
-    elif menu == "Organization Location Lookup Table":
-        if organization_location_lookup_table_ui:
-            organization_location_lookup_table_ui()
-        else:
-            st.markdown('<div class="error-box">❌ Failed to load Organization Location Lookup Table module</div>', unsafe_allow_html=True)
-            with st.expander("Error Details"):
-                st.code(ORG_LOC_LOOKUP_ERROR)
-    
-    elif menu == "Accruals":
-        accruals_ui()
-    
-    elif menu == "Accrual Policies":
-        accrual_policies_ui()
-    
-    elif menu == "Accrual Policy Sets":
-        accrual_policy_sets_ui()
-    
-    elif menu == "Timeoff Policies":
-        timeoff_policies_ui()
-    
-    elif menu == "Timeoff Policy Sets":
-        timeoff_policy_sets_ui()
-    
-    elif menu == "Regularization Policies":
-        regularization_policies_ui()
-    
-    elif menu == "Regularization Policy Sets":
-        regularization_policy_sets_ui()
-    
-    elif menu == "Roles":
-        roles_ui()
-    
-    elif menu == "Overtime Policies":
-        overtime_policies_ui()
-    
-    elif menu == "Timecard Updation":
-        timecard_updation_ui()
-    
-    elif menu == "Punch Update":
-        punch_ui()
 
-# ================= FOOTER =================
-st.markdown("---")
-st.markdown(
-    '<div style="text-align: center; color: #666; font-size: 0.9em;">'
-    '© 2023 Configuration Portal | Version 1.0 | Powered by Streamlit'
-    '</div>', 
-    unsafe_allow_html=True
-)
+# ================= MAIN CONTENT AREA =================
+if selected_category:
+    st.subheader(f"📁 {selected_category}")
+
+    modules = menu_categories[selected_category]
+
+    # Create beautiful module cards
+    st.markdown('<div class="module-grid">', unsafe_allow_html=True)
+    cols = st.columns(3)
+    for i, module_name in enumerate(modules):
+        if cols[i % 3].button(module_name, key=f"mod_{module_name}"):
+            st.session_state["active_module"] = module_name
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ================= RENDER SELECTED MODULE =================
+if "active_module" in st.session_state:
+    selected_module = st.session_state["active_module"]
+    st.markdown(f"---\n### 🧩 {selected_module}\n")
+    with st.spinner("Loading module..."):
+        if selected_module == "Paycodes":
+            paycodes_ui()
+        elif selected_module == "Paycode Events":
+            paycode_events_ui()
+        elif selected_module == "Paycode Combinations":
+            paycode_combinations_ui()
+        elif selected_module == "Paycode Event Sets":
+            paycode_event_sets_ui()
+        elif selected_module == "Shift Templates":
+            shift_templates_ui()
+        elif selected_module == "Shift Template Sets":
+            shift_template_sets_ui()
+        elif selected_module == "Schedule Patterns":
+            schedule_patterns_ui()
+        elif selected_module == "Schedule Pattern Sets":
+            schedule_pattern_sets_ui()
+        elif selected_module == "Employee Lookup Table":
+            if employee_lookup_table_ui:
+                employee_lookup_table_ui()
+            else:
+                st.markdown('<div class="error-box">❌ Failed to load Employee Lookup Table</div>', unsafe_allow_html=True)
+        elif selected_module == "Organization Location Lookup Table":
+            if organization_location_lookup_table_ui:
+                organization_location_lookup_table_ui()
+            else:
+                st.markdown('<div class="error-box">❌ Failed to load Organization Lookup Table</div>', unsafe_allow_html=True)
+        elif selected_module == "Accruals":
+            accruals_ui()
+        elif selected_module == "Accrual Policies":
+            accrual_policies_ui()
+        elif selected_module == "Accrual Policy Sets":
+            accrual_policy_sets_ui()
+        elif selected_module == "Timeoff Policies":
+            timeoff_policies_ui()
+        elif selected_module == "Timeoff Policy Sets":
+            timeoff_policy_sets_ui()
+        elif selected_module == "Regularization Policies":
+            regularization_policies_ui()
+        elif selected_module == "Regularization Policy Sets":
+            regularization_policy_sets_ui()
+        elif selected_module == "Roles":
+            roles_ui()
+        elif selected_module == "Overtime Policies":
+            overtime_policies_ui()
+        elif selected_module == "Timecard Updation":
+            timecard_updation_ui()
+        elif selected_module == "Punch Update":
+            punch_ui()
+
