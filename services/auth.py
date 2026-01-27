@@ -13,27 +13,41 @@ if not CLIENT_AUTH:
 DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
 
 # ======================================================
-# LOGIN UI (CLEAN + INTENTIONAL)
+# LOGIN UI (BORDER WHITE + NO SHADOW)
 # ======================================================
 def login_ui():
 
     st.markdown("""
     <style>
-    /* PAGE BACKGROUND */
-    html, body, [data-testid="stAppViewContainer"] {
-        background: white;
+    /* ===== NEUTRALIZE STREAMLIT SYSTEM CONTAINER ===== */
+    header,
+    footer,
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    [data-testid="stStatusWidget"] {
+        display: none;
     }
 
-    /* LOGIN CARD */
+    /* Make all backgrounds white */
+    html, body, [data-testid="stAppViewContainer"] {
+        background: white !important;
+    }
+
+    /* Remove padding illusion */
+    .block-container {
+        padding-top: 0.5rem !important;
+    }
+
+    /* ===== LOGIN CARD ===== */
     .login-card {
         background: #FFFFFF;
         padding: 36px;
         border-radius: 16px;
-        border: 1px solid #E5E7EB;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+        border: 1px solid #FFFFFF;   /* ✅ WHITE BORDER */
+        box-shadow: none;            /* ✅ NO SHADOW */
     }
 
-    /* TITLES */
+    /* ===== TITLES ===== */
     .login-title {
         font-size: 28px;
         font-weight: 800;
@@ -49,13 +63,13 @@ def login_ui():
         margin-bottom: 28px;
     }
 
-    /* INPUTS */
+    /* ===== INPUTS ===== */
     input {
         border-radius: 10px !important;
         font-size: 14px !important;
     }
 
-    /* BUTTON */
+    /* ===== BUTTON ===== */
     .stButton > button {
         background: #4F46E5;
         color: white;
@@ -71,13 +85,12 @@ def login_ui():
     </style>
     """, unsafe_allow_html=True)
 
-    # ===== CENTER LAYOUT =====
+    # ===== CENTER LOGIN CARD =====
     left, center, right = st.columns([1.3, 1, 1.3])
 
     with center:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
-        # 🔹 TITLE INSIDE THE CONTAINER (KEY FIX)
         st.markdown(
             '<div class="login-title">⚙️ Configuration Portal</div>',
             unsafe_allow_html=True
@@ -87,7 +100,7 @@ def login_ui():
             unsafe_allow_html=True
         )
 
-        # ===== LOGIN FORM =====
+        # ===== LOGIN FORM (UNCHANGED LOGIC) =====
         with st.form("login_form", clear_on_submit=False):
             st.text_input("Base Host URL", DEFAULT_HOST, key="HOST")
 
