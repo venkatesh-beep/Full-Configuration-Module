@@ -8,24 +8,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ================= FULL UI FIX CSS =================
+# ================= CLEAN UI CSS =================
 st.markdown("""
 <style>
 
-/* ===== REMOVE STREAMLIT TOP BAR COMPLETELY ===== */
-header { display: none; }
-.block-container { padding-top: 0rem !important; }
-[data-testid="stAppViewContainer"] { padding-top: 0rem !important; }
-
-/* ================= GLOBAL ================= */
-html, body, [class*="css"] {
-    font-family: 'Inter', 'Segoe UI', sans-serif;
-    background: linear-gradient(180deg, #F8FAFF, #EEF2FF);
+/* Remove default top padding */
+.block-container {
+    padding-top: 1rem;
 }
 
-/* ================= SIDEBAR ================= */
+/* Global */
+html, body, [class*="css"] {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    background-color: #F8FAFF;
+}
+
+/* Sidebar */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #FFFFFF, #F3F6FF);
+    background-color: #FFFFFF;
     border-right: 1px solid #E5E7EB;
 }
 
@@ -34,12 +34,12 @@ section[data-testid="stSidebar"] {
     font-size: 22px;
     font-weight: 700;
     color: #1E3A8A;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
-/* Username badge */
+/* Username */
 .user-badge {
-    background: linear-gradient(135deg, #E0E7FF, #EEF2FF);
+    background: #EEF2FF;
     color: #1E40AF;
     padding: 8px 12px;
     border-radius: 10px;
@@ -48,60 +48,23 @@ section[data-testid="stSidebar"] {
     margin-bottom: 12px;
 }
 
-/* ================= RADIO ================= */
-.stRadio > div {
-    background-color: #FFFFFF;
-    padding: 10px;
-    border-radius: 12px;
-    border: 1px solid #E5E7EB;
-}
-
-/* ================= BUTTONS ================= */
-.stButton > button {
-    background: linear-gradient(135deg, #6366F1, #4F46E5);
-    color: white;
-    border-radius: 8px;
-    padding: 6px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    border: none;
-}
-.stButton > button:hover {
-    background: linear-gradient(135deg, #4F46E5, #4338CA);
-}
-
-/* ================= INPUTS ================= */
-input {
-    font-size: 14px !important;
-    border-radius: 8px !important;
-}
-
-/* ================= MODULE CONTAINER ================= */
+/* Module container */
 .module-card {
-    background: linear-gradient(180deg, #FFFFFF, #FAFBFF);
+    background: white;
     padding: 24px;
     border-radius: 18px;
     border: 1px solid #E5E7EB;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.04);
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ================= SESSION STATE INIT =================
+# ================= SESSION STATE (DO NOT OVERWRITE) =================
 if "token" not in st.session_state:
     st.session_state.token = None
 
-# 🔥 DO NOT RESET USERNAME IF IT EXISTS
-if "username" not in st.session_state:
-    st.session_state.username = None
-
-# 🔥 ALWAYS INIT HOST
 if "HOST" not in st.session_state:
     st.session_state.HOST = "https://saas-beeforce.labour.tech/"
-
-if "menu" not in st.session_state:
-    st.session_state.menu = "Paycodes"
 
 # ================= LOGIN =================
 from services.auth import login_ui
@@ -137,12 +100,11 @@ from modules.punch import punch_ui
 with st.sidebar:
     st.markdown('<div class="sidebar-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
 
-    # ✅ SHOW REAL USERNAME ONLY
-    if st.session_state.username:
-        st.markdown(
-            f'<div class="user-badge">👤 {st.session_state.username}</div>',
-            unsafe_allow_html=True
-        )
+    # ✅ USERNAME IS NOW GUARANTEED
+    st.markdown(
+        f'<div class="user-badge">👤 {st.session_state.username}</div>',
+        unsafe_allow_html=True
+    )
 
     st.markdown("---")
 
@@ -170,12 +132,10 @@ with st.sidebar:
             "Overtime Policies",
             "Timecard Updation",
             "Punch Update"
-        ],
-        key="menu"
+        ]
     )
 
     st.markdown("---")
-
     if st.button("Logout"):
         st.session_state.clear()
         st.rerun()
