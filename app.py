@@ -8,71 +8,76 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ================= PREMIUM LIGHT CSS =================
+# ================= BEAUTIFUL LIGHT CSS =================
 st.markdown("""
 <style>
 
-/* ---------- Fonts ---------- */
+/* ================= GLOBAL ================= */
 html, body, [class*="css"] {
     font-family: 'Inter', 'Segoe UI', sans-serif;
-    background-color: #F7F9FC;
+    background: linear-gradient(180deg, #F8FAFF, #EEF2FF);
 }
 
-/* ---------- Sidebar ---------- */
+/* ================= SIDEBAR ================= */
 section[data-testid="stSidebar"] {
-    background-color: #FFFFFF;
-    border-right: 1px solid #E6EAF1;
+    background: linear-gradient(180deg, #FFFFFF, #F3F6FF);
+    border-right: 1px solid #E5E7EB;
 }
 
 /* Sidebar title */
 .sidebar-title {
     font-size: 22px;
     font-weight: 700;
-    color: #1F2937;
-    margin-bottom: 5px;
+    color: #1E3A8A;
+    margin-bottom: 8px;
 }
 
 /* Username badge */
 .user-badge {
-    background: #EEF2FF;
-    color: #3730A3;
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-size: 13px;
-    margin-bottom: 10px;
-}
-
-/* ---------- Radio buttons ---------- */
-.stRadio > div {
-    background-color: #F9FAFB;
-    padding: 8px;
+    background: linear-gradient(135deg, #E0E7FF, #EEF2FF);
+    color: #1E40AF;
+    padding: 8px 12px;
     border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
 }
 
-/* ---------- Buttons ---------- */
+/* ================= RADIO ================= */
+.stRadio > div {
+    background-color: #FFFFFF;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid #E5E7EB;
+}
+
+/* ================= BUTTONS ================= */
 .stButton > button {
-    background-color: #4F46E5;
+    background: linear-gradient(135deg, #6366F1, #4F46E5);
     color: white;
-    border-radius: 6px;
-    padding: 6px 14px;
+    border-radius: 8px;
+    padding: 6px 16px;
     font-size: 13px;
+    font-weight: 600;
     border: none;
 }
 .stButton > button:hover {
-    background-color: #4338CA;
+    background: linear-gradient(135deg, #4F46E5, #4338CA);
 }
 
-/* ---------- Inputs ---------- */
+/* ================= INPUTS ================= */
 input {
     font-size: 14px !important;
+    border-radius: 8px !important;
 }
 
-/* ---------- Module Container ---------- */
+/* ================= MODULE CONTAINER ================= */
 .module-card {
-    background: #FFFFFF;
-    padding: 20px;
-    border-radius: 14px;
+    background: linear-gradient(180deg, #FFFFFF, #FAFBFF);
+    padding: 24px;
+    border-radius: 18px;
     border: 1px solid #E5E7EB;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.04);
 }
 
 </style>
@@ -156,17 +161,6 @@ with st.sidebar:
         key="menu"
     )
 
-    # Auto-collapse sidebar after selection
-    st.markdown(
-        """
-        <script>
-        const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
-        sidebar.style.width = "0px";
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
-
     st.markdown("---")
     if st.button("Logout"):
         st.session_state.clear()
@@ -200,5 +194,4 @@ ROUTES = {
 }
 
 ROUTES[menu]()
-
 st.markdown("</div>", unsafe_allow_html=True)
