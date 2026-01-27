@@ -66,13 +66,13 @@ div[role="radiogroup"] > label:hover {
     border-color: #C7D2FE;
 }
 
-/* ================= MAIN MODULE CARD ================= */
+/* ================= MAIN MODULE CONTAINER ================= */
 .module-card {
-    background: #FFFFFF;           /* Pure white */
+    background: #FFFFFF;
     padding: 28px;
     border-radius: 18px;
-    border: 1px solid #E5E7EB;
-    box-shadow: none !important;   /* ZERO SHADOW */
+    border: none;                /* ✅ BORDER REMOVED */
+    box-shadow: none !important; /* ✅ NO SHADOW */
 }
 
 /* ================= HEADINGS ================= */
