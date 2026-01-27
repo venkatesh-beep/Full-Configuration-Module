@@ -8,9 +8,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ================= BEAUTIFUL LIGHT CSS =================
+# ================= LIGHT UI + FIX TOP BAR =================
 st.markdown("""
 <style>
+
+/* ===== REMOVE TOP EMPTY BAR ===== */
+.block-container {
+    padding-top: 1rem !important;
+}
 
 /* ================= GLOBAL ================= */
 html, body, [class*="css"] {
@@ -29,7 +34,7 @@ section[data-testid="stSidebar"] {
     font-size: 22px;
     font-weight: 700;
     color: #1E3A8A;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 /* Username badge */
@@ -88,9 +93,9 @@ if "token" not in st.session_state:
     st.session_state.token = None
 
 if "username" not in st.session_state:
-    st.session_state.username = None
+    st.session_state.username = ""
 
-# ✅ CRITICAL FIX — HOST MUST ALWAYS EXIST
+# ✅ ALWAYS INIT HOST (CRITICAL)
 if "HOST" not in st.session_state:
     st.session_state.HOST = "https://saas-beeforce.labour.tech/"
 
@@ -129,10 +134,16 @@ from modules.punch import punch_ui
 
 # ================= SIDEBAR =================
 with st.sidebar:
-    st.markdown('<div class="sidebar-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sidebar-title">⚙️ Configuration Portal</div>',
+        unsafe_allow_html=True
+    )
+
+    # ✅ NEVER SHOW NONE
+    display_user = st.session_state.username or "Logged User"
 
     st.markdown(
-        f'<div class="user-badge">👤 {st.session_state.username}</div>',
+        f'<div class="user-badge">👤 {display_user}</div>',
         unsafe_allow_html=True
     )
 
@@ -149,8 +160,8 @@ with st.sidebar:
             "Shift Template Sets",
             "Schedule Patterns",
             "Schedule Pattern Sets",
-            "Employee Lookup Table",
-            "Organization Location Lookup Table",
+            "Emp Lookup Table",
+            "Org Lookup Table",
             "Accruals",
             "Accrual Policies",
             "Accrual Policy Sets",
@@ -184,8 +195,8 @@ ROUTES = {
     "Shift Template Sets": shift_template_sets_ui,
     "Schedule Patterns": schedule_patterns_ui,
     "Schedule Pattern Sets": schedule_pattern_sets_ui,
-    "Employee Lookup Table": employee_lookup_table_ui,
-    "Organization Location Lookup Table": organization_location_lookup_table_ui,
+    "Emp Lookup Table": employee_lookup_table_ui,
+    "Org Lookup Table": organization_location_lookup_table_ui,
     "Accruals": accruals_ui,
     "Accrual Policies": accrual_policies_ui,
     "Accrual Policy Sets": accrual_policy_sets_ui,
@@ -200,5 +211,4 @@ ROUTES = {
 }
 
 ROUTES[menu]()
-
 st.markdown("</div>", unsafe_allow_html=True)
