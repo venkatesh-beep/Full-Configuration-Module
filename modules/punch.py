@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
+from io import BytesIO
 
 
 def punch_ui():
@@ -40,7 +41,6 @@ def punch_ui():
                 return
 
             try:
-                # Always enforce seconds as :00
                 punch_datetime = datetime.strptime(
                     f"{punch_date} {punch_time}:00",
                     "%Y-%m-%d %H:%M:%S"
@@ -93,10 +93,7 @@ def punch_ui():
         - seconds will be auto-set to `00`
         """)
 
-        file = st.file_uploader(
-            "Upload Excel File",
-            type=["xlsx"]
-        )
+        file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
         if file:
             df = pd.read_excel(file)
@@ -115,7 +112,6 @@ def punch_ui():
 
                 for _, row in df.iterrows():
                     try:
-                        # Force seconds to :00
                         punch_datetime = f"{row['date']} {row['time']}:00"
 
                         payload = {
@@ -138,27 +134,31 @@ def punch_ui():
                         if response.status_code == 200:
                             success += 1
                             results.append({
-                                "External Number": row["externalNumber"],
-                                "Punch Time": punch_datetime,
-                                "Status": "✅ SUCCESS"
+                                "externalNumber": row["externalNumber"],
+                                "date": row["date"],
+                                "time": row["time"],
+                                "status": "SUCCESS"
                             })
                         else:
                             failed += 1
                             results.append({
-                                "External Number": row["externalNumber"],
-                                "Punch Time": punch_datetime,
-                                "Status": f"❌ FAILED ({response.status_code})"
+                                "externalNumber": row["externalNumber"],
+                                "date": row["date"],
+                                "time": row["time"],
+                                "status": f"FAILED ({response.status_code})"
                             })
 
                     except Exception as e:
                         failed += 1
                         results.append({
-                            "External Number": row.get("externalNumber"),
-                            "Punch Time": "N/A",
-                            "Status": str(e)
+                            "externalNumber": row.get("externalNumber"),
+                            "date": row.get("date"),
+                            "time": row.get("time"),
+                            "status": str(e)
                         })
 
                 total = success + failed
+                results_df = pd.DataFrame(results)
 
                 # ---------------- SUMMARY ----------------
                 st.markdown("### 📊 Upload Summary")
@@ -169,4 +169,35 @@ def punch_ui():
 
                 st.divider()
                 st.markdown("### 🧾 Upload Results")
-                st.dataframe(pd.DataFrame(results), use_container_width=True)
+                st.dataframe(results_df, use_container_width=True)
+
+                # ---------------- DOWNLOADS ----------------
+                st.markdown("### ⬇ Download Reports")
+
+                # Full result
+                full_buffer = BytesIO()
+                results_df.to_excel(full_buffer, index=False)
+                full_buffer.seek(0)
+
+                st.download_button(
+                    "⬇ Download Full Report",
+                    data=full_buffer,
+                    file_name="punch_upload_results.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+                # Failed only
+                failed_df = results_df[results_df["status"] != "SUCCESS"]
+                if not failed_df.empty:
+                    failed_buffer = BytesIO()
+                    failed_df.to_excel(failed_buffer, index=False)
+                    failed_buffer.seek(0)
+
+                    st.download_button(
+                        "⬇ Download Failed Records Only",
+                        data=failed_buffer,
+                        file_name="punch_upload_failed.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
