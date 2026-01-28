@@ -1,3 +1,4 @@
+
 import streamlit as st
 import time
 
@@ -44,7 +45,6 @@ from modules.regularization_policy_sets import regularization_policy_sets_ui
 from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
-from modules.punch import punch_ui
 
 
 # ================= PAGE CONFIG =================
@@ -64,6 +64,13 @@ if "HOST" not in st.session_state:
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
+# ================= APP HEADER =================
+st.title("⚙️ Configuration Portal")
+st.caption(
+    "Centralized configuration for Paycodes, Shifts, Schedules, "
+    "Accruals, Timeoff, Regularization, Overtime and more"
+)
+
 # ================= LOGIN FLOW =================
 if not st.session_state.token:
     login_ui()
@@ -72,7 +79,7 @@ if not st.session_state.token:
 # ================= NORMALIZED HOST =================
 BASE_HOST = st.session_state.HOST.rstrip("/")
 
-# ================= SESSION EXPIRY LOGIC (UI REMOVED) =================
+# ================= SESSION TIMER (30 MINUTES) =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
 issued_at = st.session_state.get("token_issued_at")
 
@@ -85,16 +92,25 @@ if issued_at:
         st.session_state.clear()
         st.rerun()
 
+    with st.sidebar:
+        st.markdown("### ⏳ Session Timer")
+        st.info(f"Expires in **{remaining // 60:02d}:{remaining % 60:02d}**")
+
+        if remaining <= 300:
+            st.warning("⚠️ Session expiring soon")
+
 # ================= SIDEBAR =================
 with st.sidebar:
-    # ---- Title ----
-    st.markdown("### ⚙️ Configuration Portal")
+    st.markdown("### 🔧 Settings")
 
-    # ---- User ----
-    st.markdown("**👤 Logged in as**")
-    st.info(st.session_state.get("username", "User"))
+    st.text_input(
+        "Base Host URL",
+        key="HOST",
+        help="Example: https://saas-beeforce.labour.tech/"
+    )
 
-    # ---- Menu ----
+    st.markdown("---")
+
     menu = st.radio(
         "📂 Configuration Modules",
         [
@@ -108,8 +124,8 @@ with st.sidebar:
             "Schedule Patterns",
             "Schedule Pattern Sets",
 
-            "Emp Lookup Table",
-            "Org Lookup Table",
+            "Employee Lookup Table",
+            "Organization Location Lookup Table",
 
             "Accruals",
             "Accrual Policies",
@@ -122,13 +138,15 @@ with st.sidebar:
             "Regularization Policy Sets",
             "Roles",
             "Overtime Policies",
-            "Timecard Updation",
-            "Punch Update"
+            "Timecard Updation"
         ]
     )
 
-    # ---- Logout ----
-    st.button("🚪 Logout", on_click=lambda: (st.session_state.clear(), st.rerun()))
+    st.markdown("---")
+
+    if st.button("🚪 Logout"):
+        st.session_state.clear()
+        st.rerun()
 
 # ================= MAIN CONTENT =================
 if menu == "Paycodes":
@@ -155,11 +173,19 @@ elif menu == "Schedule Patterns":
 elif menu == "Schedule Pattern Sets":
     schedule_pattern_sets_ui()
 
-elif menu == "Emp Lookup Table":
-    employee_lookup_table_ui()
-   
-elif menu == "Org Lookup Table":
-    organization_location_lookup_table_ui()
+elif menu == "Employee Lookup Table":
+    if employee_lookup_table_ui:
+        employee_lookup_table_ui()
+    else:
+        st.error("❌ Failed to load Employee Lookup Table module")
+        st.code(EMP_LOOKUP_ERROR)
+
+elif menu == "Organization Location Lookup Table":
+    if organization_location_lookup_table_ui:
+        organization_location_lookup_table_ui()
+    else:
+        st.error("❌ Failed to load Organization Location Lookup Table module")
+        st.code(ORG_LOC_LOOKUP_ERROR)
 
 elif menu == "Accruals":
     accruals_ui()
@@ -190,6 +216,3 @@ elif menu == "Overtime Policies":
 
 elif menu == "Timecard Updation":
     timecard_updation_ui()
-
-elif menu == "Punch Update":
-    punch_ui()
