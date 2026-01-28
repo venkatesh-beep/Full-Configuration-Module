@@ -4,29 +4,16 @@ import requests
 from datetime import datetime, date, time
 from io import BytesIO
 
-
 # ----------------- HELPERS -----------------
-def normalize_date(val):
+def normalize_datetime(val):
     if isinstance(val, (datetime, pd.Timestamp)):
-        return val.date().strftime("%Y-%m-%d")
-    if isinstance(val, date):
-        return val.strftime("%Y-%m-%d")
-    return str(val).split(" ")[0]
+        return val.strftime("%Y-%m-%d %H:%M:%S")
 
-
-def normalize_time(val):
-    if isinstance(val, (datetime, pd.Timestamp)):
-        return val.time().strftime("%H:%M:%S")
-    if isinstance(val, time):
-        return val.strftime("%H:%M:%S")
-
-    val = str(val)
-    if len(val) == 5:      # HH:MM
-        return f"{val}:00"
-    if len(val) == 8:      # HH:MM:SS
-        return val
-
-    raise ValueError("Invalid time format")
+    val = str(val).strip()
+    try:
+        return datetime.strptime(val, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        raise ValueError("Invalid DateTime format. Use yyyy-mm-dd hh:mm:ss")
 
 
 # ----------------- UI -----------------
@@ -36,7 +23,12 @@ def punch_ui():
 
     BASE_HOST = st.session_state.HOST.rstrip("/")
     API_URL = f"{BASE_HOST}/resource-server/api/punches/action/"
-    token = st.session_state.token
+
+    # ✅ TOKEN SAFETY CHECK
+    token = str(st.session_state.token).strip()
+    if not token or token == "None":
+        st.error("❌ Session expired. Please logout and login again.")
+        st.stop()
 
     tab1, tab2 = st.tabs(["➕ Single Punch", "📤 Bulk Punch Upload"])
 
@@ -52,18 +44,23 @@ def punch_ui():
         with col2:
             punch_date = st.date_input("Punch Date")
         with col3:
-            punch_time = st.text_input("Punch Time (HH:MM)", placeholder="11:00")
+            punch_time = st.text_input(
+                "Punch Time (HH:MM:SS)",
+                placeholder="09:00:00"
+            )
 
         if st.button("✅ Submit Punch", use_container_width=True):
             if not external_number or not punch_time:
                 st.error("External Number and Time are mandatory")
-                return
+                st.stop()
 
             try:
-                punch_datetime = f"{punch_date} {normalize_time(punch_time)}"
+                punch_datetime = normalize_datetime(
+                    f"{punch_date} {punch_time}"
+                )
             except Exception as e:
                 st.error(str(e))
-                return
+                st.stop()
 
             payload = {
                 "action": "ADD_NO_TYPE",
@@ -78,7 +75,12 @@ def punch_ui():
                 "Content-Type": "application/json"
             }
 
-            response = requests.post(API_URL, json=payload, headers=headers, verify=False)
+            response = requests.post(
+                API_URL,
+                json=payload,
+                headers=headers,
+                verify=False
+            )
 
             if response.status_code == 200:
                 st.success(f"✅ Punch updated at {punch_datetime}")
@@ -93,7 +95,10 @@ def punch_ui():
         st.subheader("Bulk Punch Upload")
 
         # -------- TEMPLATE DOWNLOAD --------
-        template_df = pd.DataFrame(columns=["externalNumber", "date", "time"])
+        template_df = pd.DataFrame(
+            columns=["externalNumber", "dateTime"]
+        )
+
         template_buffer = BytesIO()
         template_df.to_excel(template_buffer, index=False)
         template_buffer.seek(0)
@@ -108,11 +113,19 @@ def punch_ui():
 
         st.divider()
 
-        file = st.file_uploader("Upload Excel File", type=["xlsx"])
+        file = st.file_uploader(
+            "Upload Excel File",
+            type=["xlsx"]
+        )
 
         if file:
             df = pd.read_excel(file)
             st.dataframe(df, use_container_width=True)
+
+            required_cols = {"externalNumber", "dateTime"}
+            if not required_cols.issubset(df.columns):
+                st.error("Excel must contain columns: externalNumber, dateTime")
+                st.stop()
 
             if st.button("🚀 Upload Punches", use_container_width=True):
 
@@ -127,9 +140,7 @@ def punch_ui():
 
                     for _, row in df.iterrows():
                         try:
-                            punch_date = normalize_date(row["date"])
-                            punch_time = normalize_time(row["time"])
-                            punch_datetime = f"{punch_date} {punch_time}"
+                            punch_datetime = normalize_datetime(row["dateTime"])
 
                             payload = {
                                 "action": "ADD_NO_TYPE",
@@ -167,7 +178,7 @@ def punch_ui():
                             failed += 1
                             results.append({
                                 "externalNumber": row.get("externalNumber"),
-                                "punchTime": "N/A",
+                                "punchTime": row.get("dateTime"),
                                 "status": str(e)
                             })
 
