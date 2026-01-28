@@ -113,8 +113,8 @@ with st.sidebar:
             "Schedule Patterns",
             "Schedule Pattern Sets",
 
-            "Employee Lookup Table",
-            "Organization Location Lookup Table",
+            "Emp Lookup Table",
+            "Org Lookup Table",
 
             "Accruals",
             "Accrual Policies",
@@ -163,10 +163,10 @@ elif menu == "Schedule Patterns":
 elif menu == "Schedule Pattern Sets":
     schedule_pattern_sets_ui()
 
-elif menu == "Employee Lookup Table":
+elif menu == "Emp Lookup Table":
     employee_lookup_table_ui()
     
-elif menu == "Organization Location Lookup Table":
+elif menu == "Org Lookup Table":
     organization_location_lookup_table_ui()
     
 elif menu == "Accruals":
