@@ -13,7 +13,10 @@ def normalize_datetime(val):
         return val.strftime("%Y-%m-%d %H:%M:%S")
 
     val = str(val).strip()
-    return datetime.strptime(val, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        return datetime.strptime(val, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        raise ValueError("Invalid DateTime format. Use yyyy-mm-dd hh:mm:ss")
 
 
 # ----------------- UI -----------------
@@ -21,23 +24,21 @@ def punch_ui():
     st.header("🕒 Punch Update")
     st.caption("Add or bulk upload employee punches")
 
-    # ✅ Get token (ONLY here)
+    # ===== TOKEN =====
     token = get_bearer_token()
     if not token:
         st.error("❌ Session expired. Please logout and login again.")
         st.stop()
 
-    # 🔒 FIXED API URL (AS REQUESTED — NOT MODIFIED)
-    API_URL = "https://saas-beeforce-uat.beeforce.in:7501/resource-server/api/punches/action/"
+    # ===== BASE URL (DO NOT CHANGE PATH) =====
+    HOST = st.session_state.HOST.rstrip("/")
+    BASE_URL = f"{HOST}/resource-server/api/punches/action/"
 
-    # ✅ REQUIRED HEADERS
+    # ===== HEADERS (ONLY WHAT IS REQUIRED) =====
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
-
-    # Debug (optional – comment after testing)
-    # st.write(headers)
 
     tab1, tab2 = st.tabs(["➕ Single Punch", "📤 Bulk Punch Upload"])
 
@@ -53,10 +54,7 @@ def punch_ui():
         with col2:
             punch_date = st.date_input("Punch Date")
         with col3:
-            punch_time = st.text_input(
-                "Punch Time (HH:MM:SS)",
-                value="09:00:00"
-            )
+            punch_time = st.text_input("Punch Time (HH:MM:SS)", "09:00:00")
 
         if st.button("✅ Submit Punch", use_container_width=True):
             if not external_number or not punch_time:
@@ -82,7 +80,7 @@ def punch_ui():
             }
 
             response = requests.post(
-                API_URL,
+                BASE_URL,
                 json=payload,
                 headers=headers,
                 verify=False
@@ -95,7 +93,7 @@ def punch_ui():
                 try:
                     st.json(response.json())
                 except Exception:
-                    st.text(response.text)
+                    st.write(response.text)
 
     # ======================================================
     # BULK PUNCH
@@ -130,6 +128,8 @@ def punch_ui():
 
             if st.button("🚀 Upload Punches", use_container_width=True):
                 results = []
+                success = 0
+                failed = 0
 
                 with st.spinner("Uploading punches..."):
                     for _, row in df.iterrows():
@@ -147,19 +147,29 @@ def punch_ui():
                             }
 
                             r = requests.post(
-                                API_URL,
+                                BASE_URL,
                                 json=payload,
                                 headers=headers,
                                 verify=False
                             )
 
-                            results.append({
-                                "externalNumber": row["externalNumber"],
-                                "punchTime": punch_datetime,
-                                "status": "SUCCESS" if r.status_code == 200 else f"FAILED ({r.status_code})"
-                            })
+                            if r.status_code == 200:
+                                success += 1
+                                results.append({
+                                    "externalNumber": row["externalNumber"],
+                                    "punchTime": punch_datetime,
+                                    "status": "SUCCESS"
+                                })
+                            else:
+                                failed += 1
+                                results.append({
+                                    "externalNumber": row["externalNumber"],
+                                    "punchTime": punch_datetime,
+                                    "status": f"FAILED ({r.status_code})"
+                                })
 
                         except Exception as e:
+                            failed += 1
                             results.append({
                                 "externalNumber": row.get("externalNumber"),
                                 "punchTime": row.get("dateTime"),
@@ -170,9 +180,9 @@ def punch_ui():
 
                 st.markdown("### 📊 Upload Summary")
                 c1, c2, c3 = st.columns(3)
-                c1.metric("📄 Total", len(results_df))
-                c2.metric("✅ Success", (results_df["status"] == "SUCCESS").sum())
-                c3.metric("❌ Failed", (results_df["status"] != "SUCCESS").sum())
+                c1.metric("📄 Total", len(results))
+                c2.metric("✅ Uploaded", success)
+                c3.metric("❌ Failed", failed)
 
                 st.divider()
                 st.dataframe(results_df, use_container_width=True)
