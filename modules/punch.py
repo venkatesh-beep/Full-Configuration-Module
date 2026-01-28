@@ -4,6 +4,9 @@ import requests
 from datetime import datetime
 from io import BytesIO
 
+from services.auth import get_bearer_token   # ✅ CORRECT IMPORT
+
+
 # ----------------- HELPERS -----------------
 def normalize_datetime(val):
     if isinstance(val, (datetime, pd.Timestamp)):
@@ -16,37 +19,19 @@ def normalize_datetime(val):
         raise ValueError("Invalid DateTime format. Use yyyy-mm-dd hh:mm:ss")
 
 
-def get_bearer_token():
-    from services.auth import get_bearer_token
-
-token = get_bearer_token()
-if not token:
-    st.error("❌ Session expired. Please logout and login again.")
-    st.stop()
-
-    # 🔥 IMPORTANT FIX
-    if isinstance(token, dict):
-        token = token.get("access_token")
-
-    if isinstance(token, str):
-        token = token.strip()
-
-    if not token:
-        st.error("❌ Session expired. Please logout and login again.")
-        st.stop()
-
-    return token
-
-
 # ----------------- UI -----------------
 def punch_ui():
     st.header("🕒 Punch Update")
     st.caption("Add or bulk upload employee punches")
 
+    # ✅ TOKEN (ONLY HERE)
+    token = get_bearer_token()
+    if not token:
+        st.error("❌ Session expired. Please logout and login again.")
+        st.stop()
+
     BASE_HOST = st.session_state.HOST.rstrip("/")
     API_URL = f"{BASE_HOST}/resource-server/api/punches/action/"
-
-    token = get_bearer_token()
 
     headers = {
         "Authorization": f"Bearer {token}",
