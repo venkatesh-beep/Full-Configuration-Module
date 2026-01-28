@@ -45,6 +45,7 @@ from modules.regularization_policy_sets import regularization_policy_sets_ui
 from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
+from modules.punch import punch_ui
 
 
 # ================= PAGE CONFIG =================
@@ -124,8 +125,8 @@ with st.sidebar:
             "Schedule Patterns",
             "Schedule Pattern Sets",
 
-            "Employee Lookup Table",
-            "Organization Location Lookup Table",
+            "Emp Lookup Table",
+            "Org Lookup Table",
 
             "Accruals",
             "Accrual Policies",
@@ -138,7 +139,8 @@ with st.sidebar:
             "Regularization Policy Sets",
             "Roles",
             "Overtime Policies",
-            "Timecard Updation"
+            "Timecard Updation".
+            "Punch Update",
         ]
     )
 
@@ -173,19 +175,11 @@ elif menu == "Schedule Patterns":
 elif menu == "Schedule Pattern Sets":
     schedule_pattern_sets_ui()
 
-elif menu == "Employee Lookup Table":
-    if employee_lookup_table_ui:
-        employee_lookup_table_ui()
-    else:
-        st.error("❌ Failed to load Employee Lookup Table module")
-        st.code(EMP_LOOKUP_ERROR)
+elif menu == "Emp Lookup Table":
+    employee_lookup_table_ui()
 
-elif menu == "Organization Location Lookup Table":
-    if organization_location_lookup_table_ui:
-        organization_location_lookup_table_ui()
-    else:
-        st.error("❌ Failed to load Organization Location Lookup Table module")
-        st.code(ORG_LOC_LOOKUP_ERROR)
+elif menu == "Org Lookup Table":
+    organization_location_lookup_table_ui()
 
 elif menu == "Accruals":
     accruals_ui()
@@ -216,3 +210,6 @@ elif menu == "Overtime Policies":
 
 elif menu == "Timecard Updation":
     timecard_updation_ui()
+
+elif menu == "Punch Update":
+    punch_ui()
