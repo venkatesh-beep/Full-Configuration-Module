@@ -11,10 +11,7 @@ def normalize_datetime(val):
         return val.strftime("%Y-%m-%d %H:%M:%S")
 
     val = str(val).strip()
-    try:
-        return datetime.strptime(val, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
-    except ValueError:
-        raise ValueError("Invalid DateTime format. Use yyyy-mm-dd hh:mm:ss")
+    return datetime.strptime(val, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
 
 
 # ----------------- UI -----------------
@@ -22,13 +19,13 @@ def punch_ui():
     st.header("🕒 Punch Update")
     st.caption("Add or bulk upload employee punches")
 
-    # 🔐 SAME LOGIC AS PAYCODES
-    BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/punches/action/"
+    # ✅ SAME LOGIC AS PAYCODES
+    HOST = st.session_state.HOST.rstrip("/")
+    BASE_URL = f"{HOST}/resource-server/api/punches/action/"
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
-        "Content-Type": "application/json;charset=UTF-8",
-        "Accept": "application/json"
+        "Content-Type": "application/vnd.api+json"
     }
 
     tab1, tab2 = st.tabs(["➕ Single Punch", "📤 Bulk Punch Upload"])
@@ -52,13 +49,9 @@ def punch_ui():
                 st.error("External Number and Time are mandatory")
                 st.stop()
 
-            try:
-                punch_datetime = normalize_datetime(
-                    f"{punch_date} {punch_time}"
-                )
-            except Exception as e:
-                st.error(str(e))
-                st.stop()
+            punch_datetime = normalize_datetime(
+                f"{punch_date} {punch_time}"
+            )
 
             payload = {
                 "action": "ADD_NO_TYPE",
@@ -92,7 +85,6 @@ def punch_ui():
     with tab2:
         st.subheader("Bulk Punch Upload")
 
-        # -------- TEMPLATE DOWNLOAD --------
         template_df = pd.DataFrame(columns=["externalNumber", "dateTime"])
         buffer = BytesIO()
         template_df.to_excel(buffer, index=False)
@@ -169,7 +161,6 @@ def punch_ui():
 
                 results_df = pd.DataFrame(results)
 
-                # -------- SUMMARY --------
                 st.markdown("### 📊 Upload Summary")
                 c1, c2, c3 = st.columns(3)
                 c1.metric("📄 Total", len(results))
@@ -179,7 +170,6 @@ def punch_ui():
                 st.divider()
                 st.dataframe(results_df, use_container_width=True)
 
-                # -------- RESULT DOWNLOAD --------
                 out = BytesIO()
                 results_df.to_excel(out, index=False)
                 out.seek(0)
