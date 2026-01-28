@@ -44,6 +44,7 @@ from modules.regularization_policy_sets import regularization_policy_sets_ui
 from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
+from modules.punch import punch_ui
 
 
 # ================= PAGE CONFIG =================
@@ -137,7 +138,8 @@ with st.sidebar:
             "Regularization Policy Sets",
             "Roles",
             "Overtime Policies",
-            "Timecard Updation"
+            "Timecard Updation",
+            "Punch Update"
         ]
     )
 
@@ -215,3 +217,6 @@ elif menu == "Overtime Policies":
 
 elif menu == "Timecard Updation":
     timecard_updation_ui()
+
+elif menu == "Punch Update":
+    punch_ui()
