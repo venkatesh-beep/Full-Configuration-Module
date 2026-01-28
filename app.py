@@ -64,14 +64,8 @@ if "HOST" not in st.session_state:
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
-# ================= APP HEADER =================
-st.title("⚙️ Configuration Portal")
-st.caption(
-    "Centralized configuration for Paycodes, Shifts, Schedules, "
-    "Accruals, Timeoff, Regularization, Overtime and more"
-)
-
 # ================= LOGIN FLOW =================
+# ❌ No title/caption shown here anymore
 if not st.session_state.token:
     login_ui()
     st.stop()
@@ -92,17 +86,34 @@ if issued_at:
         st.session_state.clear()
         st.rerun()
 
-    with st.sidebar:
+# ================= SIDEBAR =================
+with st.sidebar:
+    # ---- App Title ----
+    st.markdown("## ⚙️ Configuration Portal")
+    st.caption(
+        "Centralized configuration for Paycodes, Shifts, Schedules, "
+        "Accruals, Timeoff, Regularization, Overtime and more"
+    )
+
+    st.markdown("---")
+
+    # ---- Logged-in User ----
+    username = st.session_state.get("username", "User")
+    st.markdown(f"### 👤 Logged in as")
+    st.info(username)
+
+    # ---- Session Timer ----
+    if issued_at:
         st.markdown("### ⏳ Session Timer")
         st.info(f"Expires in **{remaining // 60:02d}:{remaining % 60:02d}**")
 
         if remaining <= 300:
             st.warning("⚠️ Session expiring soon")
 
-# ================= SIDEBAR =================
-with st.sidebar:
-    st.markdown("### 🔧 Settings")
+    st.markdown("---")
 
+    # ---- Settings ----
+    st.markdown("### 🔧 Settings")
     st.text_input(
         "Base Host URL",
         key="HOST",
@@ -111,6 +122,7 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # ---- Menu ----
     menu = st.radio(
         "📂 Configuration Modules",
         [
