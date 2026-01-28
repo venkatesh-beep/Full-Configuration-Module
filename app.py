@@ -72,7 +72,7 @@ if not st.session_state.token:
 # ================= NORMALIZED HOST =================
 BASE_HOST = st.session_state.HOST.rstrip("/")
 
-# ================= SESSION TIMER (LOGIC KEPT, UI REMOVED) =================
+# ================= SESSION EXPIRY LOGIC (UI REMOVED) =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
 issued_at = st.session_state.get("token_issued_at")
 
@@ -87,17 +87,12 @@ if issued_at:
 
 # ================= SIDEBAR =================
 with st.sidebar:
-    # ---- App Title ----
-    st.markdown("## ⚙️ Configuration Portal")
+    # ---- Title ----
+    st.markdown("### ⚙️ Configuration Portal")
 
-    st.markdown("---")
-
-    # ---- Logged-in User ----
-    username = st.session_state.get("username", "User")
-    st.markdown("### 👤 Logged in as")
-    st.info(username)
-
-    st.markdown("---")
+    # ---- User ----
+    st.markdown("**👤 Logged in as**")
+    st.info(st.session_state.get("username", "User"))
 
     # ---- Menu ----
     menu = st.radio(
@@ -132,11 +127,8 @@ with st.sidebar:
         ]
     )
 
-    st.markdown("---")
-
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
+    # ---- Logout ----
+    st.button("🚪 Logout", on_click=lambda: (st.session_state.clear(), st.rerun()))
 
 # ================= MAIN CONTENT =================
 if menu == "Paycodes":
@@ -165,10 +157,10 @@ elif menu == "Schedule Pattern Sets":
 
 elif menu == "Emp Lookup Table":
     employee_lookup_table_ui()
-    
+   
 elif menu == "Org Lookup Table":
     organization_location_lookup_table_ui()
-    
+
 elif menu == "Accruals":
     accruals_ui()
 
