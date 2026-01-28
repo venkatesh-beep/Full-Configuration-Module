@@ -96,7 +96,7 @@ def login_ui():
             unsafe_allow_html=True
         )
         st.markdown(
-            '<div class="login-subtitle">Secure enterprise configuration access</div>',
+            '<div class="login-subtitle">Enter your username and password to Login</div>',
             unsafe_allow_html=True
         )
 
