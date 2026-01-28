@@ -65,7 +65,6 @@ if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
 # ================= LOGIN FLOW =================
-# ❌ No title/caption shown here anymore
 if not st.session_state.token:
     login_ui()
     st.stop()
@@ -73,7 +72,7 @@ if not st.session_state.token:
 # ================= NORMALIZED HOST =================
 BASE_HOST = st.session_state.HOST.rstrip("/")
 
-# ================= SESSION TIMER (30 MINUTES) =================
+# ================= SESSION TIMER (LOGIC KEPT, UI REMOVED) =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
 issued_at = st.session_state.get("token_issued_at")
 
@@ -90,35 +89,13 @@ if issued_at:
 with st.sidebar:
     # ---- App Title ----
     st.markdown("## ⚙️ Configuration Portal")
-    st.caption(
-        "Centralized configuration for Paycodes, Shifts, Schedules, "
-        "Accruals, Timeoff, Regularization, Overtime and more"
-    )
 
     st.markdown("---")
 
     # ---- Logged-in User ----
     username = st.session_state.get("username", "User")
-    st.markdown(f"### 👤 Logged in as")
+    st.markdown("### 👤 Logged in as")
     st.info(username)
-
-    # ---- Session Timer ----
-    if issued_at:
-        st.markdown("### ⏳ Session Timer")
-        st.info(f"Expires in **{remaining // 60:02d}:{remaining % 60:02d}**")
-
-        if remaining <= 300:
-            st.warning("⚠️ Session expiring soon")
-
-    st.markdown("---")
-
-    # ---- Settings ----
-    st.markdown("### 🔧 Settings")
-    st.text_input(
-        "Base Host URL",
-        key="HOST",
-        help="Example: https://saas-beeforce.labour.tech/"
-    )
 
     st.markdown("---")
 
@@ -187,19 +164,11 @@ elif menu == "Schedule Pattern Sets":
     schedule_pattern_sets_ui()
 
 elif menu == "Employee Lookup Table":
-    if employee_lookup_table_ui:
-        employee_lookup_table_ui()
-    else:
-        st.error("❌ Failed to load Employee Lookup Table module")
-        st.code(EMP_LOOKUP_ERROR)
-
+    employee_lookup_table_ui()
+    
 elif menu == "Organization Location Lookup Table":
-    if organization_location_lookup_table_ui:
-        organization_location_lookup_table_ui()
-    else:
-        st.error("❌ Failed to load Organization Location Lookup Table module")
-        st.code(ORG_LOC_LOOKUP_ERROR)
-
+    organization_location_lookup_table_ui()
+    
 elif menu == "Accruals":
     accruals_ui()
 
