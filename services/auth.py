@@ -10,22 +10,23 @@ CLIENT_AUTH = os.getenv("CLIENT_AUTH")
 if not CLIENT_AUTH:
     raise RuntimeError("CLIENT_AUTH environment variable is not set")
 
-DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
-
 TOKEN_TTL_SECONDS = 3500  # backend usually expires at 3600
 
 
 # ======================================================
-# TOKEN UTIL (🔥 THIS IS IMPORTANT)
+# TOKEN UTIL
 # ======================================================
 def get_bearer_token():
+    """
+    Returns a valid bearer token from session_state
+    or None if expired / missing
+    """
     token = st.session_state.get("token")
     issued_at = st.session_state.get("token_issued_at")
 
     if not token or not issued_at:
         return None
 
-    # 🔥 Expiry check
     if time.time() - issued_at > TOKEN_TTL_SECONDS:
         return None
 
@@ -83,37 +84,77 @@ def login_ui():
     with center:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
-        st.markdown('<div class="login-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-subtitle">Secure enterprise configuration access</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="login-title">⚙️ Configuration Portal</div>',
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            '<div class="login-subtitle">Secure enterprise configuration access</div>',
+            unsafe_allow_html=True
+        )
 
         with st.form("login_form", clear_on_submit=False):
-            st.text_input("Base Host URL", DEFAULT_HOST, key="HOST")
+
+            st.text_input(
+                "Base Host URL",
+                placeholder="https://saas-beeforce-uat.beeforce.in:7501",
+                key="HOST"
+            )
+
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
 
             submit = st.form_submit_button("Login", use_container_width=True)
 
             if submit:
-                r = requests.post(
-                    st.session_state.HOST.rstrip("/") + "/authorization-server/oauth/token",
-                    data={
-                        "username": username,
-                        "password": password,
-                        "grant_type": "password"
-                    },
-                    headers={
-                        "Authorization": CLIENT_AUTH,
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    }
-                )
+                if not st.session_state.HOST:
+                    st.error("❌ Base Host URL is required")
+                    st.stop()
+
+                base_url = st.session_state.HOST.rstrip("/")
+                auth_url = f"{base_url}/authorization-server/oauth/token"
+
+                try:
+                    r = requests.post(
+                        auth_url,
+                        data={
+                            "username": username,
+                            "password": password,
+                            "grant_type": "password"
+                        },
+                        headers={
+                            "Authorization": CLIENT_AUTH,
+                            "Content-Type": "application/x-www-form-urlencoded"
+                        },
+                        timeout=20
+                    )
+                except Exception as e:
+                    st.error("❌ Unable to connect to Auth Server")
+                    st.write(str(e))
+                    st.stop()
 
                 if r.status_code != 200:
-                    st.error("❌ Invalid username or password")
+                    st.error("❌ Login failed")
+                    try:
+                        st.json(r.json())
+                    except Exception:
+                        st.write(r.text)
                 else:
-                    data = r.json()
+                    try:
+                        data = r.json()
+                        access_token = data.get("access_token")
+                    except Exception:
+                        st.error("❌ Invalid response from Auth Server")
+                        st.write(r.text)
+                        st.stop()
 
-                    # ✅ STORE ONLY WHAT IS NEEDED
-                    st.session_state.token = data["access_token"]
+                    if not access_token:
+                        st.error("❌ access_token missing in response")
+                        st.json(data)
+                        st.stop()
+
+                    # ✅ STORE SESSION
+                    st.session_state.token = access_token
                     st.session_state.token_issued_at = time.time()
                     st.session_state.username = username
 
