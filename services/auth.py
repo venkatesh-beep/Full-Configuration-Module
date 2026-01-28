@@ -13,23 +13,26 @@ if not CLIENT_AUTH:
 TOKEN_TTL_SECONDS = 60 * 60  # 1 hour (safe default)
 
 # ======================================================
-# TOKEN HELPERS (🔥 CRITICAL FIX)
+# TOKEN HELPERS (🔥 THIS FIXES YOUR ISSUE)
 # ======================================================
-def get_valid_token():
+def require_token():
     """
-    Safely returns a valid JWT token from session_state.
-    Prevents malformed / empty / corrupted tokens.
+    Always call this before ANY API request.
+    Guarantees only a valid JWT is sent to backend.
     """
     token = st.session_state.get("token")
 
-    if not token or not isinstance(token, str):
-        return None
+    # Must be a string
+    if not isinstance(token, str):
+        st.error("❌ Session invalid. Please login again.")
+        st.stop()
 
     token = token.strip()
 
-    # JWT must have exactly 3 dot-separated parts
+    # JWT format: header.payload.signature
     if token.count(".") != 2:
-        return None
+        st.error("❌ Corrupted token detected. Please login again.")
+        st.stop()
 
     return token
 
@@ -38,7 +41,6 @@ def is_token_expired():
     issued_at = st.session_state.get("token_issued_at")
     if not issued_at:
         return True
-
     return (time.time() - issued_at) > TOKEN_TTL_SECONDS
 
 
@@ -158,7 +160,7 @@ def login_ui():
                     st.json(data)
                     st.stop()
 
-                # ✅ STORE SESSION SAFELY
+                # ✅ STORE SESSION (ONLY HERE)
                 st.session_state.token = access_token
                 st.session_state.token_issued_at = time.time()
                 st.session_state.username = username
