@@ -17,7 +17,12 @@ def normalize_datetime(val):
 
 
 def get_bearer_token():
-    token = st.session_state.token
+    from services.auth import get_bearer_token
+
+token = get_bearer_token()
+if not token:
+    st.error("❌ Session expired. Please logout and login again.")
+    st.stop()
 
     # 🔥 IMPORTANT FIX
     if isinstance(token, dict):
