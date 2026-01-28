@@ -4,7 +4,7 @@ import time
 import os
 
 # ======================================================
-# ENV CONFIG (UNCHANGED)
+# ENV CONFIG
 # ======================================================
 CLIENT_AUTH = os.getenv("CLIENT_AUTH")
 if not CLIENT_AUTH:
@@ -12,48 +12,61 @@ if not CLIENT_AUTH:
 
 DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
 
+TOKEN_TTL_SECONDS = 3500  # backend usually expires at 3600
+
+
 # ======================================================
-# LOGIN UI (BORDER WHITE + NO SHADOW)
+# TOKEN UTIL (🔥 THIS IS IMPORTANT)
+# ======================================================
+def get_bearer_token():
+    token = st.session_state.get("token")
+    issued_at = st.session_state.get("token_issued_at")
+
+    if not token or not issued_at:
+        return None
+
+    # 🔥 Expiry check
+    if time.time() - issued_at > TOKEN_TTL_SECONDS:
+        return None
+
+    return token
+
+
+# ======================================================
+# LOGIN UI
 # ======================================================
 def login_ui():
 
     st.markdown("""
     <style>
-    /* ===== NEUTRALIZE STREAMLIT SYSTEM CONTAINER ===== */
-    header,
-    footer,
+    header, footer,
     [data-testid="stToolbar"],
     [data-testid="stDecoration"],
     [data-testid="stStatusWidget"] {
         display: none;
     }
 
-    /* Make all backgrounds white */
     html, body, [data-testid="stAppViewContainer"] {
         background: white !important;
     }
 
-    /* Remove padding illusion */
     .block-container {
         padding-top: 0.5rem !important;
     }
 
-    /* ===== LOGIN CARD ===== */
     .login-card {
         background: #FFFFFF;
         padding: 36px;
         border-radius: 16px;
-        border: 1px solid #FFFFFF;   /* ✅ WHITE BORDER */
-        box-shadow: none;            /* ✅ NO SHADOW */
+        border: 1px solid #FFFFFF;
+        box-shadow: none;
     }
 
-    /* ===== TITLES ===== */
     .login-title {
         font-size: 28px;
         font-weight: 800;
         color: #1E3A8A;
         text-align: center;
-        margin-bottom: 6px;
     }
 
     .login-subtitle {
@@ -62,58 +75,21 @@ def login_ui():
         text-align: center;
         margin-bottom: 28px;
     }
-
-    /* ===== INPUTS ===== */
-    input {
-        border-radius: 10px !important;
-        font-size: 14px !important;
-    }
-
-    /* ===== BUTTON ===== */
-    .stButton > button {
-        background: #4F46E5;
-        color: white;
-        font-weight: 600;
-        border-radius: 10px;
-        height: 42px;
-        border: none;
-    }
-
-    .stButton > button:hover {
-        background: #4338CA;
-    }
     </style>
     """, unsafe_allow_html=True)
 
-    # ===== CENTER LOGIN CARD =====
     left, center, right = st.columns([1.3, 1, 1.3])
 
     with center:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
-        st.markdown(
-            '<div class="login-title">⚙️ Configuration Portal</div>',
-            unsafe_allow_html=True
-        )
-        st.markdown(
-            '<div class="login-subtitle">Secure enterprise configuration access</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="login-title">⚙️ Configuration Portal</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Secure enterprise configuration access</div>', unsafe_allow_html=True)
 
-        # ===== LOGIN FORM (UNCHANGED LOGIC) =====
         with st.form("login_form", clear_on_submit=False):
             st.text_input("Base Host URL", DEFAULT_HOST, key="HOST")
-
-            username = st.text_input(
-                "Username",
-                placeholder="Enter your username"
-            )
-
-            password = st.text_input(
-                "Password",
-                type="password",
-                placeholder="Enter your password"
-            )
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
 
             submit = st.form_submit_button("Login", use_container_width=True)
 
@@ -134,9 +110,13 @@ def login_ui():
                 if r.status_code != 200:
                     st.error("❌ Invalid username or password")
                 else:
-                    st.session_state.token = r.json()["access_token"]
+                    data = r.json()
+
+                    # ✅ STORE ONLY WHAT IS NEEDED
+                    st.session_state.token = data["access_token"]
                     st.session_state.token_issued_at = time.time()
                     st.session_state.username = username
+
                     st.success("✅ Login successful")
                     st.rerun()
 
