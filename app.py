@@ -139,8 +139,8 @@ with st.sidebar:
             "Regularization Policy Sets",
             "Roles",
             "Overtime Policies",
-            "Timecard Updation".
-            "Punch Update",
+            "Timecard Updation",
+            "Punch Update"
         ]
     )
 
