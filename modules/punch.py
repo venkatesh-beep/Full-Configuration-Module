@@ -1,21 +1,21 @@
 import streamlit as st
-import pandas as pd
 import requests
 from datetime import datetime
-from io import BytesIO
 
 # ----------------- HELPERS -----------------
 def normalize_datetime(val):
-    if isinstance(val, (datetime, pd.Timestamp)):
-        return val.strftime("%Y-%m-%d %H:%M:%S")
+    if not val:
+        raise ValueError("Date and Time are required")
     val = str(val).strip()
     return datetime.strptime(val, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+
 
 # ----------------- UI -----------------
 def punch_ui():
     st.header("🕒 Punch Update")
-    st.caption("Add or bulk upload employee punches")
+    st.caption("Add a single employee punch")
 
+    # ---------- AUTH ----------
     token = st.session_state.token
     if not token:
         st.error("❌ Not logged in")
@@ -29,30 +29,72 @@ def punch_ui():
         "Content-Type": "application/vnd.api+json"
     }
 
-    tab1, tab2 = st.tabs(["➕ Single Punch", "📤 Bulk Punch Upload"])
+    # ---------- CARD ----------
+    with st.container():
+        st.markdown("### ➕ Single Punch Entry")
 
-    with tab1:
-        external_number = st.text_input("External Number")
-        punch_date = st.date_input("Punch Date")
-        punch_time = st.text_input("Punch Time (HH:MM:SS)", "09:00:00")
+        col1, col2 = st.columns(2)
 
-        if st.button("Submit Punch"):
-            punch_datetime = normalize_datetime(f"{punch_date} {punch_time}")
+        with col1:
+            external_number = st.text_input(
+                "External Number",
+                placeholder="Enter employee external number"
+            )
+
+        with col2:
+            punch_date = st.text_input(
+                "Punch Date (YYYY-MM-DD)",
+                placeholder="2026-01-20"
+            )
+
+        punch_time = st.text_input(
+            "Punch Time (HH:MM:SS)",
+            placeholder="09:00:00"
+        )
+
+        st.markdown("")
+
+        if st.button("✅ Submit Punch", use_container_width=True):
+
+            if not external_number:
+                st.error("❌ External Number is required")
+                st.stop()
+
+            if not punch_date or not punch_time:
+                st.error("❌ Punch Date and Time are required")
+                st.stop()
+
+            try:
+                punch_datetime = normalize_datetime(
+                    f"{punch_date} {punch_time}"
+                )
+            except Exception as e:
+                st.error(str(e))
+                st.stop()
 
             payload = {
                 "action": "ADD_NO_TYPE",
                 "punch": {
-                    "employee": {"externalNumber": external_number},
+                    "employee": {
+                        "externalNumber": external_number
+                    },
                     "punchTime": punch_datetime
                 }
             }
 
-            r = requests.post(BASE_URL, json=payload, headers=headers, verify=False)
+            with st.spinner("Submitting punch..."):
+                r = requests.post(
+                    BASE_URL,
+                    json=payload,
+                    headers=headers,
+                    verify=False
+                )
+
             if r.status_code == 200:
-                st.success("Punch added successfully")
+                st.success(f"✅ Punch added at {punch_datetime}")
             else:
                 st.error(f"❌ Failed ({r.status_code})")
                 try:
                     st.json(r.json())
-                except:
+                except Exception:
                     st.write(r.text)
