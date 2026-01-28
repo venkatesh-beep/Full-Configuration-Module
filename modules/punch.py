@@ -21,21 +21,23 @@ def punch_ui():
     st.header("🕒 Punch Update")
     st.caption("Add or bulk upload employee punches")
 
-    # ✅ Token
+    # ✅ Get token (ONLY here)
     token = get_bearer_token()
     if not token:
         st.error("❌ Session expired. Please logout and login again.")
         st.stop()
 
-    BASE_HOST = st.session_state.HOST.rstrip("/")
-    API_URL = f"{BASE_HOST}/resource-server/api/punches/action/"
+    # 🔒 FIXED API URL (AS REQUESTED — NOT MODIFIED)
+    API_URL = "https://saas-beeforce-uat.beeforce.in:7501/resource-server/api/punches/action/"
 
-    # 🔥 REQUIRED HEADERS FOR RESOURCE SERVER
+    # ✅ REQUIRED HEADERS
     headers = {
         "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "X-Tenant-ID": "25"   # 🔴 REQUIRED — change if your tenant differs
+        "Content-Type": "application/json"
     }
+
+    # Debug (optional – comment after testing)
+    # st.write(headers)
 
     tab1, tab2 = st.tabs(["➕ Single Punch", "📤 Bulk Punch Upload"])
 
@@ -51,26 +53,49 @@ def punch_ui():
         with col2:
             punch_date = st.date_input("Punch Date")
         with col3:
-            punch_time = st.text_input("Punch Time (HH:MM:SS)", "09:00:00")
+            punch_time = st.text_input(
+                "Punch Time (HH:MM:SS)",
+                value="09:00:00"
+            )
 
         if st.button("✅ Submit Punch", use_container_width=True):
-            punch_datetime = normalize_datetime(f"{punch_date} {punch_time}")
+            if not external_number or not punch_time:
+                st.error("External Number and Time are mandatory")
+                st.stop()
+
+            try:
+                punch_datetime = normalize_datetime(
+                    f"{punch_date} {punch_time}"
+                )
+            except Exception as e:
+                st.error(str(e))
+                st.stop()
 
             payload = {
                 "action": "ADD_NO_TYPE",
                 "punch": {
-                    "employee": {"externalNumber": external_number},
+                    "employee": {
+                        "externalNumber": external_number
+                    },
                     "punchTime": punch_datetime
                 }
             }
 
-            r = requests.post(API_URL, json=payload, headers=headers, verify=False)
+            response = requests.post(
+                API_URL,
+                json=payload,
+                headers=headers,
+                verify=False
+            )
 
-            if r.status_code == 200:
-                st.success("✅ Punch added successfully")
+            if response.status_code == 200:
+                st.success(f"✅ Punch updated at {punch_datetime}")
             else:
-                st.error(f"❌ Failed ({r.status_code})")
-                st.json(r.json())
+                st.error(f"❌ Failed ({response.status_code})")
+                try:
+                    st.json(response.json())
+                except Exception:
+                    st.text(response.text)
 
     # ======================================================
     # BULK PUNCH
@@ -78,17 +103,20 @@ def punch_ui():
     with tab2:
         st.subheader("Bulk Punch Upload")
 
+        # -------- TEMPLATE --------
         template_df = pd.DataFrame(columns=["externalNumber", "dateTime"])
-        buf = BytesIO()
-        template_df.to_excel(buf, index=False)
-        buf.seek(0)
+        buffer = BytesIO()
+        template_df.to_excel(buffer, index=False)
+        buffer.seek(0)
 
         st.download_button(
             "⬇ Download Excel Template",
-            data=buf,
+            data=buffer,
             file_name="punch_template.xlsx",
             use_container_width=True
         )
+
+        st.divider()
 
         file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
@@ -96,26 +124,66 @@ def punch_ui():
             df = pd.read_excel(file)
             st.dataframe(df, use_container_width=True)
 
+            if not {"externalNumber", "dateTime"}.issubset(df.columns):
+                st.error("Excel must contain columns: externalNumber, dateTime")
+                st.stop()
+
             if st.button("🚀 Upload Punches", use_container_width=True):
                 results = []
 
-                for _, row in df.iterrows():
-                    punch_datetime = normalize_datetime(row["dateTime"])
+                with st.spinner("Uploading punches..."):
+                    for _, row in df.iterrows():
+                        try:
+                            punch_datetime = normalize_datetime(row["dateTime"])
 
-                    payload = {
-                        "action": "ADD_NO_TYPE",
-                        "punch": {
-                            "employee": {"externalNumber": str(row["externalNumber"])},
-                            "punchTime": punch_datetime
-                        }
-                    }
+                            payload = {
+                                "action": "ADD_NO_TYPE",
+                                "punch": {
+                                    "employee": {
+                                        "externalNumber": str(row["externalNumber"])
+                                    },
+                                    "punchTime": punch_datetime
+                                }
+                            }
 
-                    r = requests.post(API_URL, json=payload, headers=headers, verify=False)
+                            r = requests.post(
+                                API_URL,
+                                json=payload,
+                                headers=headers,
+                                verify=False
+                            )
 
-                    results.append({
-                        "externalNumber": row["externalNumber"],
-                        "punchTime": punch_datetime,
-                        "status": "SUCCESS" if r.status_code == 200 else f"FAILED ({r.status_code})"
-                    })
+                            results.append({
+                                "externalNumber": row["externalNumber"],
+                                "punchTime": punch_datetime,
+                                "status": "SUCCESS" if r.status_code == 200 else f"FAILED ({r.status_code})"
+                            })
 
-                st.dataframe(pd.DataFrame(results), use_container_width=True)
+                        except Exception as e:
+                            results.append({
+                                "externalNumber": row.get("externalNumber"),
+                                "punchTime": row.get("dateTime"),
+                                "status": str(e)
+                            })
+
+                results_df = pd.DataFrame(results)
+
+                st.markdown("### 📊 Upload Summary")
+                c1, c2, c3 = st.columns(3)
+                c1.metric("📄 Total", len(results_df))
+                c2.metric("✅ Success", (results_df["status"] == "SUCCESS").sum())
+                c3.metric("❌ Failed", (results_df["status"] != "SUCCESS").sum())
+
+                st.divider()
+                st.dataframe(results_df, use_container_width=True)
+
+                out = BytesIO()
+                results_df.to_excel(out, index=False)
+                out.seek(0)
+
+                st.download_button(
+                    "⬇ Download Result Report",
+                    data=out,
+                    file_name="punch_upload_results.xlsx",
+                    use_container_width=True
+                )
