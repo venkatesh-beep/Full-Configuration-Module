@@ -12,17 +12,8 @@ from modules.shift_templates import shift_templates_ui
 from modules.shift_template_sets import shift_template_sets_ui
 from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
-
-try:
-    from modules.employee_lookup_table import employee_lookup_table_ui
-except Exception:
-    employee_lookup_table_ui = None
-
-try:
-    from modules.organization_location_lookup_table import organization_location_lookup_table_ui
-except Exception:
-    organization_location_lookup_table_ui = None
-
+from modules.employee_lookup_table import employee_lookup_table_ui
+from modules.organization_location_lookup_table import organization_location_lookup_table_ui
 from modules.accruals import accruals_ui
 from modules.accrual_policies import accrual_policies_ui
 from modules.accrual_policy_sets import accrual_policy_sets_ui
@@ -47,7 +38,7 @@ st.set_page_config(
 st.markdown("""
     <style>
     .stApp {
-        background-color: #eef4fb;
+        background-color: #F0F0F0;
     }
     </style>
 """, unsafe_allow_html=True)
