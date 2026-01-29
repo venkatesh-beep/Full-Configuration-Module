@@ -45,7 +45,7 @@ def login_ui():
             unsafe_allow_html=True
         )
         st.markdown(
-            "<p style='text-align:center;color:#666;margin-bottom:30px;'>"
+            "<p style='text-align:center;color:#666;margin-bottom:24px;'>"
             "You will be directed to Attendance Configuration Page</p>",
             unsafe_allow_html=True
         )
