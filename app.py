@@ -35,6 +35,7 @@ from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
 from modules.punch import punch_ui
 
+
 # ================= PAGE CONFIG =================
 st.set_page_config(
     page_title="Configuration Portal",
@@ -42,7 +43,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# ================= SESSION =================
+# ================= GLOBAL UI STYLE =================
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #eef5ff;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ================= SESSION STATE =================
 if "token" not in st.session_state:
     st.session_state.token = None
 
@@ -52,19 +62,15 @@ if "HOST" not in st.session_state:
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
+# OPTIONAL: username if auth stored it
+logged_in_user = st.session_state.get("username", "User")
+
 # ================= LOGIN =================
 if not st.session_state.token:
     login_ui()
     st.stop()
 
-# ================= HEADER =================
-st.title("⚙️ Configuration Portal")
-st.caption(
-    "Centralized configuration for Paycodes, Shifts, Schedules, "
-    "Accruals, Timeoff, Regularization, Overtime and more"
-)
-
-# ================= SESSION TIMER =================
+# ================= SESSION EXPIRY (LOGIC KEPT) =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
 issued_at = st.session_state.token_issued_at
 
@@ -76,14 +82,21 @@ if issued_at:
         st.session_state.clear()
         st.rerun()
 
-    with st.sidebar:
-        st.markdown("### ⏳ Session Timer")
-        st.info(f"Expires in **{remaining // 60:02d}:{remaining % 60:02d}**")
-
 # ================= SIDEBAR =================
 with st.sidebar:
+    # ---- Logged in user ----
+    st.markdown("### 👤 Logged in")
+    st.info(logged_in_user)
+
+    st.markdown("---")
+
+    # ---- Settings ----
     st.markdown("### 🔧 Settings")
-    st.text_input("Base Host URL", key="HOST")
+    st.text_input(
+        "Base Host URL",
+        key="HOST",
+        help="Example: https://saas-beeforce.labour.tech/"
+    )
 
     st.markdown("---")
 
@@ -120,46 +133,66 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# ================= MAIN =================
+# ================= MAIN CONTENT =================
 if menu == "Paycodes":
     paycodes_ui()
+
 elif menu == "Paycode Events":
     paycode_events_ui()
+
 elif menu == "Paycode Combinations":
     paycode_combinations_ui()
+
 elif menu == "Paycode Event Sets":
     paycode_event_sets_ui()
+
 elif menu == "Shift Templates":
     shift_templates_ui()
+
 elif menu == "Shift Template Sets":
     shift_template_sets_ui()
+
 elif menu == "Schedule Patterns":
     schedule_patterns_ui()
+
 elif menu == "Schedule Pattern Sets":
     schedule_pattern_sets_ui()
+
 elif menu == "Emp Lookup Table":
     employee_lookup_table_ui()
+
 elif menu == "Org Lookup Table":
     organization_location_lookup_table_ui()
+
 elif menu == "Accruals":
     accruals_ui()
+
 elif menu == "Accrual Policies":
     accrual_policies_ui()
+
 elif menu == "Accrual Policy Sets":
     accrual_policy_sets_ui()
+
 elif menu == "Timeoff Policies":
     timeoff_policies_ui()
+
 elif menu == "Timeoff Policy Sets":
     timeoff_policy_sets_ui()
+
 elif menu == "Regularization Policies":
     regularization_policies_ui()
+
 elif menu == "Regularization Policy Sets":
     regularization_policy_sets_ui()
+
 elif menu == "Roles":
     roles_ui()
+
 elif menu == "Overtime Policies":
     overtime_policies_ui()
+
 elif menu == "Timecard Updation":
     timecard_updation_ui()
+
 elif menu == "Punch Update":
     punch_ui()
