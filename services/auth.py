@@ -41,7 +41,7 @@ def login_ui():
 
     with col2:
         st.markdown(
-            "<h2 style='text-align:center;margin-bottom:4px;'>Login</h2>",
+            "<h2 style='text-align:center;margin-bottom:4px;'>Login to Configure Attendance</h2>",
             unsafe_allow_html=True
         )
         st.markdown(
@@ -53,7 +53,7 @@ def login_ui():
         # ---------- FORM (important) ----------
         with st.form("login_form"):
             st.text_input("Base Host URL", DEFAULT_HOST, key="HOST")
-            username = st.text_input("Email")
+            username = st.text_input("Username")
             password = st.text_input("Password", type="password")
 
             submitted = st.form_submit_button("Submit", use_container_width=True)
