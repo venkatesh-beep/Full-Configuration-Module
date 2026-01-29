@@ -43,7 +43,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ================= GLOBAL UI STYLE =================
+# ================= GLOBAL STYLE =================
 st.markdown("""
     <style>
     .stApp {
@@ -62,8 +62,7 @@ if "HOST" not in st.session_state:
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
-# OPTIONAL: username if auth stored it
-logged_in_user = st.session_state.get("username", "User")
+logged_in_user = st.session_state.get("username", "Logged User")
 
 # ================= LOGIN =================
 if not st.session_state.token:
@@ -78,28 +77,35 @@ if issued_at:
     remaining = max(0, int(TOKEN_VALIDITY_SECONDS - (time.time() - issued_at)))
 
     if remaining <= 0:
-        st.warning("🔒 Session expired. Please login again.")
+        st.warning("Session expired. Please login again.")
         st.session_state.clear()
         st.rerun()
 
-# ================= SIDEBAR =================
-with st.sidebar:
-    # ---- Logged in user ----
-    st.markdown("### 👤 Logged in")
-    st.info(logged_in_user)
+# ================= TOP BAR (MAIN SCREEN) =================
+top_left, top_right = st.columns([3, 1])
 
-    st.markdown("---")
+with top_left:
+    st.title("⚙️ Configuration Portal")
+    st.caption(
+        "Centralized configuration for Paycodes, Shifts, Schedules, "
+        "Accruals, Timeoff, Regularization, Overtime and more"
+    )
 
-    # ---- Settings ----
-    st.markdown("### 🔧 Settings")
+with top_right:
+    st.markdown("#### 👤 Logged in user")
+    st.markdown(f"`{logged_in_user}`")
+
+    st.markdown("#### 🔧 Settings")
     st.text_input(
         "Base Host URL",
         key="HOST",
         help="Example: https://saas-beeforce.labour.tech/"
     )
 
-    st.markdown("---")
+st.markdown("---")
 
+# ================= SIDEBAR (CLEAN) =================
+with st.sidebar:
     menu = st.radio(
         "📂 Configuration Modules",
         [
