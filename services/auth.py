@@ -41,12 +41,12 @@ def login_ui():
 
     with col2:
         st.markdown(
-            "<h2 style='text-align:center;margin-bottom:4px;'>Login to Configure Attendance</h2>",
+            "<h2 style='text-align:center;margin-bottom:4px;'>Login</h2>",
             unsafe_allow_html=True
         )
         st.markdown(
             "<p style='text-align:center;color:#666;margin-bottom:24px;'>"
-            "You will be directed to the homepage</p>",
+            "You will be directed to Attendance Configuration Page</p>",
             unsafe_allow_html=True
         )
 
