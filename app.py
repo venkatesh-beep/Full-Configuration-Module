@@ -1,4 +1,3 @@
-
 import streamlit as st
 import time
 
@@ -65,17 +64,34 @@ if "HOST" not in st.session_state:
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
+
+# =====================================================
+# 🔐 LOGIN FLOW (FULL SCREEN LOGIN UI)
+# =====================================================
+if not st.session_state.token:
+    # Hide Streamlit default UI when on login page
+    st.markdown("""
+        <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        </style>
+    """, unsafe_allow_html=True)
+
+    login_ui()
+    st.stop()
+
+
+# =====================================================
+# ✅ AUTHENTICATED APP STARTS HERE
+# =====================================================
+
 # ================= APP HEADER =================
 st.title("⚙️ Configuration Portal")
 st.caption(
     "Centralized configuration for Paycodes, Shifts, Schedules, "
     "Accruals, Timeoff, Regularization, Overtime and more"
 )
-
-# ================= LOGIN FLOW =================
-if not st.session_state.token:
-    login_ui()
-    st.stop()
 
 # ================= NORMALIZED HOST =================
 BASE_HOST = st.session_state.HOST.rstrip("/")
