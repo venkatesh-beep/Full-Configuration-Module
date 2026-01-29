@@ -4,6 +4,7 @@ import requests
 from datetime import datetime
 from io import BytesIO
 
+
 # ----------------- HELPERS -----------------
 def normalize_datetime(val: str) -> str:
     """
@@ -15,8 +16,14 @@ def normalize_datetime(val: str) -> str:
 
 # ----------------- UI -----------------
 def punch_ui():
-    st.header("🕒 Punch Update")
-    st.caption("Add or bulk upload employee punches")
+    # ---------- Page Header ----------
+    st.markdown("## 🕒 Punch Update")
+    st.markdown(
+        "<span style='color:#555;'>Add or bulk upload employee punches</span>",
+        unsafe_allow_html=True
+    )
+
+    st.divider()
 
     # ===== AUTH CHECK =====
     token = st.session_state.get("token")
@@ -39,98 +46,113 @@ def punch_ui():
     # SINGLE PUNCH
     # ======================================================
     with tab1:
-        st.subheader("Single Punch")
+        st.markdown("### ➕ Add Single Punch")
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            external_number = st.text_input("External Number", placeholder="475087")
-        with c2:
-            punch_date = st.text_input(
-                "Punch Date (YYYY-MM-DD)",
-                placeholder="2026-01-20"
-            )
-        with c3:
-            punch_time = st.text_input(
-                "Punch Time (HH:MM:SS)",
-                placeholder="09:00:00"
-            )
+        with st.container(border=True):
+            c1, c2, c3 = st.columns(3)
 
-        if st.button("✅ Submit Punch", use_container_width=True):
-            if not external_number or not punch_date or not punch_time:
-                st.error("❌ All fields are mandatory")
-                st.stop()
-
-            try:
-                punch_datetime = normalize_datetime(
-                    f"{punch_date} {punch_time}"
+            with c1:
+                external_number = st.text_input(
+                    "External Number",
+                    placeholder="475087"
                 )
-            except Exception:
-                st.error("❌ Invalid date/time format")
-                st.stop()
 
-            payload = {
-                "action": "ADD_NO_TYPE",
-                "punch": {
-                    "employee": {
-                        "externalNumber": external_number
-                    },
-                    "punchTime": punch_datetime
-                }
-            }
+            with c2:
+                punch_date = st.text_input(
+                    "Punch Date (YYYY-MM-DD)",
+                    placeholder="2026-01-20"
+                )
 
-            r = requests.post(
-                BASE_URL,
-                json=payload,
-                headers=headers,
-                verify=False
-            )
+            with c3:
+                punch_time = st.text_input(
+                    "Punch Time (HH:MM:SS)",
+                    placeholder="09:00:00"
+                )
 
-            if r.status_code == 200:
-                st.success(f"✅ Punch added at {punch_datetime}")
-            else:
-                st.error(f"❌ Failed ({r.status_code})")
+            st.markdown("")
+
+            if st.button("✅ Submit Punch", use_container_width=True):
+                if not external_number or not punch_date or not punch_time:
+                    st.error("❌ All fields are mandatory")
+                    st.stop()
+
                 try:
-                    st.json(r.json())
+                    punch_datetime = normalize_datetime(
+                        f"{punch_date} {punch_time}"
+                    )
                 except Exception:
-                    st.write(r.text)
+                    st.error("❌ Invalid date/time format")
+                    st.stop()
+
+                payload = {
+                    "action": "ADD_NO_TYPE",
+                    "punch": {
+                        "employee": {
+                            "externalNumber": external_number
+                        },
+                        "punchTime": punch_datetime
+                    }
+                }
+
+                r = requests.post(
+                    BASE_URL,
+                    json=payload,
+                    headers=headers,
+                    verify=False
+                )
+
+                if r.status_code == 200:
+                    st.success(f"✅ Punch added at {punch_datetime}")
+                else:
+                    st.error(f"❌ Failed ({r.status_code})")
+                    try:
+                        st.json(r.json())
+                    except Exception:
+                        st.write(r.text)
 
     # ======================================================
     # BULK PUNCH
     # ======================================================
     with tab2:
-        st.subheader("Bulk Punch Upload")
+        st.markdown("### 📤 Bulk Punch Upload")
 
-        st.markdown(
-            """
-            **Excel format required:**
-            ```
-            externalNumber | dateTime
-            475087         | 2026-01-20 09:00:00
-            ```
-            """
-        )
+        with st.container(border=True):
+            st.markdown(
+                """
+                **Required Excel format**
 
-        # -------- TEMPLATE DOWNLOAD --------
-        template_df = pd.DataFrame(
-            columns=["externalNumber", "dateTime"]
-        )
-        template_buffer = BytesIO()
-        template_df.to_excel(template_buffer, index=False)
-        template_buffer.seek(0)
+                | externalNumber | dateTime |
+                |---------------|----------|
+                | 475087        | 2026-01-20 09:00:00 |
+                """
+            )
 
-        st.download_button(
-            "⬇ Download Excel Template",
-            data=template_buffer,
-            file_name="punch_template.xlsx",
-            use_container_width=True
-        )
+            # -------- TEMPLATE DOWNLOAD --------
+            template_df = pd.DataFrame(
+                columns=["externalNumber", "dateTime"]
+            )
+            template_buffer = BytesIO()
+            template_df.to_excel(template_buffer, index=False)
+            template_buffer.seek(0)
+
+            st.download_button(
+                "⬇ Download Excel Template",
+                data=template_buffer,
+                file_name="punch_template.xlsx",
+                use_container_width=True
+            )
 
         st.divider()
 
-        file = st.file_uploader("Upload Excel File", type=["xlsx"])
+        file = st.file_uploader(
+            "Upload Filled Excel File",
+            type=["xlsx"]
+        )
 
         if file:
             df = pd.read_excel(file)
+
+            st.markdown("### 👀 Preview")
             st.dataframe(df, use_container_width=True)
 
             required_cols = {"externalNumber", "dateTime"}
@@ -196,6 +218,7 @@ def punch_ui():
                 c3.metric("❌ Failed", failed)
 
                 st.divider()
+
                 st.dataframe(results_df, use_container_width=True)
 
                 out = BytesIO()
