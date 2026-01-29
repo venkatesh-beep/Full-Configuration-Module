@@ -16,16 +16,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= SESSION GUARANTEES =================
+# ================= SESSION =================
 if "token" not in st.session_state:
     st.session_state["token"] = None
 
 if "token_issued_at" not in st.session_state:
     st.session_state["token_issued_at"] = None
 
-# 🔑 CRITICAL: guarantee HOST exists for all modules
-if "HOST" not in st.session_state:
-    st.session_state["HOST"] = ""
+# 🚫 DO NOT initialize HOST here
+# auth.py guarantees HOST correctness
 
 # ================= LOGIN =================
 if not st.session_state["token"]:
