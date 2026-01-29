@@ -15,18 +15,16 @@ from modules.shift_template_sets import shift_template_sets_ui
 from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
 
-# ---- Lookup Tables (SAFE IMPORTS) ----
+# ---- Lookup Tables ----
 try:
     from modules.employee_lookup_table import employee_lookup_table_ui
-except Exception as e:
+except Exception:
     employee_lookup_table_ui = None
-    EMP_LOOKUP_ERROR = str(e)
 
 try:
     from modules.organization_location_lookup_table import organization_location_lookup_table_ui
-except Exception as e:
+except Exception:
     organization_location_lookup_table_ui = None
-    ORG_LOC_LOOKUP_ERROR = str(e)
 
 # ---- Accruals ----
 from modules.accruals import accruals_ui
@@ -37,10 +35,9 @@ from modules.accrual_policy_sets import accrual_policy_sets_ui
 from modules.timeoff_policies import timeoff_policies_ui
 from modules.timeoff_policy_sets import timeoff_policy_sets_ui
 
-# ---- Regularization & Others ----
+# ---- Others ----
 from modules.regularization_policies import regularization_policies_ui
 from modules.regularization_policy_sets import regularization_policy_sets_ui
-
 from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
@@ -54,7 +51,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ================= SESSION STATE INIT =================
+# ================= SESSION INIT =================
 if "token" not in st.session_state:
     st.session_state.token = None
 
@@ -65,26 +62,11 @@ if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
 
-# =====================================================
-# 🔐 LOGIN FLOW (FULL SCREEN LOGIN UI)
-# =====================================================
+# ================= LOGIN FLOW =================
 if not st.session_state.token:
-    # Hide Streamlit default UI when on login page
-    st.markdown("""
-        <style>
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
-        </style>
-    """, unsafe_allow_html=True)
-
     login_ui()
     st.stop()
 
-
-# =====================================================
-# ✅ AUTHENTICATED APP STARTS HERE
-# =====================================================
 
 # ================= APP HEADER =================
 st.title("⚙️ Configuration Portal")
@@ -93,16 +75,12 @@ st.caption(
     "Accruals, Timeoff, Regularization, Overtime and more"
 )
 
-# ================= NORMALIZED HOST =================
-BASE_HOST = st.session_state.HOST.rstrip("/")
-
-# ================= SESSION TIMER (30 MINUTES) =================
+# ================= SESSION TIMER =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
-issued_at = st.session_state.get("token_issued_at")
+issued_at = st.session_state.token_issued_at
 
 if issued_at:
-    elapsed = time.time() - issued_at
-    remaining = max(0, int(TOKEN_VALIDITY_SECONDS - elapsed))
+    remaining = max(0, int(TOKEN_VALIDITY_SECONDS - (time.time() - issued_at)))
 
     if remaining <= 0:
         st.warning("🔒 Session expired. Please login again.")
@@ -113,18 +91,11 @@ if issued_at:
         st.markdown("### ⏳ Session Timer")
         st.info(f"Expires in **{remaining // 60:02d}:{remaining % 60:02d}**")
 
-        if remaining <= 300:
-            st.warning("⚠️ Session expiring soon")
-
 # ================= SIDEBAR =================
 with st.sidebar:
     st.markdown("### 🔧 Settings")
 
-    st.text_input(
-        "Base Host URL",
-        key="HOST",
-        help="Example: https://saas-beeforce.labour.tech/"
-    )
+    st.text_input("Base Host URL", key="HOST")
 
     st.markdown("---")
 
@@ -135,22 +106,17 @@ with st.sidebar:
             "Paycode Events",
             "Paycode Combinations",
             "Paycode Event Sets",
-
             "Shift Templates",
             "Shift Template Sets",
             "Schedule Patterns",
             "Schedule Pattern Sets",
-
             "Emp Lookup Table",
             "Org Lookup Table",
-
             "Accruals",
             "Accrual Policies",
             "Accrual Policy Sets",
-
             "Timeoff Policies",
             "Timeoff Policy Sets",
-
             "Regularization Policies",
             "Regularization Policy Sets",
             "Roles",
@@ -169,63 +135,43 @@ with st.sidebar:
 # ================= MAIN CONTENT =================
 if menu == "Paycodes":
     paycodes_ui()
-
 elif menu == "Paycode Events":
     paycode_events_ui()
-
 elif menu == "Paycode Combinations":
     paycode_combinations_ui()
-
 elif menu == "Paycode Event Sets":
     paycode_event_sets_ui()
-
 elif menu == "Shift Templates":
     shift_templates_ui()
-
 elif menu == "Shift Template Sets":
     shift_template_sets_ui()
-
 elif menu == "Schedule Patterns":
     schedule_patterns_ui()
-
 elif menu == "Schedule Pattern Sets":
     schedule_pattern_sets_ui()
-
 elif menu == "Emp Lookup Table":
     employee_lookup_table_ui()
-
 elif menu == "Org Lookup Table":
     organization_location_lookup_table_ui()
-
 elif menu == "Accruals":
     accruals_ui()
-
 elif menu == "Accrual Policies":
     accrual_policies_ui()
-
 elif menu == "Accrual Policy Sets":
     accrual_policy_sets_ui()
-
 elif menu == "Timeoff Policies":
     timeoff_policies_ui()
-
 elif menu == "Timeoff Policy Sets":
     timeoff_policy_sets_ui()
-
 elif menu == "Regularization Policies":
     regularization_policies_ui()
-
 elif menu == "Regularization Policy Sets":
     regularization_policy_sets_ui()
-
 elif menu == "Roles":
     roles_ui()
-
 elif menu == "Overtime Policies":
     overtime_policies_ui()
-
 elif menu == "Timecard Updation":
     timecard_updation_ui()
-
 elif menu == "Punch Update":
     punch_ui()
