@@ -52,14 +52,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ================= SESSION =================
+# ================= SESSION STATE (AUTHORITATIVE) =================
+if "HOST" not in st.session_state:
+    st.session_state.HOST = "https://saas-beeforce.labour.tech"
+
 if "token" not in st.session_state:
     st.session_state.token = None
 
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
-# Username
 logged_in_user = st.session_state.get("username", "Logged User")
 
 # ================= LOGIN =================
@@ -115,7 +117,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# ================= MAIN CONTENT =================
+# ================= MAIN =================
 if menu == "Paycodes":
     paycodes_ui()
 elif menu == "Paycode Events":
