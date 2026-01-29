@@ -78,5 +78,6 @@ def login_ui():
             else:
                 st.session_state.token = r.json()["access_token"]
                 st.session_state.token_issued_at = time.time()
+                st.session_state.username = username
                 st.success("✅ Login successful")
                 st.rerun()
