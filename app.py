@@ -1,7 +1,6 @@
 import streamlit as st
 import time
 
-# ================= IMPORT MODULE UIs =================
 from services.auth import login_ui
 
 # ---- Core Modules ----
@@ -9,13 +8,11 @@ from modules.paycodes import paycodes_ui
 from modules.paycode_events import paycode_events_ui
 from modules.paycode_combinations import paycode_combinations_ui
 from modules.paycode_event_sets import paycode_event_sets_ui
-
 from modules.shift_templates import shift_templates_ui
 from modules.shift_template_sets import shift_template_sets_ui
 from modules.schedule_patterns import schedule_patterns_ui
 from modules.schedule_pattern_sets import schedule_pattern_sets_ui
 
-# ---- Lookup Tables ----
 try:
     from modules.employee_lookup_table import employee_lookup_table_ui
 except Exception:
@@ -26,23 +23,17 @@ try:
 except Exception:
     organization_location_lookup_table_ui = None
 
-# ---- Accruals ----
 from modules.accruals import accruals_ui
 from modules.accrual_policies import accrual_policies_ui
 from modules.accrual_policy_sets import accrual_policy_sets_ui
-
-# ---- Timeoff ----
 from modules.timeoff_policies import timeoff_policies_ui
 from modules.timeoff_policy_sets import timeoff_policy_sets_ui
-
-# ---- Others ----
 from modules.regularization_policies import regularization_policies_ui
 from modules.regularization_policy_sets import regularization_policy_sets_ui
 from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
 from modules.punch import punch_ui
-
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -51,7 +42,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ================= SESSION INIT =================
+# ================= SESSION STATE =================
 if "token" not in st.session_state:
     st.session_state.token = None
 
@@ -61,14 +52,12 @@ if "HOST" not in st.session_state:
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
-
-# ================= LOGIN FLOW =================
+# ================= LOGIN =================
 if not st.session_state.token:
     login_ui()
     st.stop()
 
-
-# ================= APP HEADER =================
+# ================= HEADER =================
 st.title("⚙️ Configuration Portal")
 st.caption(
     "Centralized configuration for Paycodes, Shifts, Schedules, "
@@ -94,7 +83,6 @@ if issued_at:
 # ================= SIDEBAR =================
 with st.sidebar:
     st.markdown("### 🔧 Settings")
-
     st.text_input("Base Host URL", key="HOST")
 
     st.markdown("---")
@@ -132,7 +120,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# ================= MAIN CONTENT =================
+# ================= MAIN =================
 if menu == "Paycodes":
     paycodes_ui()
 elif menu == "Paycode Events":
