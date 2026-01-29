@@ -50,9 +50,14 @@ def login_ui():
             unsafe_allow_html=True
         )
 
-        # ---------- FORM (important) ----------
+        # ---------- FORM ----------
         with st.form("login_form"):
-            st.text_input("Base Host URL", DEFAULT_HOST, key="HOST")
+            st.text_input(
+                "Base Host URL",
+                value=st.session_state.get("HOST", DEFAULT_HOST),
+                key="HOST"
+            )
+
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
 
