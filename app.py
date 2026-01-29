@@ -42,7 +42,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ================= SESSION STATE =================
+# ================= SESSION =================
 if "token" not in st.session_state:
     st.session_state.token = None
 
