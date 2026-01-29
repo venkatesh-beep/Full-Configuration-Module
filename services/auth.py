@@ -3,15 +3,21 @@ import requests
 import time
 import os
 
+# ======================================================
+# ENV
+# ======================================================
 CLIENT_AUTH = os.getenv("CLIENT_AUTH")
 if not CLIENT_AUTH:
     raise RuntimeError("CLIENT_AUTH environment variable is not set")
 
 DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
 
+# ======================================================
+# LOGIN UI
+# ======================================================
 def login_ui():
 
-    # Initialize HOST ONLY HERE (single source of truth)
+    # Initialize HOST only once
     if "HOST" not in st.session_state:
         st.session_state.HOST = DEFAULT_HOST
 
@@ -31,9 +37,13 @@ def login_ui():
     col1, col2, col3 = st.columns([1.5, 1, 1.5])
 
     with col2:
-        st.markdown("<h2 style='text-align:center;'>Login</h2>", unsafe_allow_html=True)
         st.markdown(
-            "<p style='text-align:center;color:#666;'>Redirecting to Attendance Configuration…</p>",
+            "<h2 style='text-align:center;margin-bottom:4px;'>Login</h2>",
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            "<p style='text-align:center;color:#666;margin-bottom:24px;'>"
+            "Redirecting to Attendance Configuration…</p>",
             unsafe_allow_html=True
         )
 
@@ -44,11 +54,11 @@ def login_ui():
             submitted = st.form_submit_button("Submit", use_container_width=True)
 
         if submitted:
-            # 🔥 Normalize host ONCE
-            st.session_state.HOST = st.session_state.HOST.rstrip("/")
+            # ✅ Normalize locally (DO NOT write back to session_state)
+            base_host = st.session_state.HOST.rstrip("/")
 
             r = requests.post(
-                f"{st.session_state.HOST}/authorization-server/oauth/token",
+                f"{base_host}/authorization-server/oauth/token",
                 data={
                     "username": username,
                     "password": password,
