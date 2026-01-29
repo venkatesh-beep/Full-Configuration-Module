@@ -35,7 +35,6 @@ from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
 from modules.punch import punch_ui
 
-
 # ================= PAGE CONFIG =================
 st.set_page_config(
     page_title="Configuration Portal",
@@ -62,7 +61,6 @@ if "HOST" not in st.session_state:
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
-# Username (if stored during login)
 logged_in_user = st.session_state.get("username", "Logged User")
 
 # ================= LOGIN =================
@@ -70,18 +68,16 @@ if not st.session_state.token:
     login_ui()
     st.stop()
 
-# ================= SESSION EXPIRY (LOGIC KEPT, UI REMOVED) =================
+# ================= SESSION EXPIRY =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
 issued_at = st.session_state.token_issued_at
 
-if issued_at:
-    if (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
-        st.session_state.clear()
-        st.rerun()
+if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
+    st.session_state.clear()
+    st.rerun()
 
 # ================= SIDEBAR =================
 with st.sidebar:
-    # ---- Logged in user ----
     st.markdown("#### 👤 Logged in")
     st.write(logged_in_user)
 
@@ -120,66 +116,46 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# ================= MAIN CONTENT =================
+# ================= MAIN =================
 if menu == "Paycodes":
     paycodes_ui()
-
 elif menu == "Paycode Events":
     paycode_events_ui()
-
 elif menu == "Paycode Combinations":
     paycode_combinations_ui()
-
 elif menu == "Paycode Event Sets":
     paycode_event_sets_ui()
-
 elif menu == "Shift Templates":
     shift_templates_ui()
-
 elif menu == "Shift Template Sets":
     shift_template_sets_ui()
-
 elif menu == "Schedule Patterns":
     schedule_patterns_ui()
-
 elif menu == "Schedule Pattern Sets":
     schedule_pattern_sets_ui()
-
 elif menu == "Emp Lookup Table":
     employee_lookup_table_ui()
-
 elif menu == "Org Lookup Table":
     organization_location_lookup_table_ui()
-
 elif menu == "Accruals":
     accruals_ui()
-
 elif menu == "Accrual Policies":
     accrual_policies_ui()
-
 elif menu == "Accrual Policy Sets":
     accrual_policy_sets_ui()
-
 elif menu == "Timeoff Policies":
     timeoff_policies_ui()
-
 elif menu == "Timeoff Policy Sets":
     timeoff_policy_sets_ui()
-
 elif menu == "Regularization Policies":
     regularization_policies_ui()
-
 elif menu == "Regularization Policy Sets":
     regularization_policy_sets_ui()
-
 elif menu == "Roles":
     roles_ui()
-
 elif menu == "Overtime Policies":
     overtime_policies_ui()
-
 elif menu == "Timecard Updation":
     timecard_updation_ui()
-
 elif menu == "Punch Update":
     punch_ui()
