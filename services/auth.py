@@ -18,9 +18,13 @@ DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
 # ======================================================
 def login_ui():
 
-    # 🔴 BUG FIX: Initialize HOST only once
+    # Initialize HOST only once (authoritative value)
     if "HOST" not in st.session_state:
         st.session_state.HOST = DEFAULT_HOST
+
+    # Separate widget-bound key (IMPORTANT)
+    if "HOST_INPUT" not in st.session_state:
+        st.session_state.HOST_INPUT = st.session_state.HOST
 
     # ---------- Page styling ----------
     st.markdown("""
@@ -56,7 +60,10 @@ def login_ui():
 
         # ---------- FORM ----------
         with st.form("login_form"):
-            st.text_input("Base Host URL", key="HOST")
+            st.text_input(
+                "Base Host URL",
+                key="HOST_INPUT"
+            )
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
 
@@ -64,8 +71,11 @@ def login_ui():
 
         # ---------- LOGIN LOGIC (UNCHANGED) ----------
         if submitted:
+            # 🔑 Copy once from input → authoritative HOST
+            st.session_state.HOST = st.session_state.HOST_INPUT.rstrip("/")
+
             r = requests.post(
-                st.session_state.HOST.rstrip("/") + "/authorization-server/oauth/token",
+                st.session_state.HOST + "/authorization-server/oauth/token",
                 data={
                     "username": username,
                     "password": password,
@@ -83,9 +93,6 @@ def login_ui():
                 st.session_state.token = r.json()["access_token"]
                 st.session_state.token_issued_at = time.time()
                 st.session_state.username = username
-
-                # ✅ Normalize once (important for all modules)
-                st.session_state.HOST = st.session_state.HOST.rstrip("/")
 
                 st.success("✅ Login successful")
                 st.rerun()
