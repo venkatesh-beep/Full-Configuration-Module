@@ -47,12 +47,12 @@ st.set_page_config(
 st.markdown("""
     <style>
     .stApp {
-        background-color: #eef5ff;
+        background-color: #eef4fb;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ================= SESSION STATE =================
+# ================= SESSION =================
 if "token" not in st.session_state:
     st.session_state.token = None
 
@@ -62,6 +62,7 @@ if "HOST" not in st.session_state:
 if "token_issued_at" not in st.session_state:
     st.session_state.token_issued_at = None
 
+# Username (if stored during login)
 logged_in_user = st.session_state.get("username", "Logged User")
 
 # ================= LOGIN =================
@@ -69,43 +70,23 @@ if not st.session_state.token:
     login_ui()
     st.stop()
 
-# ================= SESSION EXPIRY (LOGIC KEPT) =================
+# ================= SESSION EXPIRY (LOGIC KEPT, UI REMOVED) =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
 issued_at = st.session_state.token_issued_at
 
 if issued_at:
-    remaining = max(0, int(TOKEN_VALIDITY_SECONDS - (time.time() - issued_at)))
-
-    if remaining <= 0:
-        st.warning("Session expired. Please login again.")
+    if (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
         st.session_state.clear()
         st.rerun()
 
-# ================= TOP BAR (MAIN SCREEN) =================
-top_left, top_right = st.columns([3, 1])
-
-with top_left:
-    st.title("⚙️ Configuration Portal")
-    st.caption(
-        "Centralized configuration for Paycodes, Shifts, Schedules, "
-        "Accruals, Timeoff, Regularization, Overtime and more"
-    )
-
-with top_right:
-    st.markdown("#### 👤 Logged in user")
-    st.markdown(f"`{logged_in_user}`")
-
-    st.markdown("#### 🔧 Settings")
-    st.text_input(
-        "Base Host URL",
-        key="HOST",
-        help="Example: https://saas-beeforce.labour.tech/"
-    )
-
-st.markdown("---")
-
-# ================= SIDEBAR (CLEAN) =================
+# ================= SIDEBAR =================
 with st.sidebar:
+    # ---- Logged in user ----
+    st.markdown("#### 👤 Logged in")
+    st.write(logged_in_user)
+
+    st.markdown("---")
+
     menu = st.radio(
         "📂 Configuration Modules",
         [
