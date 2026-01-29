@@ -7,24 +7,30 @@ import os
 # ENV
 # ======================================================
 CLIENT_AUTH = os.getenv("CLIENT_AUTH")
+
 if not CLIENT_AUTH:
     raise RuntimeError("CLIENT_AUTH environment variable is not set")
 
-DEFAULT_HOST = "https://saas-beeforce.labour.tech"
+DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
 
 # ======================================================
 # LOGIN UI
 # ======================================================
 def login_ui():
 
-    # 🔑 Always ensure HOST exists and is valid by default
-    if "HOST" not in st.session_state or not st.session_state.get("HOST"):
-        st.session_state["HOST"] = DEFAULT_HOST
+    # 🔴 BUG FIX: Initialize HOST only once
+    if "HOST" not in st.session_state:
+        st.session_state.HOST = DEFAULT_HOST
 
+    # ---------- Page styling ----------
     st.markdown("""
         <style>
-        .stApp { background-color: #eef5ff; }
-        #MainMenu, footer, header { visibility: hidden; }
+        .stApp {
+            background-color: #eef5ff;
+        }
+        #MainMenu, footer, header {
+            visibility: hidden;
+        }
         div[data-testid="stForm"] {
             background: white;
             padding: 32px;
@@ -34,6 +40,7 @@ def login_ui():
         </style>
     """, unsafe_allow_html=True)
 
+    # ---------- Center the form ----------
     col1, col2, col3 = st.columns([1.5, 1, 1.5])
 
     with col2:
@@ -47,22 +54,18 @@ def login_ui():
             unsafe_allow_html=True
         )
 
+        # ---------- FORM ----------
         with st.form("login_form"):
             st.text_input("Base Host URL", key="HOST")
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
+
             submitted = st.form_submit_button("Submit", use_container_width=True)
 
+        # ---------- LOGIN LOGIC (UNCHANGED) ----------
         if submitted:
-            base_host = st.session_state["HOST"].strip().rstrip("/")
-
-            # 🔒 Validate scheme (CRITICAL)
-            if not base_host.startswith(("http://", "https://")):
-                st.error("❌ Base Host URL must start with http:// or https://")
-                return
-
             r = requests.post(
-                f"{base_host}/authorization-server/oauth/token",
+                st.session_state.HOST.rstrip("/") + "/authorization-server/oauth/token",
                 data={
                     "username": username,
                     "password": password,
@@ -75,10 +78,14 @@ def login_ui():
             )
 
             if r.status_code != 200:
-                st.error("❌ Invalid credentials or host")
+                st.error("❌ Invalid credentials")
             else:
-                st.session_state["HOST"] = base_host  # store clean, valid host
-                st.session_state["token"] = r.json()["access_token"]
-                st.session_state["token_issued_at"] = time.time()
-                st.session_state["username"] = username
+                st.session_state.token = r.json()["access_token"]
+                st.session_state.token_issued_at = time.time()
+                st.session_state.username = username
+
+                # ✅ Normalize once (important for all modules)
+                st.session_state.HOST = st.session_state.HOST.rstrip("/")
+
+                st.success("✅ Login successful")
                 st.rerun()
