@@ -16,21 +16,25 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= SESSION =================
+# ================= SESSION GUARANTEES =================
 if "token" not in st.session_state:
-    st.session_state.token = None
+    st.session_state["token"] = None
 
 if "token_issued_at" not in st.session_state:
-    st.session_state.token_issued_at = None
+    st.session_state["token_issued_at"] = None
+
+# 🔑 CRITICAL: guarantee HOST exists for all modules
+if "HOST" not in st.session_state:
+    st.session_state["HOST"] = ""
 
 # ================= LOGIN =================
-if not st.session_state.token:
+if not st.session_state["token"]:
     login_ui()
     st.stop()
 
 # ================= SESSION EXPIRY =================
 TOKEN_VALIDITY_SECONDS = 30 * 60
-issued_at = st.session_state.token_issued_at
+issued_at = st.session_state["token_issued_at"]
 
 if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
     st.session_state.clear()
