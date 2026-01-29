@@ -18,48 +18,48 @@ DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
 # ======================================================
 def login_ui():
 
-    # ---------- Light blue background ----------
+    # ---------- Page styling ----------
     st.markdown("""
         <style>
         .stApp {
-            background-color: #eaf3ff;
+            background-color: #eef5ff;
         }
         #MainMenu, footer, header {
             visibility: hidden;
         }
+        div[data-testid="stForm"] {
+            background: white;
+            padding: 32px;
+            border-radius: 14px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # ---------- Vertical centering ----------
-    st.write("")
-    st.write("")
-    st.write("")
-
-    # ---------- Center layout ----------
+    # ---------- Center the form ----------
     col1, col2, col3 = st.columns([1.5, 1, 1.5])
 
     with col2:
         st.markdown(
-            "<h2 style='text-align:center;'>Login</h2>",
+            "<h2 style='text-align:center;margin-bottom:4px;'>Login</h2>",
             unsafe_allow_html=True
         )
         st.markdown(
-            "<p style='text-align:center;color:#666;'>"
+            "<p style='text-align:center;color:#666;margin-bottom:24px;'>"
             "You will be directed to the homepage</p>",
             unsafe_allow_html=True
         )
 
-        st.write("")
+        # ---------- FORM (important) ----------
+        with st.form("login_form"):
+            st.text_input("Base Host URL", DEFAULT_HOST, key="HOST")
+            username = st.text_input("Email")
+            password = st.text_input("Password", type="password")
 
-        # ---- Inputs (PURE Streamlit) ----
-        st.text_input("Base Host URL", DEFAULT_HOST, key="HOST")
-        username = st.text_input("Email")
-        password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Submit", use_container_width=True)
 
-        st.write("")
-
-        # ---- Login logic (UNCHANGED) ----
-        if st.button("Submit", use_container_width=True):
+        # ---------- LOGIN LOGIC (UNCHANGED) ----------
+        if submitted:
             r = requests.post(
                 st.session_state.HOST.rstrip("/") + "/authorization-server/oauth/token",
                 data={
