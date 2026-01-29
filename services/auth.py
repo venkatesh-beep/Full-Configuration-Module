@@ -11,20 +11,12 @@ CLIENT_AUTH = os.getenv("CLIENT_AUTH")
 if not CLIENT_AUTH:
     raise RuntimeError("CLIENT_AUTH environment variable is not set")
 
-DEFAULT_HOST = "https://saas-beeforce.labour.tech/"
+DEFAULT_HOST = "https://saas-beeforce.labour.tech"
 
 # ======================================================
 # LOGIN UI
 # ======================================================
 def login_ui():
-
-    # Initialize HOST only once (authoritative value)
-    if "HOST" not in st.session_state:
-        st.session_state.HOST = DEFAULT_HOST
-
-    # Separate widget-bound key (IMPORTANT)
-    if "HOST_INPUT" not in st.session_state:
-        st.session_state.HOST_INPUT = st.session_state.HOST
 
     # ---------- Page styling ----------
     st.markdown("""
@@ -44,6 +36,12 @@ def login_ui():
         </style>
     """, unsafe_allow_html=True)
 
+    # ---------- Ensure input key exists ----------
+    if "HOST_INPUT" not in st.session_state:
+        st.session_state.HOST_INPUT = st.session_state.get(
+            "HOST", DEFAULT_HOST
+        )
+
     # ---------- Center the form ----------
     col1, col2, col3 = st.columns([1.5, 1, 1.5])
 
@@ -60,10 +58,7 @@ def login_ui():
 
         # ---------- FORM ----------
         with st.form("login_form"):
-            st.text_input(
-                "Base Host URL",
-                key="HOST_INPUT"
-            )
+            st.text_input("Base Host URL", key="HOST_INPUT")
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
 
@@ -71,11 +66,10 @@ def login_ui():
 
         # ---------- LOGIN LOGIC (UNCHANGED) ----------
         if submitted:
-            # 🔑 Copy once from input → authoritative HOST
-            st.session_state.HOST = st.session_state.HOST_INPUT.rstrip("/")
+            host = st.session_state.HOST_INPUT.rstrip("/")
 
             r = requests.post(
-                st.session_state.HOST + "/authorization-server/oauth/token",
+                host + "/authorization-server/oauth/token",
                 data={
                     "username": username,
                     "password": password,
@@ -93,6 +87,9 @@ def login_ui():
                 st.session_state.token = r.json()["access_token"]
                 st.session_state.token_issued_at = time.time()
                 st.session_state.username = username
+
+                # 🔑 AUTHORITATIVE HOST SET HERE
+                st.session_state.HOST = host
 
                 st.success("✅ Login successful")
                 st.rerun()
