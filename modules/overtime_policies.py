@@ -29,13 +29,12 @@ def overtime_policies_ui():
     }
 
     # ==================================================
-    # 1️⃣ DOWNLOAD TEMPLATE
+    # 1️⃣ DOWNLOAD TEMPLATE (UNCHANGED)
     # ==================================================
     st.markdown("### 📥 Download Upload Template")
 
     if st.button("⬇️ Download Template", use_container_width=True):
         wb = Workbook()
-
         ws = wb.active
         ws.title = "Overtime_Policies"
 
@@ -80,7 +79,7 @@ def overtime_policies_ui():
     st.divider()
 
     # ==================================================
-    # 2️⃣ UPLOAD & PROCESS
+    # 2️⃣ UPLOAD & PROCESS (UNCHANGED)
     # ==================================================
     st.markdown("### 📤 Upload Overtime Policies")
 
@@ -127,7 +126,9 @@ def overtime_policies_ui():
                         rm = parse_int(row.get(f"rounding_roundMinute{i}"))
                         if sm is not None and em is not None and rm is not None:
                             payload["roundings"].append({
-                                "startMinute": sm, "endMinute": em, "roundMinute": rm
+                                "startMinute": sm,
+                                "endMinute": em,
+                                "roundMinute": rm
                             })
 
                     for i in range(1, 3):
@@ -142,22 +143,20 @@ def overtime_policies_ui():
                     if policy_id:
                         payload["id"] = policy_id
                         r = requests.put(f"{BASE_URL}/{policy_id}", headers=headers, json=payload)
-                        action = "UPDATE"
                     else:
                         r = requests.post(BASE_URL, headers=headers, json=payload)
-                        action = "CREATE"
 
-                    results.append({"Row": idx + 1, "Action": action, "Status": r.status_code})
+                    results.append({"Row": idx + 1, "Status": r.status_code})
 
                 except Exception as e:
-                    results.append({"Row": idx + 1, "Action": "ERROR", "Status": str(e)})
+                    results.append({"Row": idx + 1, "Status": str(e)})
 
             st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
 
     # ==================================================
-    # 3️⃣ DELETE
+    # 3️⃣ DELETE (UNCHANGED)
     # ==================================================
     st.markdown("### 🗑️ Delete Overtime Policies")
 
@@ -166,21 +165,27 @@ def overtime_policies_ui():
     if st.button("Delete Overtime Policies", use_container_width=True):
         for oid in [i.strip() for i in ids_input.split(",") if i.isdigit()]:
             r = requests.delete(f"{BASE_URL}/{oid}", headers=headers)
-            st.success(f"Deleted {oid}") if r.status_code in (200, 204) else st.error(f"Failed {oid}")
+            if r.status_code in (200, 204):
+                st.success(f"Deleted {oid}")
+            else:
+                st.error(f"Failed {oid}")
 
     st.divider()
 
     # ==================================================
-    # 4️⃣ DOWNLOAD EXISTING (FIXED)
+    # 4️⃣ DOWNLOAD EXISTING (ENHANCED – AS REQUESTED)
     # ==================================================
     st.markdown("### ⬇️ Download Existing Overtime Policies")
 
     if st.button("Download Existing Overtime Policies", use_container_width=True):
         r = requests.get(BASE_URL, headers=headers)
-        rows = []
+        if r.status_code != 200:
+            st.error("Failed to fetch overtime policies")
+            return
 
+        rows = []
         for p in r.json():
-            rows.append({
+            base = {
                 "id": p.get("id"),
                 "name": p.get("name"),
                 "description": p.get("description"),
@@ -190,7 +195,24 @@ def overtime_policies_ui():
                 "maxWeeklyMinute": p.get("maxWeeklyMinute"),
                 "maxMonthlyMinute": p.get("maxMonthlyMinute"),
                 "maxQuarterlyMinute": p.get("maxQuarterlyMinute"),
-            })
+                "weekoffMinMinute": p.get("weekoffMinMinute"),
+                "weekoffMaxDailyMinute": p.get("weekoffMaxDailyMinute"),
+                "holidayMinMinute": p.get("holidayMinMinute"),
+                "holidayMaxDailyMinute": p.get("holidayMaxDailyMinute"),
+                "skipTotalizationRoundings": p.get("skipTotalizationRoundings")
+            }
+
+            for i, r1 in enumerate(p.get("roundings", []), start=1):
+                base[f"rounding_startMinute{i}"] = r1.get("startMinute")
+                base[f"rounding_endMinute{i}"] = r1.get("endMinute")
+                base[f"rounding_roundMinute{i}"] = r1.get("roundMinute")
+
+            for i, h in enumerate(p.get("holidayGroupLimits", []), start=1):
+                base[f"holidayGroup{i}"] = h.get("holidayGroup")
+                base[f"holidayGroup_minMinute{i}"] = h.get("minMinute")
+                base[f"holidayGroup_maxDailyMinute{i}"] = h.get("maxDailyMinute")
+
+            rows.append(base)
 
         out = io.BytesIO()
         pd.DataFrame(rows).to_excel(out, index=False)
