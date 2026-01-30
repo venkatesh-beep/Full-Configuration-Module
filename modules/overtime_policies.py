@@ -44,7 +44,7 @@ def overtime_policies_ui():
             "id",                    # Required only for UPDATE
             "name",
             "description",
-            "mode",                  # Column D → Dropdown
+            "Applicability",                  # Column D → Dropdown
             "minMinute",
             "maxDailyMinute",
             "maxWeeklyMinute",
@@ -78,7 +78,7 @@ def overtime_policies_ui():
         # ---------------- Sheet2 : Applicability ----------------
         ws2 = wb.create_sheet("Applicability")
 
-        ws2.append(["mode"])
+        ws2.append(["Applicability"])
         applicability_values = [
             "TOTAL_HOURS",
             "BEFORE_SHIFT",
@@ -98,7 +98,7 @@ def overtime_policies_ui():
         )
 
         ws.add_data_validation(dv)
-        dv.add("D2:D1000")  # Column D = mode
+        dv.add("D2:D1000")  # Column D = Applicability
 
         # ---------------- Save ----------------
         output = io.BytesIO()
@@ -154,7 +154,7 @@ def overtime_policies_ui():
                         payload = {
                             "name": name,
                             "description": str(row.get("description") or name),
-                            "mode": row.get("mode"),
+                            "Applicability": row.get("Applicability"),
                             "minMinute": parse_int(row.get("minMinute")),
                             "maxDailyMinute": parse_int(row.get("maxDailyMinute")),
                             "maxWeeklyMinute": parse_int(row.get("maxWeeklyMinute")),
@@ -257,7 +257,7 @@ def overtime_policies_ui():
                 "id": p.get("id"),
                 "name": p.get("name"),
                 "description": p.get("description"),
-                "mode": p.get("mode"),
+                "Applicability": p.get("Applicability"),
                 "minMinute": p.get("minMinute"),
                 "maxDailyMinute": p.get("maxDailyMinute"),
                 "maxWeeklyMinute": p.get("maxWeeklyMinute"),
