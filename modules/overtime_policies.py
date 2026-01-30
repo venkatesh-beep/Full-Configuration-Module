@@ -29,22 +29,22 @@ def overtime_policies_ui():
     }
 
     # ==================================================
-    # 1️⃣ DOWNLOAD TEMPLATE (SHEET2 DROPDOWN – FIXED)
+    # 1️⃣ DOWNLOAD TEMPLATE (FIXED – SHEET2 DROPDOWN)
     # ==================================================
     st.markdown("### 📥 Download Upload Template")
 
     if st.button("⬇️ Download Template", use_container_width=True):
         wb = Workbook()
 
-        # ---------------- Sheet 1 : Data ----------------
+        # ---------------- Sheet1 : Main Data ----------------
         ws = wb.active
-        ws.title = "Overtime Policies"
+        ws.title = "Overtime_Policies"
 
         headers_row = [
-            "id",
+            "id",                    # Required only for UPDATE
             "name",
             "description",
-            "mode",  # Column D (Dropdown)
+            "mode",                  # Column D → Dropdown
             "minMinute",
             "maxDailyMinute",
             "maxWeeklyMinute",
@@ -56,7 +56,7 @@ def overtime_policies_ui():
             "holidayMaxDailyMinute",
             "skipTotalizationRoundings",
 
-            # Roundings (2 examples)
+            # Roundings (example – 2)
             "rounding_startMinute1",
             "rounding_endMinute1",
             "rounding_roundMinute1",
@@ -64,7 +64,7 @@ def overtime_policies_ui():
             "rounding_endMinute2",
             "rounding_roundMinute2",
 
-            # Holiday Groups (2 examples)
+            # Holiday Groups (example – 2)
             "holidayGroup1",
             "holidayGroup_minMinute1",
             "holidayGroup_maxDailyMinute1",
@@ -75,9 +75,10 @@ def overtime_policies_ui():
 
         ws.append(headers_row)
 
-        # ---------------- Sheet 2 : Applicability Master ----------------
-        ws2 = wb.create_sheet(title="Applicability_Master")
+        # ---------------- Sheet2 : Applicability ----------------
+        ws2 = wb.create_sheet("Applicability")
 
+        ws2.append(["mode"])
         applicability_values = [
             "TOTAL_HOURS",
             "BEFORE_SHIFT",
@@ -85,22 +86,19 @@ def overtime_policies_ui():
             "BEFORE_AFTER_SHIFT"
         ]
 
-        ws2.append(["Applicability"])
         for v in applicability_values:
             ws2.append([v])
 
-        # ---------------- Data Validation ----------------
+        # ---------------- Dropdown Validation ----------------
         dv = DataValidation(
             type="list",
-            formula1="=Applicability_Master!$A$2:$A$5",
+            formula1="=Applicability!$A$2:$A$5",
             allow_blank=True,
             showDropDown=True
         )
 
         ws.add_data_validation(dv)
-
-        # Apply dropdown to Column D (mode)
-        dv.add("D2:D1000")
+        dv.add("D2:D1000")  # Column D = mode
 
         # ---------------- Save ----------------
         output = io.BytesIO()
@@ -220,3 +218,76 @@ def overtime_policies_ui():
 
             st.markdown("### 📊 Submission Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
+
+    st.divider()
+
+    # ==================================================
+    # 3️⃣ DELETE (UNCHANGED)
+    # ==================================================
+    st.markdown("### 🗑️ Delete Overtime Policies")
+
+    ids_input = st.text_input("Enter IDs (comma-separated)", placeholder="51,52")
+
+    if st.button("Delete Overtime Policies", use_container_width=True):
+        ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
+        with st.spinner("⏳ Deleting..."):
+            for oid in ids:
+                r = requests.delete(f"{BASE_URL}/{oid}", headers=headers)
+                if r.status_code in (200, 204):
+                    st.success(f"Deleted ID {oid}")
+                else:
+                    st.error(f"Failed to delete ID {oid}")
+
+    st.divider()
+
+    # ==================================================
+    # 4️⃣ DOWNLOAD EXISTING (UNCHANGED)
+    # ==================================================
+    st.markdown("### ⬇️ Download Existing Overtime Policies")
+
+    if st.button("Download Existing Overtime Policies", use_container_width=True):
+        r = requests.get(BASE_URL, headers=headers)
+        if r.status_code != 200:
+            st.error("Failed to fetch overtime policies")
+            return
+
+        rows = []
+        for p in r.json():
+            base = {
+                "id": p.get("id"),
+                "name": p.get("name"),
+                "description": p.get("description"),
+                "mode": p.get("mode"),
+                "minMinute": p.get("minMinute"),
+                "maxDailyMinute": p.get("maxDailyMinute"),
+                "maxWeeklyMinute": p.get("maxWeeklyMinute"),
+                "maxMonthlyMinute": p.get("maxMonthlyMinute"),
+                "maxQuarterlyMinute": p.get("maxQuarterlyMinute"),
+                "weekoffMinMinute": p.get("weekoffMinMinute"),
+                "weekoffMaxDailyMinute": p.get("weekoffMaxDailyMinute"),
+                "holidayMinMinute": p.get("holidayMinMinute"),
+                "holidayMaxDailyMinute": p.get("holidayMaxDailyMinute"),
+                "skipTotalizationRoundings": p.get("skipTotalizationRoundings")
+            }
+
+            for i, r in enumerate(p.get("roundings", []), start=1):
+                base[f"rounding_startMinute{i}"] = r.get("startMinute")
+                base[f"rounding_endMinute{i}"] = r.get("endMinute")
+                base[f"rounding_roundMinute{i}"] = r.get("roundMinute")
+
+            for i, h in enumerate(p.get("holidayGroupLimits", []), start=1):
+                base[f"holidayGroup{i}"] = h.get("holidayGroup")
+                base[f"holidayGroup_minMinute{i}"] = h.get("minMinute")
+                base[f"holidayGroup_maxDailyMinute{i}"] = h.get("maxDailyMinute")
+
+            rows.append(base)
+
+        output = io.BytesIO()
+        pd.DataFrame(rows).to_excel(output, index=False)
+
+        st.download_button(
+            "⬇️ Download Excel",
+            data=output.getvalue(),
+            file_name="overtime_policies_export.xlsx",
+            use_container_width=True
+        )
