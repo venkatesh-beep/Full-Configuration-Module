@@ -2,13 +2,15 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
+from openpyxl import load_workbook
+from openpyxl.worksheet.datavalidation import DataValidation
 
 # ======================================================
 # OVERTIME POLICIES UI
 # ======================================================
 def overtime_policies_ui():
     st.markdown("## 📊 Overtime Policies")
-    st.caption("Create, update, delete, and bulk upload overtime policies")
+    st.caption("Create, update, delete and bulk upload overtime policies")
 
     # --------------------------------------------------
     # PRECHECK
@@ -27,28 +29,16 @@ def overtime_policies_ui():
     }
 
     # ==================================================
-    # MODE MAPPING
-    # ==================================================
-    APPLICABILITY_TO_MODE = {
-        "Total Hours": "TOTAL_HOURS",
-        "Before Shift": "BEFORE_SHIFT",
-        "After Shift": "AFTER_SHIFT",
-        "Before/After Shift": "BEFORE_AFTER_SHIFT"
-    }
-
-    MODE_TO_APPLICABILITY = {v: k for k, v in APPLICABILITY_TO_MODE.items()}
-
-    # ==================================================
     # 1️⃣ DOWNLOAD TEMPLATE
     # ==================================================
-    st.subheader("📥 Download Upload Template")
+    st.markdown("### 📥 Download Upload Template")
 
+    # ---- Core columns ----
     columns = [
-        "id",                      # only for UPDATE
+        "id",                    # Required only for UPDATE
         "name",
         "description",
-        "applicability",           # 👈 dropdown-driven column
-        "mode",                    # optional (fallback)
+        "mode",                  # Applicability (dropdown)
         "minMinute",
         "maxDailyMinute",
         "maxWeeklyMinute",
@@ -61,16 +51,16 @@ def overtime_policies_ui():
         "skipTotalizationRoundings"
     ]
 
-    # -------- Rounding columns --------
-    for i in range(1, 11):
+    # ---- Only 2 Roundings (example) ----
+    for i in range(1, 3):
         columns += [
             f"rounding_startMinute{i}",
             f"rounding_endMinute{i}",
             f"rounding_roundMinute{i}"
         ]
 
-    # -------- Holiday group columns --------
-    for i in range(1, 11):
+    # ---- Only 2 Holiday Groups (example) ----
+    for i in range(1, 3):
         columns += [
             f"holidayGroup{i}",
             f"holidayGroup_minMinute{i}",
@@ -79,12 +69,40 @@ def overtime_policies_ui():
 
     template_df = pd.DataFrame(columns=columns)
 
-    if st.button("⬇️ Download Excel Template", use_container_width=True):
-        output = io.BytesIO()
-        template_df.to_excel(output, index=False)
+    if st.button("⬇️ Download Template", use_container_width=True):
+        buffer = io.BytesIO()
+        template_df.to_excel(buffer, index=False)
+        buffer.seek(0)
+
+        # ---------- Add dropdown validation ----------
+        wb = load_workbook(buffer)
+        ws = wb.active
+
+        applicability_values = [
+            "TOTAL_HOURS",
+            "BEFORE_SHIFT",
+            "AFTER_SHIFT",
+            "BEFORE_AFTER_SHIFT"
+        ]
+
+        dv = DataValidation(
+            type="list",
+            formula1=f'"{",".join(applicability_values)}"',
+            allow_blank=True
+        )
+
+        ws.add_data_validation(dv)
+
+        # Column D = mode
+        dv.add(f"D2:D1000")
+
+        out = io.BytesIO()
+        wb.save(out)
+        out.seek(0)
+
         st.download_button(
-            "⬇️ Download Template",
-            data=output.getvalue(),
+            "⬇️ Download Excel Template",
+            data=out.getvalue(),
             file_name="overtime_policies_template.xlsx",
             use_container_width=True
         )
@@ -94,9 +112,12 @@ def overtime_policies_ui():
     # ==================================================
     # 2️⃣ UPLOAD & PROCESS
     # ==================================================
-    st.subheader("📤 Upload Overtime Policies")
+    st.markdown("### 📤 Upload Overtime Policies")
 
-    uploaded_file = st.file_uploader("Upload Excel or CSV", ["xlsx", "xls", "csv"])
+    uploaded_file = st.file_uploader(
+        "Upload Excel or CSV",
+        ["xlsx", "xls", "csv"]
+    )
 
     if uploaded_file:
         df = (
@@ -117,28 +138,18 @@ def overtime_policies_ui():
         if st.button("🚀 Submit Overtime Policies", type="primary", use_container_width=True):
             results = []
 
-            with st.spinner("⏳ Processing overtime policies..."):
+            with st.spinner("⏳ Processing Overtime Policies..."):
                 for idx, row in df.iterrows():
                     try:
                         policy_id = parse_int(row.get("id"))
-                        name = str(row.get("name")).strip()
+                        name = str(row.get("name", "")).strip()
                         if not name:
                             raise Exception("Name is mandatory")
 
-                        # -------- Mode Resolution --------
-                        applicability = str(row.get("applicability", "")).strip()
-                        mode = APPLICABILITY_TO_MODE.get(applicability)
-
-                        if not mode:
-                            mode = str(row.get("mode", "")).strip()
-
-                        if not mode:
-                            raise Exception("Applicability or mode is required")
-
                         payload = {
                             "name": name,
-                            "description": str(row.get("description", "")).strip() or name,
-                            "mode": mode,
+                            "description": str(row.get("description") or name),
+                            "mode": row.get("mode"),
                             "minMinute": parse_int(row.get("minMinute")),
                             "maxDailyMinute": parse_int(row.get("maxDailyMinute")),
                             "maxWeeklyMinute": parse_int(row.get("maxWeeklyMinute")),
@@ -153,8 +164,8 @@ def overtime_policies_ui():
                             "holidayGroupLimits": []
                         }
 
-                        # -------- Roundings --------
-                        for i in range(1, 11):
+                        # ---- Roundings ----
+                        for i in range(1, 3):
                             sm = parse_int(row.get(f"rounding_startMinute{i}"))
                             em = parse_int(row.get(f"rounding_endMinute{i}"))
                             rm = parse_int(row.get(f"rounding_roundMinute{i}"))
@@ -166,18 +177,21 @@ def overtime_policies_ui():
                                     "roundMinute": rm
                                 })
 
-                        # -------- Holiday Groups --------
-                        for i in range(1, 11):
+                        # ---- Holiday Groups ----
+                        for i in range(1, 3):
                             hg = str(row.get(f"holidayGroup{i}", "")).strip()
-                            if hg:
-                                payload["holidayGroupLimits"].append({
-                                    "holidayGroup": hg,
-                                    "minMinute": parse_int(row.get(f"holidayGroup_minMinute{i}")),
-                                    "maxDailyMinute": parse_int(row.get(f"holidayGroup_maxDailyMinute{i}"))
-                                })
+                            if not hg:
+                                continue
 
-                        # -------- CREATE / UPDATE --------
+                            payload["holidayGroupLimits"].append({
+                                "holidayGroup": hg,
+                                "minMinute": parse_int(row.get(f"holidayGroup_minMinute{i}")),
+                                "maxDailyMinute": parse_int(row.get(f"holidayGroup_maxDailyMinute{i}"))
+                            })
+
+                        # ---- CREATE / UPDATE ----
                         if policy_id:
+                            payload["id"] = policy_id
                             r = requests.put(
                                 f"{BASE_URL}/{policy_id}",
                                 headers=headers,
@@ -196,8 +210,8 @@ def overtime_policies_ui():
                             "Row": idx + 1,
                             "Name": name,
                             "Action": action,
-                            "Status": "Success" if r.status_code in (200, 201)
-                                      else f"Failed ({r.status_code})"
+                            "Status": "SUCCESS" if r.status_code in (200, 201)
+                                      else f"FAILED ({r.status_code})"
                         })
 
                     except Exception as e:
@@ -208,7 +222,7 @@ def overtime_policies_ui():
                             "Status": str(e)
                         })
 
-            st.subheader("📊 Submission Result")
+            st.markdown("### 📊 Submission Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
@@ -216,9 +230,12 @@ def overtime_policies_ui():
     # ==================================================
     # 3️⃣ DELETE
     # ==================================================
-    st.subheader("🗑️ Delete Overtime Policies")
+    st.markdown("### 🗑️ Delete Overtime Policies")
 
-    ids_input = st.text_input("Enter IDs (comma-separated)", placeholder="51,52")
+    ids_input = st.text_input(
+        "Enter IDs (comma-separated)",
+        placeholder="51,52"
+    )
 
     if st.button("Delete Overtime Policies", use_container_width=True):
         ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
@@ -235,7 +252,7 @@ def overtime_policies_ui():
     # ==================================================
     # 4️⃣ DOWNLOAD EXISTING
     # ==================================================
-    st.subheader("⬇️ Download Existing Overtime Policies")
+    st.markdown("### ⬇️ Download Existing Overtime Policies")
 
     if st.button("Download Existing Overtime Policies", use_container_width=True):
         r = requests.get(BASE_URL, headers=headers)
@@ -249,7 +266,6 @@ def overtime_policies_ui():
                 "id": p.get("id"),
                 "name": p.get("name"),
                 "description": p.get("description"),
-                "applicability": MODE_TO_APPLICABILITY.get(p.get("mode")),
                 "mode": p.get("mode"),
                 "minMinute": p.get("minMinute"),
                 "maxDailyMinute": p.get("maxDailyMinute"),
@@ -264,14 +280,14 @@ def overtime_policies_ui():
             }
 
             for i, r in enumerate(p.get("roundings", []), start=1):
-                base[f"rounding_startMinute{i}"] = r["startMinute"]
-                base[f"rounding_endMinute{i}"] = r["endMinute"]
-                base[f"rounding_roundMinute{i}"] = r["roundMinute"]
+                base[f"rounding_startMinute{i}"] = r.get("startMinute")
+                base[f"rounding_endMinute{i}"] = r.get("endMinute")
+                base[f"rounding_roundMinute{i}"] = r.get("roundMinute")
 
             for i, h in enumerate(p.get("holidayGroupLimits", []), start=1):
-                base[f"holidayGroup{i}"] = h["holidayGroup"]
-                base[f"holidayGroup_minMinute{i}"] = h["minMinute"]
-                base[f"holidayGroup_maxDailyMinute{i}"] = h["maxDailyMinute"]
+                base[f"holidayGroup{i}"] = h.get("holidayGroup")
+                base[f"holidayGroup_minMinute{i}"] = h.get("minMinute")
+                base[f"holidayGroup_maxDailyMinute{i}"] = h.get("maxDailyMinute")
 
             rows.append(base)
 
