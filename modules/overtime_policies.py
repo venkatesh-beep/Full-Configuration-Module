@@ -257,7 +257,7 @@ def overtime_policies_ui():
                 "id": p.get("id"),
                 "name": p.get("name"),
                 "description": p.get("description"),
-                "mode": p.get("Applicability"),
+                "Applicability": p.get("mode"),
                 "minMinute": p.get("minMinute"),
                 "maxDailyMinute": p.get("maxDailyMinute"),
                 "maxWeeklyMinute": p.get("maxWeeklyMinute"),
