@@ -240,54 +240,62 @@ def overtime_policies_ui():
 
     st.divider()
 
-    # ==================================================
-    # 4️⃣ DOWNLOAD EXISTING (UNCHANGED)
-    # ==================================================
-    st.markdown("### ⬇️ Download Existing Overtime Policies")
 
-    if st.button("Download Existing Overtime Policies", use_container_width=True):
-        r = requests.get(BASE_URL, headers=headers)
-        if r.status_code != 200:
-            st.error("Failed to fetch overtime policies")
-            return
+# ==================================================
+# 4️⃣ DOWNLOAD EXISTING (FIXED – MODE BLANK ISSUE)
+# ==================================================
+st.markdown("### ⬇️ Download Existing Overtime Policies")
 
-        rows = []
-        for p in r.json():
-            base = {
-                "id": p.get("id"),
-                "name": p.get("name"),
-                "description": p.get("description"),
-                "Applicability": p.get("mode"),
-                "minMinute": p.get("minMinute"),
-                "maxDailyMinute": p.get("maxDailyMinute"),
-                "maxWeeklyMinute": p.get("maxWeeklyMinute"),
-                "maxMonthlyMinute": p.get("maxMonthlyMinute"),
-                "maxQuarterlyMinute": p.get("maxQuarterlyMinute"),
-                "weekoffMinMinute": p.get("weekoffMinMinute"),
-                "weekoffMaxDailyMinute": p.get("weekoffMaxDailyMinute"),
-                "holidayMinMinute": p.get("holidayMinMinute"),
-                "holidayMaxDailyMinute": p.get("holidayMaxDailyMinute"),
-                "skipTotalizationRoundings": p.get("skipTotalizationRoundings")
-            }
+if st.button("Download Existing Overtime Policies", use_container_width=True):
+    r = requests.get(BASE_URL, headers=headers)
+    if r.status_code != 200:
+        st.error("Failed to fetch overtime policies")
+        return
 
-            for i, r in enumerate(p.get("roundings", []), start=1):
-                base[f"rounding_startMinute{i}"] = r.get("startMinute")
-                base[f"rounding_endMinute{i}"] = r.get("endMinute")
-                base[f"rounding_roundMinute{i}"] = r.get("roundMinute")
-
-            for i, h in enumerate(p.get("holidayGroupLimits", []), start=1):
-                base[f"holidayGroup{i}"] = h.get("holidayGroup")
-                base[f"holidayGroup_minMinute{i}"] = h.get("minMinute")
-                base[f"holidayGroup_maxDailyMinute{i}"] = h.get("maxDailyMinute")
-
-            rows.append(base)
-
-        output = io.BytesIO()
-        pd.DataFrame(rows).to_excel(output, index=False)
-
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="overtime_policies_export.xlsx",
-            use_container_width=True
+    rows = []
+    for p in r.json():
+        applicability_value = (
+            p.get("mode")
+            or p.get("applicability")
+            or p.get("Applicability")
         )
+
+        base = {
+            "id": p.get("id"),
+            "name": p.get("name"),
+            "description": p.get("description"),
+            "Applicability": applicability_value,
+            "minMinute": p.get("minMinute"),
+            "maxDailyMinute": p.get("maxDailyMinute"),
+            "maxWeeklyMinute": p.get("maxWeeklyMinute"),
+            "maxMonthlyMinute": p.get("maxMonthlyMinute"),
+            "maxQuarterlyMinute": p.get("maxQuarterlyMinute"),
+            "weekoffMinMinute": p.get("weekoffMinMinute"),
+            "weekoffMaxDailyMinute": p.get("weekoffMaxDailyMinute"),
+            "holidayMinMinute": p.get("holidayMinMinute"),
+            "holidayMaxDailyMinute": p.get("holidayMaxDailyMinute"),
+            "skipTotalizationRoundings": p.get("skipTotalizationRoundings")
+        }
+
+        for i, r1 in enumerate(p.get("roundings", []), start=1):
+            base[f"rounding_startMinute{i}"] = r1.get("startMinute")
+            base[f"rounding_endMinute{i}"] = r1.get("endMinute")
+            base[f"rounding_roundMinute{i}"] = r1.get("roundMinute")
+
+        for i, h in enumerate(p.get("holidayGroupLimits", []), start=1):
+            base[f"holidayGroup{i}"] = h.get("holidayGroup")
+            base[f"holidayGroup_minMinute{i}"] = h.get("minMinute")
+            base[f"holidayGroup_maxDailyMinute{i}"] = h.get("maxDailyMinute")
+
+        rows.append(base)
+
+    output = io.BytesIO()
+    pd.DataFrame(rows).to_excel(output, index=False)
+    output.seek(0)
+
+    st.download_button(
+        "⬇️ Download Excel",
+        data=output.getvalue(),
+        file_name="overtime_policies_export.xlsx",
+        use_container_width=True
+    )
