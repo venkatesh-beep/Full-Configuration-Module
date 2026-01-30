@@ -154,7 +154,7 @@ def overtime_policies_ui():
                         payload = {
                             "name": name,
                             "description": str(row.get("description") or name),
-                            "Applicability": row.get("Applicability"),
+                            "mode": row.get("Applicability"),
                             "minMinute": parse_int(row.get("minMinute")),
                             "maxDailyMinute": parse_int(row.get("maxDailyMinute")),
                             "maxWeeklyMinute": parse_int(row.get("maxWeeklyMinute")),
