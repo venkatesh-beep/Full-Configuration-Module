@@ -7,7 +7,8 @@ import io
 # OVERTIME POLICIES UI
 # ======================================================
 def overtime_policies_ui():
-    st.header("📊 Overtime Policies")
+    st.markdown("## 📊 Overtime Policies")
+    st.caption("Create, update, delete, and bulk upload overtime policies")
 
     # --------------------------------------------------
     # PRECHECK
@@ -16,7 +17,7 @@ def overtime_policies_ui():
         st.error("Please login first")
         return
 
-    HOST = "https://saas-beeforce.labour.tech"
+    HOST = st.session_state.HOST.rstrip("/")
     BASE_URL = f"{HOST}/resource-server/api/overtime_policies"
 
     headers = {
@@ -26,20 +27,41 @@ def overtime_policies_ui():
     }
 
     # ==================================================
+    # MODE MAPPING
+    # ==================================================
+    APPLICABILITY_TO_MODE = {
+        "Total Hours": "TOTAL_HOURS",
+        "Before Shift": "BEFORE_SHIFT",
+        "After Shift": "AFTER_SHIFT",
+        "Before/After Shift": "BEFORE_AFTER_SHIFT"
+    }
+
+    MODE_TO_APPLICABILITY = {v: k for k, v in APPLICABILITY_TO_MODE.items()}
+
+    # ==================================================
     # 1️⃣ DOWNLOAD TEMPLATE
     # ==================================================
     st.subheader("📥 Download Upload Template")
 
     columns = [
-        "id", "name", "description", "mode",
-        "minMinute", "maxDailyMinute", "maxWeeklyMinute",
-        "maxMonthlyMinute", "maxQuarterlyMinute",
-        "weekoffMinMinute", "weekoffMaxDailyMinute",
-        "holidayMinMinute", "holidayMaxDailyMinute",
+        "id",                      # only for UPDATE
+        "name",
+        "description",
+        "applicability",           # 👈 dropdown-driven column
+        "mode",                    # optional (fallback)
+        "minMinute",
+        "maxDailyMinute",
+        "maxWeeklyMinute",
+        "maxMonthlyMinute",
+        "maxQuarterlyMinute",
+        "weekoffMinMinute",
+        "weekoffMaxDailyMinute",
+        "holidayMinMinute",
+        "holidayMaxDailyMinute",
         "skipTotalizationRoundings"
     ]
 
-    # Rounding columns (10)
+    # -------- Rounding columns --------
     for i in range(1, 11):
         columns += [
             f"rounding_startMinute{i}",
@@ -47,7 +69,7 @@ def overtime_policies_ui():
             f"rounding_roundMinute{i}"
         ]
 
-    # Holiday Group columns (10)
+    # -------- Holiday group columns --------
     for i in range(1, 11):
         columns += [
             f"holidayGroup{i}",
@@ -57,11 +79,11 @@ def overtime_policies_ui():
 
     template_df = pd.DataFrame(columns=columns)
 
-    if st.button("⬇️ Download Template", use_container_width=True):
+    if st.button("⬇️ Download Excel Template", use_container_width=True):
         output = io.BytesIO()
         template_df.to_excel(output, index=False)
         st.download_button(
-            "⬇️ Download Excel",
+            "⬇️ Download Template",
             data=output.getvalue(),
             file_name="overtime_policies_template.xlsx",
             use_container_width=True
@@ -74,7 +96,7 @@ def overtime_policies_ui():
     # ==================================================
     st.subheader("📤 Upload Overtime Policies")
 
-    uploaded_file = st.file_uploader("Upload CSV or Excel", ["csv", "xlsx", "xls"])
+    uploaded_file = st.file_uploader("Upload Excel or CSV", ["xlsx", "xls", "csv"])
 
     if uploaded_file:
         df = (
@@ -86,28 +108,37 @@ def overtime_policies_ui():
         st.success(f"Rows detected: {len(df)}")
         st.dataframe(df, use_container_width=True)
 
-        if st.button("🚀 Submit Overtime Policies", type="primary", use_container_width=True):
+        def parse_int(v):
+            try:
+                return int(float(v))
+            except:
+                return None
 
+        if st.button("🚀 Submit Overtime Policies", type="primary", use_container_width=True):
             results = []
 
-            def parse_int(v):
-                try:
-                    return int(float(v))
-                except:
-                    return None
-
-            with st.spinner("⏳ Processing Overtime Policies..."):
+            with st.spinner("⏳ Processing overtime policies..."):
                 for idx, row in df.iterrows():
                     try:
                         policy_id = parse_int(row.get("id"))
-                        name = str(row["name"]).strip()
+                        name = str(row.get("name")).strip()
                         if not name:
                             raise Exception("Name is mandatory")
+
+                        # -------- Mode Resolution --------
+                        applicability = str(row.get("applicability", "")).strip()
+                        mode = APPLICABILITY_TO_MODE.get(applicability)
+
+                        if not mode:
+                            mode = str(row.get("mode", "")).strip()
+
+                        if not mode:
+                            raise Exception("Applicability or mode is required")
 
                         payload = {
                             "name": name,
                             "description": str(row.get("description", "")).strip() or name,
-                            "mode": row.get("mode"),
+                            "mode": mode,
                             "minMinute": parse_int(row.get("minMinute")),
                             "maxDailyMinute": parse_int(row.get("maxDailyMinute")),
                             "maxWeeklyMinute": parse_int(row.get("maxWeeklyMinute")),
@@ -117,7 +148,7 @@ def overtime_policies_ui():
                             "weekoffMaxDailyMinute": parse_int(row.get("weekoffMaxDailyMinute")),
                             "holidayMinMinute": parse_int(row.get("holidayMinMinute")),
                             "holidayMaxDailyMinute": parse_int(row.get("holidayMaxDailyMinute")),
-                            "skipTotalizationRoundings": bool(row.get("skipTotalizationRoundings", False)),
+                            "skipTotalizationRoundings": bool(row.get("skipTotalizationRoundings")),
                             "roundings": [],
                             "holidayGroupLimits": []
                         }
@@ -138,18 +169,15 @@ def overtime_policies_ui():
                         # -------- Holiday Groups --------
                         for i in range(1, 11):
                             hg = str(row.get(f"holidayGroup{i}", "")).strip()
-                            if not hg:
-                                continue
-
-                            payload["holidayGroupLimits"].append({
-                                "holidayGroup": hg,
-                                "minMinute": parse_int(row.get(f"holidayGroup_minMinute{i}")),
-                                "maxDailyMinute": parse_int(row.get(f"holidayGroup_maxDailyMinute{i}"))
-                            })
+                            if hg:
+                                payload["holidayGroupLimits"].append({
+                                    "holidayGroup": hg,
+                                    "minMinute": parse_int(row.get(f"holidayGroup_minMinute{i}")),
+                                    "maxDailyMinute": parse_int(row.get(f"holidayGroup_maxDailyMinute{i}"))
+                                })
 
                         # -------- CREATE / UPDATE --------
                         if policy_id:
-                            payload["id"] = policy_id
                             r = requests.put(
                                 f"{BASE_URL}/{policy_id}",
                                 headers=headers,
@@ -221,6 +249,7 @@ def overtime_policies_ui():
                 "id": p.get("id"),
                 "name": p.get("name"),
                 "description": p.get("description"),
+                "applicability": MODE_TO_APPLICABILITY.get(p.get("mode")),
                 "mode": p.get("mode"),
                 "minMinute": p.get("minMinute"),
                 "maxDailyMinute": p.get("maxDailyMinute"),
