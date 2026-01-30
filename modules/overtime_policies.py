@@ -12,6 +12,9 @@ def overtime_policies_ui():
     st.markdown("## 📊 Overtime Policies")
     st.caption("Create, update, delete and bulk upload overtime policies")
 
+    # --------------------------------------------------
+    # PRECHECK
+    # --------------------------------------------------
     if not st.session_state.get("token"):
         st.error("Please login first")
         return
@@ -26,21 +29,22 @@ def overtime_policies_ui():
     }
 
     # ==================================================
-    # 1️⃣ DOWNLOAD TEMPLATE (FIXED)
+    # 1️⃣ DOWNLOAD TEMPLATE (SHEET2 DROPDOWN – FIXED)
     # ==================================================
     st.markdown("### 📥 Download Upload Template")
 
     if st.button("⬇️ Download Template", use_container_width=True):
         wb = Workbook()
+
+        # ---------------- Sheet 1 : Data ----------------
         ws = wb.active
         ws.title = "Overtime Policies"
 
-        # ---- Headers ----
         headers_row = [
             "id",
             "name",
             "description",
-            "mode",  # Column D (dropdown)
+            "mode",  # Column D (Dropdown)
             "minMinute",
             "maxDailyMinute",
             "maxWeeklyMinute",
@@ -71,27 +75,34 @@ def overtime_policies_ui():
 
         ws.append(headers_row)
 
-        # ---- Dropdown for Applicability (mode) ----
-        applicability = [
+        # ---------------- Sheet 2 : Applicability Master ----------------
+        ws2 = wb.create_sheet(title="Applicability_Master")
+
+        applicability_values = [
             "TOTAL_HOURS",
             "BEFORE_SHIFT",
             "AFTER_SHIFT",
             "BEFORE_AFTER_SHIFT"
         ]
 
+        ws2.append(["Applicability"])
+        for v in applicability_values:
+            ws2.append([v])
+
+        # ---------------- Data Validation ----------------
         dv = DataValidation(
             type="list",
-            formula1=f'"{",".join(applicability)}"',
+            formula1="=Applicability_Master!$A$2:$A$5",
             allow_blank=True,
             showDropDown=True
         )
 
         ws.add_data_validation(dv)
 
-        # Column D = mode (from row 2 onward)
+        # Apply dropdown to Column D (mode)
         dv.add("D2:D1000")
 
-        # ---- Save ----
+        # ---------------- Save ----------------
         output = io.BytesIO()
         wb.save(output)
         output.seek(0)
@@ -106,7 +117,7 @@ def overtime_policies_ui():
     st.divider()
 
     # ==================================================
-    # 2️⃣ UPLOAD & PROCESS (UNCHANGED)
+    # 2️⃣ UPLOAD & PROCESS (UNCHANGED LOGIC)
     # ==================================================
     st.markdown("### 📤 Upload Overtime Policies")
 
@@ -160,12 +171,11 @@ def overtime_policies_ui():
                             "holidayGroupLimits": []
                         }
 
-                        # ---- Roundings (2) ----
+                        # ---- Roundings ----
                         for i in range(1, 3):
                             sm = parse_int(row.get(f"rounding_startMinute{i}"))
                             em = parse_int(row.get(f"rounding_endMinute{i}"))
                             rm = parse_int(row.get(f"rounding_roundMinute{i}"))
-
                             if sm is not None and em is not None and rm is not None:
                                 payload["roundings"].append({
                                     "startMinute": sm,
@@ -173,33 +183,23 @@ def overtime_policies_ui():
                                     "roundMinute": rm
                                 })
 
-                        # ---- Holiday Groups (2) ----
+                        # ---- Holiday Groups ----
                         for i in range(1, 3):
                             hg = str(row.get(f"holidayGroup{i}", "")).strip()
-                            if not hg:
-                                continue
-
-                            payload["holidayGroupLimits"].append({
-                                "holidayGroup": hg,
-                                "minMinute": parse_int(row.get(f"holidayGroup_minMinute{i}")),
-                                "maxDailyMinute": parse_int(row.get(f"holidayGroup_maxDailyMinute{i}"))
-                            })
+                            if hg:
+                                payload["holidayGroupLimits"].append({
+                                    "holidayGroup": hg,
+                                    "minMinute": parse_int(row.get(f"holidayGroup_minMinute{i}")),
+                                    "maxDailyMinute": parse_int(row.get(f"holidayGroup_maxDailyMinute{i}"))
+                                })
 
                         # ---- CREATE / UPDATE ----
                         if policy_id:
                             payload["id"] = policy_id
-                            r = requests.put(
-                                f"{BASE_URL}/{policy_id}",
-                                headers=headers,
-                                json=payload
-                            )
+                            r = requests.put(f"{BASE_URL}/{policy_id}", headers=headers, json=payload)
                             action = "UPDATE"
                         else:
-                            r = requests.post(
-                                BASE_URL,
-                                headers=headers,
-                                json=payload
-                            )
+                            r = requests.post(BASE_URL, headers=headers, json=payload)
                             action = "CREATE"
 
                         results.append({
@@ -207,7 +207,7 @@ def overtime_policies_ui():
                             "Name": name,
                             "Action": action,
                             "Status": "SUCCESS" if r.status_code in (200, 201)
-                                      else f"FAILED ({r.status_code})"
+                            else f"FAILED ({r.status_code})"
                         })
 
                     except Exception as e:
