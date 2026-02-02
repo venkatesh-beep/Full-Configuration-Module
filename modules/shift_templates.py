@@ -6,16 +6,10 @@ from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 
 
-# ======================================================
-# BOOLEAN PARSER
-# ======================================================
 def to_bool(v):
     return str(v).strip().upper() == "TRUE"
 
 
-# ======================================================
-# MAIN UI
-# ======================================================
 def shift_templates_ui():
     st.header("🕒 Shift Templates")
 
@@ -27,9 +21,9 @@ def shift_templates_ui():
         "Accept": "application/json"
     }
 
-    # ==================================================
-    # DOWNLOAD TEMPLATE WITH CORRECT DROPDOWNS
-    # ==================================================
+    # =========================================================
+    # DOWNLOAD TEMPLATE  ✅ WITH PROPER DROPDOWNS
+    # =========================================================
     st.subheader("📥 Download Create Template")
 
     if st.button("⬇️ Download Create Template", use_container_width=True):
@@ -38,27 +32,17 @@ def shift_templates_ui():
         ws = wb.active
         ws.title = "Template"
 
-        columns = [
+        headers_row = [
             "name","description","startTime","endTime",
             "beforeStartToleranceMinute","afterStartToleranceMinute",
             "lateInToleranceMinute","earlyOutToleranceMinute",
-
             "report","monday","tuesday","wednesday",
             "thursday","friday","saturday","sunday",
-
-            "reportGroup","optionalShiftTemplateId",
-
-            "paycode_id","paycode_startMinute","paycode_endMinute",
-            "exception_paycode_id","exception_type",
-            "exception_startMinute","exception_endMinute",
-            "rounding_startMinute","rounding_endMinute","rounding_roundMinute",
-            "adjustment_type_id","adjustment_startMinute",
-            "adjustment_endMinute","adjustment_amountMinute",
+            "exception_type"
         ]
+        ws.append(headers_row)
 
-        ws.append(columns)
-
-        # ---------------- Sheet2 (Master) ----------------
+        # -------- Sheet2 Master --------
         ws2 = wb.create_sheet("Master")
 
         ws2["A1"] = "Boolean"
@@ -70,7 +54,7 @@ def shift_templates_ui():
         ws2["B3"] = "EARLY_OUT"
         ws2["B4"] = "BOTH"
 
-        # ---------------- Data Validations ----------------
+        # -------- Data Validations --------
         bool_dv = DataValidation(
             type="list",
             formula1="=Master!$A$2:$A$3",
@@ -86,11 +70,11 @@ def shift_templates_ui():
         ws.add_data_validation(bool_dv)
         ws.add_data_validation(exc_dv)
 
-        # Boolean columns → I to P
-        bool_dv.add("I2:P1000")
+        # Columns for TRUE/FALSE
+        bool_dv.add("I2:P1000")   # report → sunday
 
-        # Exception type column → U
-        exc_dv.add("U2:U1000")
+        # Exception type column
+        exc_dv.add("Q2:Q1000")
 
         output = io.BytesIO()
         wb.save(output)
@@ -104,9 +88,9 @@ def shift_templates_ui():
 
     st.divider()
 
-    # ==================================================
-    # UPLOAD & CREATE (UNCHANGED LOGIC + JSON PARITY)
-    # ==================================================
+    # =========================================================
+    # UPLOAD & CREATE (UNCHANGED LOGIC)
+    # =========================================================
     st.subheader("📤 Upload & Create Shift Templates")
 
     file = st.file_uploader("Upload Excel / CSV", ["xlsx", "csv"])
@@ -128,8 +112,6 @@ def shift_templates_ui():
                     "lateInToleranceMinute": int(row["lateInToleranceMinute"]),
                     "earlyOutToleranceMinute": int(row["earlyOutToleranceMinute"]),
                     "report": to_bool(row["report"]),
-                    "reportGroup": row.get("reportGroup", ""),
-                    "optionalShiftTemplate": {"id": int(row["optionalShiftTemplateId"])} if row.get("optionalShiftTemplateId") else None,
                     "monday": to_bool(row["monday"]),
                     "tuesday": to_bool(row["tuesday"]),
                     "wednesday": to_bool(row["wednesday"]),
@@ -139,47 +121,10 @@ def shift_templates_ui():
                     "sunday": to_bool(row["sunday"]),
                 }
 
-                # PAYCODE
-                payload["paycodes"] = []
-                if row.get("paycode_id"):
-                    payload["paycodes"].append({
-                        "startMinute": int(row["paycode_startMinute"]),
-                        "endMinute": int(row["paycode_endMinute"]),
-                        "max": True,
-                        "paycode": {"id": int(row["paycode_id"])}
-                    })
-
-                # EXCEPTION
-                payload["exceptions"] = []
-                if row.get("exception_paycode_id"):
-                    payload["exceptions"].append({
-                        "startMinute": int(row["exception_startMinute"]),
-                        "endMinute": int(row["exception_endMinute"]),
-                        "max": True,
-                        "type": row["exception_type"],
-                        "paycode": {"id": int(row["exception_paycode_id"])}
-                    })
-
-                # ROUNDING
-                payload["exceptionRoundings"] = []
-                if row.get("rounding_startMinute"):
-                    payload["exceptionRoundings"].append({
-                        "startMinute": int(row["rounding_startMinute"]),
-                        "endMinute": int(row["rounding_endMinute"]),
-                        "max": True,
-                        "roundMinute": int(row["rounding_roundMinute"])
-                    })
-
-                # ADJUSTMENT
-                payload["adjustments"] = []
-                if row.get("adjustment_type_id"):
-                    payload["adjustments"].append({
-                        "startMinute": int(row["adjustment_startMinute"]),
-                        "endMinute": int(row["adjustment_endMinute"]),
-                        "max": True,
-                        "amountMinute": int(row["adjustment_amountMinute"]),
-                        "adjustmentType": {"id": int(row["adjustment_type_id"])}
-                    })
+                if row.get("exception_type"):
+                    payload["exceptions"] = [{
+                        "type": row["exception_type"]
+                    }]
 
                 r = requests.post(BASE_URL, headers=headers, json=payload)
 
@@ -202,9 +147,9 @@ def shift_templates_ui():
 
     st.divider()
 
-    # ==================================================
+    # =========================================================
     # DELETE (UNCHANGED)
-    # ==================================================
+    # =========================================================
     st.subheader("🗑️ Delete Shift Templates")
 
     ids = st.text_input("IDs comma separated")
@@ -215,9 +160,9 @@ def shift_templates_ui():
 
     st.divider()
 
-    # ==================================================
+    # =========================================================
     # DOWNLOAD EXISTING (UNCHANGED)
-    # ==================================================
+    # =========================================================
     st.subheader("⬇️ Download Existing")
 
     if st.button("Download Existing Shift Templates"):
