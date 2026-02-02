@@ -100,7 +100,7 @@ with st.sidebar:
             "Overtime Policies",
             "Timecard Updation",
             "Punch Update",
-            "Schedule Pattern Update"
+            "Schedule Pattern Update",
         ]
     )
 
