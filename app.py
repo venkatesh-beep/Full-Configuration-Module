@@ -25,6 +25,7 @@ from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
 from modules.punch import punch_ui
+from modules.schedule_pattern_update import schedule_pattern_update_ui
 
 
 # ================= PAGE CONFIG =================
@@ -99,6 +100,7 @@ with st.sidebar:
             "Overtime Policies",
             "Timecard Updation",
             "Punch Update"
+            "Schedule Pattern Update",
         ]
     )
 
@@ -151,3 +153,5 @@ elif menu == "Timecard Updation":
     timecard_updation_ui()
 elif menu == "Punch Update":
     punch_ui()
+elif menu == "Schedule Pattern Update":
+    schedule_pattern_update_ui()
