@@ -24,20 +24,17 @@ def get_employee_id(external_number, date, headers, host):
     data = r.json()
     return data[0]["entries"][0]["employee"]["id"]
 
-
 def get_employee(emp_id, headers, host):
     r = requests.get(f"{host}{EMP_API}/{emp_id}?projection=FULL", headers=headers)
     r.raise_for_status()
     return r.json()
 
-
 def put_employee(emp_id, emp, headers, host):
     r = requests.put(f"{host}{EMP_API}/{emp_id}", headers=headers, json=emp)
     r.raise_for_status()
 
-
 # -------------------------------------------------------
-# UI PARITY SCHEDULE LOGIC  (same as assignments)
+# UI PARITY SCHEDULE LOGIC
 # -------------------------------------------------------
 def apply_ui_schedule_pattern_logic(emp, new_start_date, pattern_id, mode):
     new_start = datetime.strptime(new_start_date, "%Y-%m-%d")
@@ -78,9 +75,8 @@ def apply_ui_schedule_pattern_logic(emp, new_start_date, pattern_id, mode):
     emp["schedulePatterns"] = new_patterns
     return emp
 
-
 # -------------------------------------------------------
-# UI
+# Streamlit UI
 # -------------------------------------------------------
 def schedule_pattern_mapper_ui():
     st.header("🗓️ Schedule Pattern Mapper for New Joiners")
@@ -99,7 +95,6 @@ def schedule_pattern_mapper_ui():
     pattern_id = st.text_input("Schedule Pattern ID")
     mode = st.selectbox("Mode", ["ONE_MONTH", "FOREVER"])
 
-    st.divider()
     file = st.file_uploader("Upload CSV (externalNumber, joiningDate)", type=["csv"])
 
     if file and st.button("🚀 Apply Schedule Mapping"):
