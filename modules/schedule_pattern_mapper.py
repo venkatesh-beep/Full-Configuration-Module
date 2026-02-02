@@ -8,7 +8,23 @@ EMP_API = "/resource-server/api/employees"
 TIMECARD_API = "/web-client/restProxy/timecards/"
 
 
-# ---------------- API ----------------
+# -------------------------------------------------------
+# SESSION SANITIZER (VERY IMPORTANT)
+# -------------------------------------------------------
+def init_rules():
+    if "rules" not in st.session_state:
+        st.session_state.rules = []
+    else:
+        cleaned = []
+        for r in st.session_state.rules:
+            if isinstance(r, dict) and "Location" in r:
+                cleaned.append(r)
+        st.session_state.rules = cleaned
+
+
+# -------------------------------------------------------
+# API HELPERS
+# -------------------------------------------------------
 def get_employee_id(ext, date, headers, host):
     r = requests.get(
         f"{host}{TIMECARD_API}",
@@ -30,15 +46,18 @@ def put_employee(emp_id, emp, headers, host):
     r.raise_for_status()
 
 
-# ---------------- Schedule Logic ----------------
-def apply_schedule(emp, start_date, pattern_id, mode):
-    start = datetime.strptime(start_date, "%Y-%m-%d")
+# -------------------------------------------------------
+# UI PARITY LOGIC (same like assignments)
+# -------------------------------------------------------
+def apply_schedule_logic(emp, start_date, pattern_id, mode):
+    new_start = datetime.strptime(start_date, "%Y-%m-%d")
+
     emp["login"]["confirmPassword"] = emp["login"]["password"]
 
     patterns = emp.get("schedulePatterns", [])
-    patterns.sort(key=lambda x: x["startDate"])
+    patterns.sort(key=lambda x: datetime.strptime(x["startDate"], "%Y-%m-%d"))
 
-    past = [p for p in patterns if p["startDate"] < start_date]
+    past = [p for p in patterns if datetime.strptime(p["startDate"], "%Y-%m-%d") < new_start]
     new_patterns = []
 
     if len(past) > 1:
@@ -46,29 +65,35 @@ def apply_schedule(emp, start_date, pattern_id, mode):
 
     if past:
         last = past[-1]
-        last["endDate"] = (start - timedelta(days=1)).strftime("%Y-%m-%d")
+        last["endDate"] = (new_start - timedelta(days=1)).strftime("%Y-%m-%d")
         last["forever"] = False
         new_patterns.append(last)
 
-    new_p = {
+    new_pattern = {
         "startDate": start_date,
         "schedulePattern": {"id": int(pattern_id)},
     }
 
     if mode == "FOREVER":
-        new_p["forever"] = True
+        new_pattern["forever"] = True
     else:
-        last_day = calendar.monthrange(start.year, start.month)[1]
-        new_p["endDate"] = f"{start.year}-{start.month:02d}-{last_day}"
-        new_p["forever"] = False
+        last_day = calendar.monthrange(new_start.year, new_start.month)[1]
+        new_pattern["endDate"] = datetime(
+            new_start.year, new_start.month, last_day
+        ).strftime("%Y-%m-%d")
+        new_pattern["forever"] = False
 
-    new_patterns.append(new_p)
+    new_patterns.append(new_pattern)
     emp["schedulePatterns"] = new_patterns
     return emp
 
 
-# ---------------- UI ----------------
+# -------------------------------------------------------
+# MAIN UI
+# -------------------------------------------------------
 def schedule_pattern_mapper_ui():
+    init_rules()
+
     st.header("🧠 Schedule Pattern Rule Engine")
 
     token = st.session_state.token
@@ -77,101 +102,101 @@ def schedule_pattern_mapper_ui():
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
+        "Accept": "application/json",
     }
 
-    # ---------------- RULE STORAGE ----------------
-    if "rules" not in st.session_state:
-        st.session_state.rules = []
-
+    # ---------------------------------------------------
+    # RULE CREATION
+    # ---------------------------------------------------
     st.subheader("1️⃣ Define Rules")
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    loc = c1.text_input("Location")
-    func = c2.text_input("Function")
-    cat = c3.text_input("Category")
-    pat = c4.text_input("Pattern ID")
+    location = c1.text_input("Location")
+    function = c2.text_input("Function")
+    category = c3.text_input("Category")
+    pattern = c4.text_input("Pattern ID")
     mode = c5.selectbox("Mode", ["ONE_MONTH", "FOREVER"])
 
-    if st.button("➕ Add Rule"):
-        if loc and func and cat and pat:
-            st.session_state.rules.append(
-                {
-                    "Location": loc.strip(),
-                    "Function": func.strip(),
-                    "Category": cat.strip(),
-                    "Pattern ID": pat.strip(),
-                    "Mode": mode,
-                }
-            )
-        else:
-            st.warning("Fill all fields before adding rule")
+    if st.button("Add Rule"):
+        st.session_state.rules.append(
+            {
+                "Location": location.strip(),
+                "Function": function.strip(),
+                "Category": category.strip(),
+                "Pattern": pattern.strip(),
+                "Mode": mode,
+            }
+        )
 
-    # ---------------- SHOW RULES PROPERLY ----------------
+    # ---------------------------------------------------
+    # SHOW RULES + DELETE
+    # ---------------------------------------------------
     if st.session_state.rules:
-        st.markdown("### 📋 Active Rules")
+        st.markdown("### 🗂️ Current Rules")
 
-        for i, rule in enumerate(st.session_state.rules):
-            c1, c2, c3, c4, c5, c6 = st.columns([2,2,2,1,1,1])
-            c1.write(rule["Location"])
-            c2.write(rule["Function"])
-            c3.write(rule["Category"])
-            c4.write(rule["Pattern ID"])
-            c5.write(rule["Mode"])
-            if c6.button("❌", key=f"del_{i}"):
-                st.session_state.rules.pop(i)
+        for idx, rule in enumerate(st.session_state.rules):
+            col1, col2, col3, col4, col5, col6 = st.columns([2,2,2,1,1,1])
+            col1.write(rule["Location"])
+            col2.write(rule["Function"])
+            col3.write(rule["Category"])
+            col4.write(rule["Pattern"])
+            col5.write(rule["Mode"])
+            if col6.button("❌", key=f"del{idx}"):
+                st.session_state.rules.pop(idx)
                 st.rerun()
 
     st.divider()
 
-    # ---------------- HIRE DATE ----------------
+    # ---------------------------------------------------
+    # HIRE DATE FROM UI
+    # ---------------------------------------------------
     st.subheader("2️⃣ Hire Date")
-    hire_date = st.date_input("Select Hire Date from UI")
-    hire_date = hire_date.strftime("%Y-%m-%d")
+    hire_date = st.date_input("Select Hire Date")
+    hire_date_str = hire_date.strftime("%Y-%m-%d")
 
     st.divider()
 
-    # ---------------- FILE UPLOAD ----------------
+    # ---------------------------------------------------
+    # FILE UPLOAD
+    # ---------------------------------------------------
     st.subheader("3️⃣ Upload HR File")
     file = st.file_uploader("Upload Excel", type=["xlsx"])
 
-    if file and st.button("🚀 Run Mapping"):
+    if file and st.button("🚀 Apply Schedule Mapping"):
         df = pd.read_excel(file)
 
         for _, row in df.iterrows():
-            ext = str(row["Employee No."]).strip()
-            location = str(row["Location"]).strip()
-            function = str(row["Function"]).strip()
-            category = str(row["Category"]).strip()
+            emp_no = str(row["Employee No."]).strip()
+            emp_location = str(row["Location"]).strip()
+            emp_function = str(row["Function"]).strip()
+            emp_category = str(row["Category"]).strip()
 
-            rule = next(
-                (
-                    r for r in st.session_state.rules
-                    if r["Location"] == location
-                    and r["Function"] == function
-                    and r["Category"] == category
-                ),
-                None,
-            )
+            # find matching rule
+            matched = None
+            for rule in st.session_state.rules:
+                if (
+                    rule["Location"] in emp_location
+                    and rule["Function"] in emp_function
+                    and rule["Category"] in emp_category
+                ):
+                    matched = rule
+                    break
 
-            if not rule:
-                st.warning(f"No rule for {ext}")
+            if not matched:
+                st.warning(f"No rule for {emp_no}")
                 continue
 
-            try:
-                emp_id = get_employee_id(ext, hire_date, headers, host)
-                emp = get_employee(emp_id, headers, host)
+            emp_id = get_employee_id(emp_no, hire_date_str, headers, host)
+            emp = get_employee(emp_id, headers, host)
 
-                emp = apply_schedule(
-                    emp,
-                    hire_date,
-                    rule["Pattern ID"],
-                    rule["Mode"],
-                )
+            emp = apply_schedule_logic(
+                emp,
+                hire_date_str,
+                matched["Pattern"],
+                matched["Mode"],
+            )
 
-                put_employee(emp_id, emp, headers, host)
-                st.success(f"✅ Updated {ext}")
+            put_employee(emp_id, emp, headers, host)
+            st.success(f"✅ Updated {emp_no}")
 
-            except Exception as e:
-                st.error(f"{ext} → {e}")
-
-        st.success("🎉 Completed Successfully")
+        st.success("🎉 All Done")
