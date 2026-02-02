@@ -1,0 +1,109 @@
+import streamlit as st
+import pandas as pd
+import requests
+from datetime import datetime
+import calendar
+
+EMP_API = "/resource-server/api/employees"
+TIMECARD_API = "/web-client/restProxy/timecards/"
+
+def get_employee_id(external_number, date, headers, host):
+    r = requests.get(
+        f"{host}{TIMECARD_API}",
+        headers=headers,
+        params={
+            "startDate": date,
+            "endDate": date,
+            "externalNumber": external_number
+        }
+    )
+    r.raise_for_status()
+    data = r.json()
+    return data[0]["entries"][0]["employee"]["id"]
+
+def get_employee(emp_id, headers, host):
+    r = requests.get(f"{host}{EMP_API}/{emp_id}?projection=FULL", headers=headers)
+    r.raise_for_status()
+    return r.json()
+
+def put_employee(emp_id, emp, headers, host):
+    r = requests.put(f"{host}{EMP_API}/{emp_id}", headers=headers, json=emp)
+    r.raise_for_status()
+
+def apply_ui_schedule_pattern_logic(emp, new_start_date, pattern_id, mode):
+    from datetime import timedelta
+
+    new_start = datetime.strptime(new_start_date, "%Y-%m-%d")
+    emp["login"]["confirmPassword"] = emp["login"]["password"]
+
+    patterns = emp.get("schedulePatterns", [])
+    patterns.sort(key=lambda a: datetime.strptime(a["startDate"], "%Y-%m-%d"))
+
+    past = [p for p in patterns if datetime.strptime(p["startDate"], "%Y-%m-%d") < new_start]
+    new_patterns = []
+
+    if len(past) > 1:
+        new_patterns.extend(past[:-1])
+
+    if past:
+        last = past[-1]
+        last["endDate"] = (new_start - timedelta(days=1)).strftime("%Y-%m-%d")
+        last["forever"] = False
+        new_patterns.append(last)
+
+    new_pattern = {
+        "startDate": new_start_date,
+        "schedulePattern": {"id": int(pattern_id)}
+    }
+
+    if mode == "FOREVER":
+        new_pattern["forever"] = True
+    else:
+        last_day = calendar.monthrange(new_start.year, new_start.month)[1]
+        new_pattern["endDate"] = datetime(
+            new_start.year, new_start.month, last_day
+        ).strftime("%Y-%m-%d")
+        new_pattern["forever"] = False
+
+    new_patterns.append(new_pattern)
+    emp["schedulePatterns"] = new_patterns
+    return emp
+
+def schedule_pattern_mapper_ui():
+    st.header("🗓️ New Joiner Schedule Pattern Mapper")
+
+    token = st.session_state.token
+    host = st.session_state.HOST.rstrip("/")
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    st.markdown("### Mapping Rules")
+
+    location = st.text_input("Location ID")
+    function = st.text_input("Function Name")
+    pattern_id = st.text_input("Schedule Pattern ID")
+    mode = st.selectbox("Mode", ["ONE_MONTH", "FOREVER"])
+
+    st.divider()
+    file = st.file_uploader("Upload CSV (externalNumber, joiningDate)", type=["csv"])
+
+    if file and st.button("🚀 Apply Schedule Mapping"):
+        df = pd.read_csv(file)
+
+        for _, row in df.iterrows():
+            ext = row["externalNumber"]
+            date = row["joiningDate"]
+
+            emp_id = get_employee_id(ext, date, headers, host)
+            emp = get_employee(emp_id, headers, host)
+
+            emp = apply_ui_schedule_pattern_logic(emp, date, pattern_id, mode)
+            put_employee(emp_id, emp, headers, host)
+
+            st.success(f"Updated {ext}")
+
+        st.success("✅ All employees updated")
