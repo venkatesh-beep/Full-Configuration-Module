@@ -35,8 +35,6 @@ def shift_templates_ui():
         shifts = requests.get(BASE_URL, headers=headers).json()
 
         wb = Workbook()
-
-        # ============ SHEET 1 TEMPLATE ============
         ws = wb.active
         ws.title = "Template"
 
@@ -57,34 +55,34 @@ def shift_templates_ui():
         ]
         ws.append(headers_row)
 
-        # ============ SHEET 2 MASTER ============
+        # -------- Sheet 2 : Master --------
         ws2 = wb.create_sheet("Master")
-        ws2.append(["Boolean","ExceptionType"])
-        ws2.append(["TRUE","LATE_IN"])
-        ws2.append(["FALSE","EARLY_OUT"])
-        ws2.append(["","BOTH"])
+        ws2.append(["Boolean", "ExceptionType"])
+        ws2.append(["TRUE", "LATE_IN"])
+        ws2.append(["FALSE", "EARLY_OUT"])
+        ws2.append(["", "BOTH"])
 
-        # ============ SHEET 3 PAYCODES ============
+        # -------- Sheet 3 : Paycodes --------
         ws3 = wb.create_sheet("Paycodes")
         ws3.append(["id","code","description"])
         for p in paycodes:
             ws3.append([p["id"], p["code"], p.get("description")])
 
-        # ============ SHEET 4 EXISTING SHIFTS ============
+        # -------- Sheet 4 : Existing Shifts --------
         ws4 = wb.create_sheet("Existing_Shifts")
         df = pd.json_normalize(shifts)
         for r in dataframe_to_rows(df, index=False, header=True):
             ws4.append(r)
 
-        # ============ DROPDOWNS ============
+        # -------- Data Validations (SAFE) --------
         bool_dv = DataValidation(type="list", formula1="=Master!$A$2:$A$3")
         exc_dv = DataValidation(type="list", formula1="=Master!$B$2:$B$4")
 
         ws.add_data_validation(bool_dv)
         ws.add_data_validation(exc_dv)
 
-        bool_dv.add("I2:P1000")   # report + days
-        exc_dv.add("U2:U1000")    # exception type
+        bool_dv.add("I2:P1000")     # report + weekdays
+        exc_dv.add("U2:U1000")      # exception type
 
         output = io.BytesIO()
         wb.save(output)
@@ -164,7 +162,6 @@ def shift_templates_ui():
                 }]
 
                 r = requests.post(BASE_URL, headers=headers, json=payload)
-
                 results.append({"Row": i+1, "Name": row["name"], "Status": r.status_code})
 
             except Exception as e:
@@ -175,7 +172,7 @@ def shift_templates_ui():
     st.divider()
 
     # =========================================================
-    # DELETE SHIFT TEMPLATES (RESTORED)
+    # DELETE SHIFT TEMPLATES
     # =========================================================
     st.subheader("🗑️ Delete Shift Templates")
 
@@ -188,7 +185,7 @@ def shift_templates_ui():
     st.divider()
 
     # =========================================================
-    # DOWNLOAD EXISTING (RESTORED)
+    # DOWNLOAD EXISTING
     # =========================================================
     st.subheader("⬇️ Download Existing Shift Templates")
 
