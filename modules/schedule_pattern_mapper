@@ -1,12 +1,15 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import calendar
 
 EMP_API = "/resource-server/api/employees"
 TIMECARD_API = "/web-client/restProxy/timecards/"
 
+# -------------------------------------------------------
+# HELPERS
+# -------------------------------------------------------
 def get_employee_id(external_number, date, headers, host):
     r = requests.get(
         f"{host}{TIMECARD_API}",
@@ -21,19 +24,25 @@ def get_employee_id(external_number, date, headers, host):
     data = r.json()
     return data[0]["entries"][0]["employee"]["id"]
 
+
 def get_employee(emp_id, headers, host):
     r = requests.get(f"{host}{EMP_API}/{emp_id}?projection=FULL", headers=headers)
     r.raise_for_status()
     return r.json()
 
+
 def put_employee(emp_id, emp, headers, host):
     r = requests.put(f"{host}{EMP_API}/{emp_id}", headers=headers, json=emp)
     r.raise_for_status()
 
-def apply_ui_schedule_pattern_logic(emp, new_start_date, pattern_id, mode):
-    from datetime import timedelta
 
+# -------------------------------------------------------
+# UI PARITY SCHEDULE LOGIC  (same as assignments)
+# -------------------------------------------------------
+def apply_ui_schedule_pattern_logic(emp, new_start_date, pattern_id, mode):
     new_start = datetime.strptime(new_start_date, "%Y-%m-%d")
+
+    # Mandatory for PUT
     emp["login"]["confirmPassword"] = emp["login"]["password"]
 
     patterns = emp.get("schedulePatterns", [])
@@ -69,8 +78,12 @@ def apply_ui_schedule_pattern_logic(emp, new_start_date, pattern_id, mode):
     emp["schedulePatterns"] = new_patterns
     return emp
 
+
+# -------------------------------------------------------
+# UI
+# -------------------------------------------------------
 def schedule_pattern_mapper_ui():
-    st.header("🗓️ New Joiner Schedule Pattern Mapper")
+    st.header("🗓️ Schedule Pattern Mapper for New Joiners")
 
     token = st.session_state.token
     host = st.session_state.HOST.rstrip("/")
@@ -81,10 +94,8 @@ def schedule_pattern_mapper_ui():
         "Accept": "application/json"
     }
 
-    st.markdown("### Mapping Rules")
+    st.markdown("### Mapping Setup")
 
-    location = st.text_input("Location ID")
-    function = st.text_input("Function Name")
     pattern_id = st.text_input("Schedule Pattern ID")
     mode = st.selectbox("Mode", ["ONE_MONTH", "FOREVER"])
 
@@ -106,4 +117,4 @@ def schedule_pattern_mapper_ui():
 
             st.success(f"Updated {ext}")
 
-        st.success("✅ All employees updated")
+        st.success("✅ All employees updated successfully")
