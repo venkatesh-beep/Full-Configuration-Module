@@ -99,8 +99,8 @@ with st.sidebar:
             "Roles",
             "Overtime Policies",
             "Timecard Updation",
-            "Punch Update"
-            "Schedule Pattern Update",
+            "Punch Update",
+            "Schedule Pattern Update"
         ]
     )
 
