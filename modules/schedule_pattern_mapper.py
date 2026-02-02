@@ -79,11 +79,11 @@ def schedule_pattern_mapper_ui():
         "Content-Type": "application/json",
     }
 
-    # ---------- RULE BUILDER ----------
-    st.subheader("1️⃣ Define Rules")
-
+    # -------- RULE STORAGE --------
     if "rules" not in st.session_state:
         st.session_state.rules = []
+
+    st.subheader("1️⃣ Define Rules")
 
     c1, c2, c3, c4, c5 = st.columns(5)
     loc = c1.text_input("Location")
@@ -93,22 +93,29 @@ def schedule_pattern_mapper_ui():
     mode = c5.selectbox("Mode", ["ONE_MONTH", "FOREVER"])
 
     if st.button("Add Rule"):
-        st.session_state.rules.append((loc, func, cat, pat, mode))
-
-    if st.session_state.rules:
-        st.table(
-            pd.DataFrame(
-                st.session_state.rules,
-                columns=["Location", "Function", "Category", "Pattern", "Mode"],
+        if loc and func and cat and pat:
+            st.session_state.rules.append(
+                {
+                    "Location": loc.strip(),
+                    "Function": func.strip(),
+                    "Category": cat.strip(),
+                    "Pattern": pat.strip(),
+                    "Mode": mode,
+                }
             )
-        )
+        else:
+            st.warning("Fill all fields before adding rule")
 
-    # ---------- HIRE DATE ----------
+    # Safe display
+    if st.session_state.rules:
+        st.dataframe(pd.DataFrame(st.session_state.rules), use_container_width=True)
+
+    # -------- Hire Date --------
     st.subheader("2️⃣ Hire Date")
-    hire_date = st.date_input("Use this hire date for all")
+    hire_date = st.date_input("Hire Date")
     hire_date = hire_date.strftime("%Y-%m-%d")
 
-    # ---------- FILE ----------
+    # -------- File --------
     st.subheader("3️⃣ Upload HR File")
     file = st.file_uploader("Upload Excel", type=["xlsx"])
 
@@ -121,14 +128,14 @@ def schedule_pattern_mapper_ui():
             function = str(row["Function"]).strip()
             category = str(row["Category"]).strip()
 
-            # rule match
+            # match rule
             rule = next(
                 (
                     r
                     for r in st.session_state.rules
-                    if r[0] == location
-                    and r[1] == function
-                    and r[2] == category
+                    if r["Location"] == location
+                    and r["Function"] == function
+                    and r["Category"] == category
                 ),
                 None,
             )
@@ -137,14 +144,18 @@ def schedule_pattern_mapper_ui():
                 st.warning(f"No rule → {ext}")
                 continue
 
-            _, _, _, pattern_id, mode = rule
-
             try:
                 emp_id = get_employee_id(ext, hire_date, headers, host)
                 emp = get_employee(emp_id, headers, host)
-                emp = apply_schedule(emp, hire_date, pattern_id, mode)
-                put_employee(emp_id, emp, headers, host)
 
+                emp = apply_schedule(
+                    emp,
+                    hire_date,
+                    rule["Pattern"],
+                    rule["Mode"],
+                )
+
+                put_employee(emp_id, emp, headers, host)
                 st.success(f"✅ {ext}")
 
             except Exception as e:
