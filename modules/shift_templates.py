@@ -5,11 +5,29 @@ import io
 
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.utils.dataframe import dataframe_to_rows
 
 
 def to_bool(v):
     return str(v).strip().upper() == "TRUE"
+
+
+def flatten_shift(s):
+    """Remove nested JSON so Excel can accept it"""
+    return {
+        "id": s.get("id"),
+        "name": s.get("name"),
+        "description": s.get("description"),
+        "startTime": s.get("startTime"),
+        "endTime": s.get("endTime"),
+        "report": s.get("report"),
+        "monday": s.get("monday"),
+        "tuesday": s.get("tuesday"),
+        "wednesday": s.get("wednesday"),
+        "thursday": s.get("thursday"),
+        "friday": s.get("friday"),
+        "saturday": s.get("saturday"),
+        "sunday": s.get("sunday"),
+    }
 
 
 def shift_templates_ui():
@@ -45,7 +63,6 @@ def shift_templates_ui():
             "report","monday","tuesday","wednesday",
             "thursday","friday","saturday","sunday",
             "reportGroup","optionalShiftTemplateId",
-
             "paycode_id","paycode_startMinute","paycode_endMinute",
             "exception_paycode_id","exception_type",
             "exception_startMinute","exception_endMinute",
@@ -68,21 +85,23 @@ def shift_templates_ui():
         for p in paycodes:
             ws3.append([p["id"], p["code"], p.get("description")])
 
-        # -------- Sheet 4 : Existing Shifts --------
+        # -------- Sheet 4 : Existing Shifts (FLATTENED) --------
         ws4 = wb.create_sheet("Existing_Shifts")
-        df = pd.json_normalize(shifts)
-        for r in dataframe_to_rows(df, index=False, header=True):
-            ws4.append(r)
+        flat = [flatten_shift(s) for s in shifts]
+        df = pd.DataFrame(flat)
+        ws4.append(list(df.columns))
+        for _, r in df.iterrows():
+            ws4.append(list(r))
 
-        # -------- Data Validations (SAFE) --------
+        # -------- Data Validations --------
         bool_dv = DataValidation(type="list", formula1="=Master!$A$2:$A$3")
         exc_dv = DataValidation(type="list", formula1="=Master!$B$2:$B$4")
 
         ws.add_data_validation(bool_dv)
         ws.add_data_validation(exc_dv)
 
-        bool_dv.add("I2:P1000")     # report + weekdays
-        exc_dv.add("U2:U1000")      # exception type
+        bool_dv.add("I2:P1000")
+        exc_dv.add("U2:U1000")
 
         output = io.BytesIO()
         wb.save(output)
@@ -93,81 +112,6 @@ def shift_templates_ui():
             data=output.getvalue(),
             file_name="shift_templates_create.xlsx"
         )
-
-    st.divider()
-
-    # =========================================================
-    # UPLOAD & CREATE
-    # =========================================================
-    st.subheader("📤 Upload & Create Shift Templates")
-
-    file = st.file_uploader("Upload Excel", ["xlsx"])
-
-    if file and st.button("🚀 Create Shifts"):
-        df = pd.read_excel(file)
-        results = []
-
-        for i, row in df.iterrows():
-            try:
-                payload = {
-                    "name": row["name"],
-                    "description": row["description"],
-                    "startTime": row["startTime"],
-                    "endTime": row["endTime"],
-                    "beforeStartToleranceMinute": int(row["beforeStartToleranceMinute"]),
-                    "afterStartToleranceMinute": int(row["afterStartToleranceMinute"]),
-                    "lateInToleranceMinute": int(row["lateInToleranceMinute"]),
-                    "earlyOutToleranceMinute": int(row["earlyOutToleranceMinute"]),
-                    "report": to_bool(row["report"]),
-                    "reportGroup": row.get("reportGroup"),
-                    "optionalShiftTemplate": {"id": int(row["optionalShiftTemplateId"])} if pd.notna(row.get("optionalShiftTemplateId")) else None,
-
-                    "monday": to_bool(row["monday"]),
-                    "tuesday": to_bool(row["tuesday"]),
-                    "wednesday": to_bool(row["wednesday"]),
-                    "thursday": to_bool(row["thursday"]),
-                    "friday": to_bool(row["friday"]),
-                    "saturday": to_bool(row["saturday"]),
-                    "sunday": to_bool(row["sunday"]),
-                }
-
-                payload["paycodes"] = [{
-                    "startMinute": int(row["paycode_startMinute"]),
-                    "endMinute": int(row["paycode_endMinute"]),
-                    "max": False,
-                    "paycode": {"id": int(row["paycode_id"])}
-                }]
-
-                payload["exceptions"] = [{
-                    "startMinute": int(row["exception_startMinute"]),
-                    "endMinute": int(row["exception_endMinute"]),
-                    "max": False,
-                    "type": row["exception_type"],
-                    "paycode": {"id": int(row["exception_paycode_id"])}
-                }]
-
-                payload["exceptionRoundings"] = [{
-                    "startMinute": int(row["rounding_startMinute"]),
-                    "endMinute": int(row["rounding_endMinute"]),
-                    "max": False,
-                    "roundMinute": int(row["rounding_roundMinute"])
-                }]
-
-                payload["adjustments"] = [{
-                    "startMinute": int(row["adjustment_startMinute"]),
-                    "endMinute": int(row["adjustment_endMinute"]),
-                    "max": False,
-                    "amountMinute": int(row["adjustment_amountMinute"]),
-                    "adjustmentType": {"id": int(row["adjustment_type_id"])}
-                }]
-
-                r = requests.post(BASE_URL, headers=headers, json=payload)
-                results.append({"Row": i+1, "Name": row["name"], "Status": r.status_code})
-
-            except Exception as e:
-                results.append({"Row": i+1, "Name": row.get("name"), "Error": str(e)})
-
-        st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
 
@@ -191,7 +135,8 @@ def shift_templates_ui():
 
     if st.button("Download Existing"):
         r = requests.get(BASE_URL, headers=headers)
-        df = pd.json_normalize(r.json())
+        flat = [flatten_shift(s) for s in r.json()]
+        df = pd.DataFrame(flat)
         st.download_button(
             "Download CSV",
             df.to_csv(index=False),
