@@ -44,7 +44,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ================= SESSION STATE (AUTHORITATIVE) =================
+# ================= SESSION STATE =================
 if "HOST" not in st.session_state:
     st.session_state.HOST = "https://saas-beeforce.labour.tech"
 
@@ -73,7 +73,6 @@ if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
 with st.sidebar:
     st.markdown("#### 👤 Logged in")
     st.write(logged_in_user)
-
     st.markdown("---")
 
     menu = st.radio(
@@ -110,7 +109,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# ================= MAIN =================
+# ================= MAIN ROUTER =================
 if menu == "Paycodes":
     paycodes_ui()
 elif menu == "Paycode Events":
