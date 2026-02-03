@@ -52,6 +52,107 @@ def flatten_shift(s):
     }
 
 
+@st.cache_data(ttl=300)
+def build_template_excel(host, token):
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+    base_url = f"{host}/resource-server/api/shift_templates"
+    paycode_url = f"{host}/resource-server/api/paycodes"
+
+    paycodes_response = requests.get(paycode_url, headers=headers)
+    paycodes_response.raise_for_status()
+    paycodes = paycodes_response.json()
+
+    shifts_response = requests.get(base_url, headers=headers)
+    shifts_response.raise_for_status()
+    shifts = shifts_response.json()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Template"
+
+    dynamic_count = 2
+    headers_row = [
+        "name","description","startTime","endTime",
+        "beforeStartToleranceMinute","afterStartToleranceMinute",
+        "lateInToleranceMinute","earlyOutToleranceMinute",
+        "report","monday","tuesday","wednesday",
+        "thursday","friday","saturday","sunday",
+        "reportGroup","optionalShiftTemplateId",
+    ]
+    for idx in range(1, dynamic_count + 1):
+        suffix = str(idx)
+        headers_row.extend([
+            f"paycode_id{suffix}", f"paycode_startMinute{suffix}", f"paycode_endMinute{suffix}",
+            f"exception_paycode_id{suffix}", f"exception_type{suffix}",
+            f"exception_startMinute{suffix}", f"exception_endMinute{suffix}",
+            f"rounding_startMinute{suffix}", f"rounding_endMinute{suffix}", f"rounding_roundMinute{suffix}",
+            f"adjustment_type_id{suffix}", f"adjustment_startMinute{suffix}",
+            f"adjustment_endMinute{suffix}", f"adjustment_amountMinute{suffix}",
+        ])
+    ws.append(headers_row)
+
+    # -------- Sheet 2 : Master --------
+    ws2 = wb.create_sheet("Master")
+    ws2.append(["Boolean", "ExceptionType"])
+    ws2.append(["TRUE", "LATE_IN"])
+    ws2.append(["FALSE", "EARLY_OUT"])
+    ws2.append(["", "BOTH"])
+
+    # -------- Sheet 3 : Paycodes --------
+    ws3 = wb.create_sheet("Paycodes")
+    ws3.append(["id","code","description"])
+    for p in paycodes:
+        ws3.append([p["id"], p["code"], p.get("description")])
+
+    # -------- Sheet 4 : Existing Shifts (FLATTENED) --------
+    ws4 = wb.create_sheet("Existing_Shifts")
+    flat = [flatten_shift(s) for s in shifts]
+    df = pd.DataFrame(flat)
+    ws4.append(list(df.columns))
+    for _, r in df.iterrows():
+        ws4.append(list(r))
+
+    # -------- Data Validations --------
+    bool_dv = DataValidation(type="list", formula1="=Master!$A$2:$A$3")
+    exc_dv = DataValidation(type="list", formula1="=Master!$B$2:$B$4")
+
+    ws.add_data_validation(bool_dv)
+    ws.add_data_validation(exc_dv)
+
+    boolean_columns = {
+        "report", "monday", "tuesday", "wednesday",
+        "thursday", "friday", "saturday", "sunday",
+    }
+    for col_idx, header in enumerate(headers_row, start=1):
+        column_letter = get_column_letter(col_idx)
+        if header in boolean_columns:
+            bool_dv.add(f"{column_letter}2:{column_letter}1000")
+        if header.startswith("exception_type"):
+            exc_dv.add(f"{column_letter}2:{column_letter}1000")
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
+
+
+@st.cache_data(ttl=300)
+def build_existing_csv(host, token):
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+    base_url = f"{host}/resource-server/api/shift_templates"
+    response = requests.get(base_url, headers=headers)
+    response.raise_for_status()
+    flat = [flatten_shift(s) for s in response.json()]
+    df = pd.DataFrame(flat)
+    return df.to_csv(index=False)
+
+
 def gather_suffixes(columns, base_name):
     suffixes = set()
     for column in columns:
@@ -74,8 +175,6 @@ def shift_templates_ui():
 
     HOST = st.session_state.HOST.rstrip("/")
     BASE_URL = f"{HOST}/resource-server/api/shift_templates"
-    PAYCODE_URL = f"{HOST}/resource-server/api/paycodes"
-
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
         "Accept": "application/json"
@@ -85,7 +184,14 @@ def shift_templates_ui():
     # DOWNLOAD TEMPLATE
     # =========================================================
     st.subheader("📥 Download Create Template")
+    st.caption("One click download with pre-built dropdowns and reference sheets.")
 
+    template_bytes = None
+    try:
+        with st.spinner("Preparing template..."):
+            template_bytes = build_template_excel(HOST, st.session_state.token)
+    except requests.RequestException as exc:
+        st.error(f"Unable to build template: {exc}")
     if st.button("⬇️ Download Create Template", use_container_width=True):
 
         paycodes = requests.get(PAYCODE_URL, headers=headers).json()
@@ -167,10 +273,13 @@ def shift_templates_ui():
         wb.save(output)
         output.seek(0)
 
+    if template_bytes:
         st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="shift_templates_create.xlsx"
+            "⬇️ Download Create Template",
+            data=template_bytes,
+            file_name="shift_templates_create.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
         )
 
     st.divider()
@@ -184,6 +293,14 @@ def shift_templates_ui():
         "Dynamic blocks must use numbered headers like paycode_id1, paycode_id2, etc."
     )
 
+    upload = st.file_uploader("Upload Excel", type=["xlsx"])
+    if upload:
+        st.success(f"Ready to create from: {upload.name}")
+    create_clicked = st.button(
+        "Create Shift Templates",
+        disabled=not upload,
+        help="Upload the Excel file to enable creation."
+    )
     with st.form("shift_template_upload"):
         upload = st.file_uploader("Upload Excel", type=["xlsx"])
         create_clicked = st.form_submit_button("Create Shift Templates")
@@ -347,11 +464,20 @@ def shift_templates_ui():
     # DOWNLOAD EXISTING
     # =========================================================
     st.subheader("⬇️ Download Existing Shift Templates")
+    st.caption("One click CSV download of flattened existing templates.")
 
-    if st.button("Download Existing"):
-        r = requests.get(BASE_URL, headers=headers)
-        flat = [flatten_shift(s) for s in r.json()]
-        df = pd.DataFrame(flat)
+    existing_csv = None
+    try:
+        with st.spinner("Preparing CSV..."):
+            existing_csv = build_existing_csv(HOST, st.session_state.token)
+    except requests.RequestException as exc:
+        st.error(f"Unable to download existing templates: {exc}")
+
+    if existing_csv:
         st.download_button(
+            "Download Existing CSV",
+            existing_csv,
+            "shift_templates_existing.csv"
+        )
             "Download CSV",
             df.to_csv(index=False)
