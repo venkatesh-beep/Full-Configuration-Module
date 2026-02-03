@@ -130,22 +130,27 @@ def login_ui():
 
             submitted = st.form_submit_button("Submit", use_container_width=True)
 
-        # ---------- LOGIN LOGIC (UNCHANGED) ----------
+        # ---------- LOGIN LOGIC (FIXED ONLY HERE) ----------
         if submitted:
             host = st.session_state.HOST_INPUT.rstrip("/")
 
-            r = requests.post(
-                host + "/authorization-server/oauth/token",
-                data={
-                    "username": username,
-                    "password": password,
-                    "grant_type": "password"
-                },
-                headers={
-                    "Authorization": CLIENT_AUTH,
-                    "Content-Type": "application/x-www-form-urlencoded"
-                }
-            )
+            try:
+                r = requests.post(
+                    host + "/authorization-server/oauth/token",
+                    data={
+                        "username": username,
+                        "password": password,
+                        "grant_type": "password"
+                    },
+                    headers={
+                        "Authorization": CLIENT_AUTH,
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    timeout=12
+                )
+            except requests.exceptions.RequestException as e:
+                st.error(f"❌ Cannot reach server: {e}")
+                st.stop()
 
             if r.status_code != 200:
                 st.error("❌ Invalid credentials")
