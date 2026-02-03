@@ -25,6 +25,18 @@ def to_float(value):
 
 
 # ======================================================
+# ID PARSER
+# ======================================================
+def to_int(value):
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        return int(float(value))
+    except ValueError:
+        return None
+
+
+# ======================================================
 # MAIN UI
 # ======================================================
 def known_locations_ui():
@@ -130,11 +142,12 @@ def known_locations_ui():
                         if accuracy is not None:
                             payload["accuracy"] = accuracy
 
-                        raw_id = str(row.get("id")).strip()
+                        raw_id = row.get("id")
+                        location_id = to_int(raw_id)
 
-                        if raw_id.isdigit():
+                        if location_id is not None:
                             r = requests.put(
-                                f"{BASE_URL}/{int(raw_id)}",
+                                f"{BASE_URL}/{location_id}",
                                 headers=headers,
                                 json=payload
                             )
