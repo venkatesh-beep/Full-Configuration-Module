@@ -173,10 +173,7 @@ def shift_templates_ui():
     st.subheader("📤 Upload & Create Shift Templates")
 
     upload = st.file_uploader("Upload Excel", type=["xlsx"])
-    create_clicked = st.button("Create Shift Templates")
-    if create_clicked and not upload:
-        st.warning("Please upload the Excel file before creating shift templates.")
-    if upload and create_clicked:
+    if upload and st.button("Create Shift Templates"):
         df = pd.read_excel(upload, sheet_name="Template")
         created = 0
         errors = []
