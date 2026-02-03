@@ -1,5 +1,7 @@
 import streamlit as st
 
+from modules.ui_helpers import module_header
+
 def roles_ui():
-    st.header("📊 Roles")
-    st.success("Coming Soon 🚧 Under construction")
+    module_header("📊 Roles", "Module under construction")
+    st.info("Coming Soon 🚧 Under construction")

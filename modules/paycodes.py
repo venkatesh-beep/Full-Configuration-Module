@@ -4,6 +4,8 @@ import requests
 import io
 import hashlib
 
+from modules.ui_helpers import module_header, section_header
+
 # ======================================================
 # SAFE BOOLEAN PARSER
 # ======================================================
@@ -31,8 +33,7 @@ def file_hash(file_bytes):
 # MAIN UI
 # ======================================================
 def paycodes_ui():
-    st.header("🧾 Paycodes Configuration")
-    st.caption("Create, update, delete and download Paycodes")
+    module_header("🧾 Paycodes Configuration", "Create, update, delete and download Paycodes")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
 
@@ -45,7 +46,7 @@ def paycodes_ui():
     # ==================================================
     # DOWNLOAD UPLOAD TEMPLATE
     # ==================================================
-    st.subheader("📥 Download Upload Template")
+    section_header("📥 Download Upload Template")
 
     template_df = pd.DataFrame(columns=[
         "id",
@@ -70,24 +71,24 @@ def paycodes_ui():
         "otHours"
     ])
 
-    if st.button("⬇️ Download Paycode Upload Template", use_container_width=True):
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Paycodes")
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        template_df.to_excel(writer, index=False, sheet_name="Paycodes")
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="paycodes_upload_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    st.download_button(
+        "⬇️ Download Paycode Upload Template",
+        data=output.getvalue(),
+        file_name="paycodes_upload_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # UPLOAD PAYCODES
     # ==================================================
-    st.subheader("📤 Upload Paycodes (Create / Update)")
+    section_header("📤 Upload Paycodes (Create / Update)")
 
     uploaded_file = st.file_uploader(
         "Upload CSV or Excel file",
@@ -213,7 +214,7 @@ def paycodes_ui():
                             "Message": str(e)
                         })
 
-            st.markdown("#### 📊 Upload Result")
+            section_header("📊 Upload Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
@@ -221,7 +222,7 @@ def paycodes_ui():
     # ==================================================
     # DELETE PAYCODES
     # ==================================================
-    st.subheader("🗑️ Delete Paycodes")
+    section_header("🗑️ Delete Paycodes")
     st.warning(
         "Deleting a paycode may fail if it is already used.\n"
         "If deletion fails, consider setting `inactive = TRUE` instead."
@@ -247,18 +248,19 @@ def paycodes_ui():
     # ==================================================
     # DOWNLOAD EXISTING PAYCODES
     # ==================================================
-    st.subheader("⬇️ Download Existing Paycodes")
+    section_header("⬇️ Download Existing Paycodes")
 
-    if st.button("Download Existing Paycodes", use_container_width=True):
-        with st.spinner("⏳ Fetching paycodes..."):
-            r = requests.get(BASE_URL, headers=headers)
-            if r.status_code != 200:
-                st.error("❌ Failed to fetch paycodes")
-            else:
-                df = pd.DataFrame(r.json())
-                st.download_button(
-                    "⬇️ Download CSV",
-                    data=df.to_csv(index=False),
-                    file_name="paycodes_export.csv",
-                    mime="text/csv"
-                )
+    with st.spinner("⏳ Fetching paycodes..."):
+        r = requests.get(BASE_URL, headers=headers)
+        if r.status_code != 200:
+            st.error("❌ Failed to fetch paycodes")
+            return
+        df = pd.DataFrame(r.json())
+
+    st.download_button(
+        "⬇️ Download Existing Paycodes",
+        data=df.to_csv(index=False),
+        file_name="paycodes_export.csv",
+        mime="text/csv",
+        use_container_width=True
+    )

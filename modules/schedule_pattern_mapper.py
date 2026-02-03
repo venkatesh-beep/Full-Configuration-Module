@@ -4,6 +4,8 @@ import requests
 from datetime import datetime, timedelta
 import calendar
 
+from modules.ui_helpers import module_header, section_header
+
 EMP_API = "/resource-server/api/employees"
 TIMECARD_API = "/web-client/restProxy/timecards/"
 
@@ -94,7 +96,7 @@ def apply_schedule_logic(emp, start_date, pattern_id, mode):
 def schedule_pattern_mapper_ui():
     init_rules()
 
-    st.header("🧠 Schedule Pattern Rule Engine")
+    module_header("🧠 Schedule Pattern Rule Engine", "Create and apply schedule pattern rules")
 
     token = st.session_state.token
     host = st.session_state.HOST.rstrip("/")
@@ -108,7 +110,7 @@ def schedule_pattern_mapper_ui():
     # ---------------------------------------------------
     # RULE CREATION
     # ---------------------------------------------------
-    st.subheader("1️⃣ Define Rules")
+    section_header("1️⃣ Define Rules")
 
     c1, c2, c3, c4, c5 = st.columns(5)
     location = c1.text_input("Location")
@@ -132,7 +134,7 @@ def schedule_pattern_mapper_ui():
     # SHOW RULES + DELETE
     # ---------------------------------------------------
     if st.session_state.rules:
-        st.markdown("### 🗂️ Current Rules")
+        section_header("🗂️ Current Rules")
 
         for idx, rule in enumerate(st.session_state.rules):
             col1, col2, col3, col4, col5, col6 = st.columns([2,2,2,1,1,1])
@@ -150,7 +152,7 @@ def schedule_pattern_mapper_ui():
     # ---------------------------------------------------
     # HIRE DATE FROM UI
     # ---------------------------------------------------
-    st.subheader("2️⃣ Hire Date")
+    section_header("2️⃣ Hire Date")
     hire_date = st.date_input("Select Hire Date")
     hire_date_str = hire_date.strftime("%Y-%m-%d")
 
@@ -159,7 +161,7 @@ def schedule_pattern_mapper_ui():
     # ---------------------------------------------------
     # FILE UPLOAD
     # ---------------------------------------------------
-    st.subheader("3️⃣ Upload HR File")
+    section_header("3️⃣ Upload HR File")
     file = st.file_uploader("Upload Excel", type=["xlsx"])
 
     if file and st.button("🚀 Apply Schedule Mapping"):

@@ -3,9 +3,10 @@ import pandas as pd
 import requests
 import io
 
+from modules.ui_helpers import module_header, section_header
+
 def timecard_updation_ui():
-    st.header("🕒 Timecard Updation")
-    st.caption("Bulk update attendance paycodes using External Number and Date")
+    module_header("🕒 Timecard Updation", "Bulk update attendance paycodes using External Number and Date")
 
     # --------------------------------------------------
     # Preconditions
@@ -37,46 +38,46 @@ def timecard_updation_ui():
     # --------------------------------------------------
     # DOWNLOAD TEMPLATE
     # --------------------------------------------------
-    st.subheader("📥 Download Upload Template")
+    section_header("📥 Download Upload Template")
 
     template_df = pd.DataFrame(
         columns=["externalNumber", "attendanceDate", "paycode_id"]
     )
 
-    if st.button("⬇️ Download Template", use_container_width=True):
-        r = requests.get(PAYCODES_URL, headers=HEADERS_GET)
+    r = requests.get(PAYCODES_URL, headers=HEADERS_GET)
 
-        paycodes_df = (
-            pd.DataFrame([
-                {
-                    "paycode_id": p.get("id"),
-                    "paycode": p.get("code"),
-                    "description": p.get("description")
-                }
-                for p in r.json()
-            ]) if r.status_code == 200 else pd.DataFrame(
-                columns=["paycode_id", "paycode", "description"]
-            )
+    paycodes_df = (
+        pd.DataFrame([
+            {
+                "paycode_id": p.get("id"),
+                "paycode": p.get("code"),
+                "description": p.get("description")
+            }
+            for p in r.json()
+        ]) if r.status_code == 200 else pd.DataFrame(
+            columns=["paycode_id", "paycode", "description"]
         )
+    )
 
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Timecard_Upload")
-            paycodes_df.to_excel(writer, index=False, sheet_name="Available_Paycodes")
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        template_df.to_excel(writer, index=False, sheet_name="Timecard_Upload")
+        paycodes_df.to_excel(writer, index=False, sheet_name="Available_Paycodes")
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="timecard_updation_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    st.download_button(
+        "⬇️ Download Template",
+        data=output.getvalue(),
+        file_name="timecard_updation_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     st.divider()
 
     # --------------------------------------------------
     # Upload file
     # --------------------------------------------------
-    st.subheader("📤 Upload File")
+    section_header("📤 Upload File")
 
     uploaded_file = st.file_uploader(
         "Upload CSV or Excel file",

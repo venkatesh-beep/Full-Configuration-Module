@@ -4,6 +4,8 @@ import requests
 import io
 import hashlib
 
+from modules.ui_helpers import module_header, section_header
+
 # ======================================================
 # SAFE BOOLEAN PARSER
 # ======================================================
@@ -31,8 +33,7 @@ def file_hash(file_bytes):
 # MAIN UI
 # ======================================================
 def shift_templates_ui():
-    st.header("🕒 Shift Templates")
-    st.caption("Create, delete and download Shift Templates")
+    module_header("🕒 Shift Templates", "Create, delete and download Shift Templates")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/shift_templates"
     PAYCODE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
@@ -46,7 +47,7 @@ def shift_templates_ui():
     # ==================================================
     # DOWNLOAD CREATE TEMPLATE (ENHANCED)
     # ==================================================
-    st.subheader("📥 Download Create Template")
+    section_header("📥 Download Create Template")
 
     template_df = pd.DataFrame(columns=[
         "name", "description", "startTime", "endTime",
@@ -80,65 +81,63 @@ def shift_templates_ui():
         "optionalShiftTemplateId"
     ])
 
-    if st.button("⬇️ Download Create Template", use_container_width=True):
-        with st.spinner("Preparing Excel with reference data..."):
+    # ---------- Existing Shifts ----------
+    existing_shifts_df = pd.DataFrame()
+    try:
+        r = requests.get(BASE_URL, headers=headers)
+        if r.status_code == 200:
+            existing_shifts_df = pd.json_normalize(r.json())
+    except Exception:
+        pass
 
-            # ---------- Existing Shifts ----------
-            existing_shifts_df = pd.DataFrame()
-            try:
-                r = requests.get(BASE_URL, headers=headers)
-                if r.status_code == 200:
-                    existing_shifts_df = pd.json_normalize(r.json())
-            except Exception:
-                pass
+    # ---------- Paycodes Master ----------
+    paycodes_df = pd.DataFrame()
+    try:
+        r = requests.get(PAYCODE_URL, headers=headers)
+        if r.status_code == 200:
+            paycodes_df = pd.DataFrame([
+                {
+                    "id": p.get("id"),
+                    "code": p.get("code"),
+                    "description": p.get("description")
+                }
+                for p in r.json()
+            ])
+    except Exception:
+        pass
 
-            # ---------- Paycodes Master ----------
-            paycodes_df = pd.DataFrame()
-            try:
-                r = requests.get(PAYCODE_URL, headers=headers)
-                if r.status_code == 200:
-                    paycodes_df = pd.DataFrame([
-                        {
-                            "id": p.get("id"),
-                            "code": p.get("code"),
-                            "description": p.get("description")
-                        }
-                        for p in r.json()
-                    ])
-            except Exception:
-                pass
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        template_df.to_excel(writer, index=False, sheet_name="Template")
 
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                template_df.to_excel(writer, index=False, sheet_name="Template")
-
-                if not existing_shifts_df.empty:
-                    existing_shifts_df.to_excel(
-                        writer,
-                        index=False,
-                        sheet_name="Existing_Shifts"
-                    )
-
-                if not paycodes_df.empty:
-                    paycodes_df.to_excel(
-                        writer,
-                        index=False,
-                        sheet_name="Paycodes_Master"
-                    )
-
-            st.download_button(
-                "⬇️ Download Excel",
-                data=output.getvalue(),
-                file_name="shift_templates_create.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if not existing_shifts_df.empty:
+            existing_shifts_df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Existing_Shifts"
             )
+
+        if not paycodes_df.empty:
+            paycodes_df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Paycodes_Master"
+            )
+
+    st.download_button(
+        "⬇️ Download Create Template",
+        data=output.getvalue(),
+        file_name="shift_templates_create.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # UPLOAD & CREATE SHIFTS (UNCHANGED)
     # ==================================================
-    st.subheader("📤 Upload & Create Shift Templates")
+    section_header("📤 Upload & Create Shift Templates")
 
     uploaded_file = st.file_uploader("Upload Excel / CSV", ["xlsx", "xls", "csv"])
 
@@ -237,7 +236,7 @@ def shift_templates_ui():
     # ==================================================
     # DELETE SHIFT TEMPLATES (UNCHANGED)
     # ==================================================
-    st.subheader("🗑️ Delete Shift Templates")
+    section_header("🗑️ Delete Shift Templates")
 
     ids_input = st.text_input(
         "Enter Shift Template IDs (comma-separated)",
@@ -258,17 +257,17 @@ def shift_templates_ui():
     # ==================================================
     # DOWNLOAD EXISTING SHIFT TEMPLATES (UNCHANGED)
     # ==================================================
-    st.subheader("⬇️ Download Existing Shift Templates")
+    section_header("⬇️ Download Existing Shift Templates")
 
-    if st.button("Download Existing Shift Templates", use_container_width=True):
-        r = requests.get(BASE_URL, headers=headers)
-        if r.status_code != 200:
-            st.error("❌ Failed to fetch shift templates")
-        else:
-            df = pd.json_normalize(r.json())
-            st.download_button(
-                "⬇️ Download CSV",
-                data=df.to_csv(index=False),
-                file_name="shift_templates_export.csv",
-                mime="text/csv"
-            )
+    r = requests.get(BASE_URL, headers=headers)
+    if r.status_code != 200:
+        st.error("❌ Failed to fetch shift templates")
+    else:
+        df = pd.json_normalize(r.json())
+        st.download_button(
+            "⬇️ Download Existing Shift Templates",
+            data=df.to_csv(index=False),
+            file_name="shift_templates_export.csv",
+            mime="text/csv",
+            use_container_width=True
+        )

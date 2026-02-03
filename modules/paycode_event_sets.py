@@ -3,12 +3,13 @@ import pandas as pd
 import requests
 import io
 
+from modules.ui_helpers import module_header, section_header
+
 # ======================================================
 # PAYCODE EVENT SETS UI
 # ======================================================
 def paycode_event_sets_ui():
-    st.header("🧩 Paycode Event Sets")
-    st.caption("Create, update, delete and download Paycode Event Sets")
+    module_header("🧩 Paycode Event Sets", "Create, update, delete and download Paycode Event Sets")
 
     # --------------------------------------------------
     # PRECHECK
@@ -30,7 +31,7 @@ def paycode_event_sets_ui():
     # ==================================================
     # 1️⃣ DOWNLOAD TEMPLATE
     # ==================================================
-    st.subheader("📥 Download Upload Template")
+    section_header("📥 Download Upload Template")
 
     template_df = pd.DataFrame(columns=[
         "id", "name", "description",
@@ -41,55 +42,53 @@ def paycode_event_sets_ui():
         "PaycodeEvent5", "Priority5"
     ])
 
-    if st.button("⬇️ Download Template", use_container_width=True):
-
-        # ---- Sheet 2: Paycode Events
-        r1 = requests.get(EVENTS_URL, headers=headers)
-        events_df = (
-            pd.DataFrame([
-                {
-                    "id": e["id"],
-                    "name": e["name"],
-                    "description": e["description"]
-                } for e in r1.json()
-            ]) if r1.status_code == 200 else pd.DataFrame(
-                columns=["id", "name", "description"]
-            )
+    # ---- Sheet 2: Paycode Events
+    r1 = requests.get(EVENTS_URL, headers=headers)
+    events_df = (
+        pd.DataFrame([
+            {
+                "id": e["id"],
+                "name": e["name"],
+                "description": e["description"]
+            } for e in r1.json()
+        ]) if r1.status_code == 200 else pd.DataFrame(
+            columns=["id", "name", "description"]
         )
+    )
 
-        # ---- Sheet 3: Paycode Event Sets (NEW)
-        r2 = requests.get(SETS_URL, headers=headers)
-        sets_df = (
-            pd.DataFrame([
-                {
-                    "id": s["id"],
-                    "name": s["name"],
-                    "description": s["description"]
-                } for s in r2.json()
-            ]) if r2.status_code == 200 else pd.DataFrame(
-                columns=["id", "name", "description"]
-            )
+    # ---- Sheet 3: Paycode Event Sets (NEW)
+    r2 = requests.get(SETS_URL, headers=headers)
+    sets_df = (
+        pd.DataFrame([
+            {
+                "id": s["id"],
+                "name": s["name"],
+                "description": s["description"]
+            } for s in r2.json()
+        ]) if r2.status_code == 200 else pd.DataFrame(
+            columns=["id", "name", "description"]
         )
+    )
 
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Paycode_Event_Sets")
-            events_df.to_excel(writer, index=False, sheet_name="Available_Paycode_Events")
-            sets_df.to_excel(writer, index=False, sheet_name="Available_Paycode_Sets")
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        template_df.to_excel(writer, index=False, sheet_name="Paycode_Event_Sets")
+        events_df.to_excel(writer, index=False, sheet_name="Available_Paycode_Events")
+        sets_df.to_excel(writer, index=False, sheet_name="Available_Paycode_Sets")
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="paycode_event_sets_template.xlsx",
-            use_container_width=True
-        )
+    st.download_button(
+        "⬇️ Download Template",
+        data=output.getvalue(),
+        file_name="paycode_event_sets_template.xlsx",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # 2️⃣ UPLOAD & PROCESS
     # ==================================================
-    st.subheader("📤 Upload Paycode Event Sets")
+    section_header("📤 Upload Paycode Event Sets")
 
     uploaded_file = st.file_uploader("Upload CSV or Excel", ["csv", "xlsx", "xls"])
 
@@ -252,7 +251,7 @@ def paycode_event_sets_ui():
                             "Status": str(e)
                         })
 
-            st.subheader("📊 Upload Result")
+            section_header("📊 Upload Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
@@ -260,7 +259,7 @@ def paycode_event_sets_ui():
     # ==================================================
     # 3️⃣ DELETE
     # ==================================================
-    st.subheader("🗑️ Delete Paycode Event Sets")
+    section_header("🗑️ Delete Paycode Event Sets")
 
     ids_input = st.text_input("Enter IDs (comma-separated)", placeholder="392,390")
 
@@ -279,37 +278,36 @@ def paycode_event_sets_ui():
     # ==================================================
     # 4️⃣ DOWNLOAD EXISTING
     # ==================================================
-    st.subheader("⬇️ Download Existing Paycode Event Sets")
+    section_header("⬇️ Download Existing Paycode Event Sets")
 
-    if st.button("Download Existing Paycode Event Sets", use_container_width=True):
-        with st.spinner("⏳ Fetching..."):
-            r = requests.get(SETS_URL, headers=headers)
-            if r.status_code != 200:
-                st.error("Failed to fetch data")
-                return
+    with st.spinner("⏳ Fetching..."):
+        r = requests.get(SETS_URL, headers=headers)
+        if r.status_code != 200:
+            st.error("Failed to fetch data")
+            return
 
-            rows = []
-            for s in r.json():
-                base = {
-                    "id": s["id"],
-                    "name": s["name"],
-                    "description": s["description"]
-                }
+        rows = []
+        for s in r.json():
+            base = {
+                "id": s["id"],
+                "name": s["name"],
+                "description": s["description"]
+            }
 
-                for i, e in enumerate(
-                    sorted(s.get("entries", []), key=lambda x: x["priority"]), start=1
-                ):
-                    base[f"PaycodeEvent{i}"] = e["paycodeEvent"]["id"]
-                    base[f"Priority{i}"] = e["priority"]
+            for i, e in enumerate(
+                sorted(s.get("entries", []), key=lambda x: x["priority"]), start=1
+            ):
+                base[f"PaycodeEvent{i}"] = e["paycodeEvent"]["id"]
+                base[f"Priority{i}"] = e["priority"]
 
-                rows.append(base)
+            rows.append(base)
 
-            output = io.BytesIO()
-            pd.DataFrame(rows).to_excel(output, index=False)
+        output = io.BytesIO()
+        pd.DataFrame(rows).to_excel(output, index=False)
 
-            st.download_button(
-                "⬇️ Download Excel",
-                data=output.getvalue(),
-                file_name="paycode_event_sets_export.xlsx",
-                use_container_width=True
-            )
+    st.download_button(
+        "⬇️ Download Existing Paycode Event Sets",
+        data=output.getvalue(),
+        file_name="paycode_event_sets_export.xlsx",
+        use_container_width=True
+    )

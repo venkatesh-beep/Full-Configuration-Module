@@ -4,12 +4,13 @@ import requests
 import io
 from openpyxl.styles import PatternFill, Font
 
+from modules.ui_helpers import module_header, section_header
+
 # ======================================================
 # MAIN UI
 # ======================================================
 def employee_lookup_table_ui():
-    st.header("👤 Employee Lookup Table")
-    st.caption("Download and upload Employee Lookup Table")
+    module_header("👤 Employee Lookup Table", "Download and upload Employee Lookup Table")
 
     BASE_URL = st.session_state.HOST.rstrip("/")
     GET_URL = BASE_URL + "/resource-server/api/employee_lookup_table"
@@ -48,62 +49,60 @@ def employee_lookup_table_ui():
     # ==================================================
     # DOWNLOAD EXISTING DATA (AUTO DOWNLOAD)
     # ==================================================
-    st.subheader("⬇️ Download Existing Data")
+    section_header("⬇️ Download Existing Data")
 
-    if st.button("⬇️ Download Existing Employee Lookup Data", use_container_width=True):
-        with st.spinner("Preparing download..."):
+    with st.spinner("Preparing download..."):
+        headers_meta, data = fetch_lookup_table()
+        if not headers_meta:
+            st.error("❌ Failed to fetch employee lookup data")
+            return
 
-            headers_meta, data = fetch_lookup_table()
-            if not headers_meta:
-                st.error("❌ Failed to fetch employee lookup data")
-                return
+        columns = [h["data"] for h in headers_meta]
+        input_columns = [h["data"] for h in headers_meta if h.get("type") == "INPUT"]
 
-            columns = [h["data"] for h in headers_meta]
-            input_columns = [h["data"] for h in headers_meta if h.get("type") == "INPUT"]
+        df = (
+            pd.DataFrame(data).reindex(columns=columns)
+            if data else pd.DataFrame(columns=columns)
+        )
 
-            df = (
-                pd.DataFrame(data).reindex(columns=columns)
-                if data else pd.DataFrame(columns=columns)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Existing_Data"
             )
 
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                df.to_excel(
-                    writer,
-                    index=False,
-                    sheet_name="Existing_Data"
-                )
+            # ---------- HIGHLIGHT INPUT COLUMNS ----------
+            ws = writer.book["Existing_Data"]
 
-                # ---------- HIGHLIGHT INPUT COLUMNS ----------
-                ws = writer.book["Existing_Data"]
-
-                red_fill = PatternFill(
-                    start_color="FFC7CE",
-                    end_color="FFC7CE",
-                    fill_type="solid"
-                )
-                bold_font = Font(bold=True)
-
-                for col_idx, col_name in enumerate(columns, start=1):
-                    if col_name in input_columns:
-                        cell = ws.cell(row=1, column=col_idx)
-                        cell.fill = red_fill
-                        cell.font = bold_font
-
-            st.download_button(
-                label="⬇️ Download",
-                data=output.getvalue(),
-                file_name="employee_lookup_data.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+            red_fill = PatternFill(
+                start_color="FFC7CE",
+                end_color="FFC7CE",
+                fill_type="solid"
             )
+            bold_font = Font(bold=True)
+
+            for col_idx, col_name in enumerate(columns, start=1):
+                if col_name in input_columns:
+                    cell = ws.cell(row=1, column=col_idx)
+                    cell.fill = red_fill
+                    cell.font = bold_font
+
+    st.download_button(
+        label="⬇️ Download Existing Employee Lookup Data",
+        data=output.getvalue(),
+        file_name="employee_lookup_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # UPLOAD DATA (UNCHANGED LOGIC)
     # ==================================================
-    st.subheader("📤 Upload Employee Lookup Data")
+    section_header("📤 Upload Employee Lookup Data")
 
     uploaded_file = st.file_uploader(
         "Upload Excel file (same format as downloaded)",

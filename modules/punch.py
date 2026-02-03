@@ -4,6 +4,8 @@ import requests
 from datetime import datetime
 from io import BytesIO
 
+from modules.ui_helpers import module_header, section_header
+
 
 # ----------------- HELPERS -----------------
 def normalize_datetime(val: str) -> str:
@@ -16,12 +18,7 @@ def normalize_datetime(val: str) -> str:
 
 # ----------------- UI -----------------
 def punch_ui():
-    # ---------- Page Header ----------
-    st.markdown("## 🕒 Punch Update")
-    st.markdown(
-        "<span style='color:#555;'>Add or bulk upload employee punches</span>",
-        unsafe_allow_html=True
-    )
+    module_header("🕒 Punch Update", "Add or bulk upload employee punches")
 
     st.divider()
 
@@ -46,7 +43,7 @@ def punch_ui():
     # SINGLE PUNCH
     # ======================================================
     with tab1:
-        st.markdown("### ➕ Add Single Punch")
+        section_header("➕ Add Single Punch")
 
         with st.container(border=True):
             c1, c2, c3 = st.columns(3)
@@ -114,7 +111,7 @@ def punch_ui():
     # BULK PUNCH
     # ======================================================
     with tab2:
-        st.markdown("### 📤 Bulk Punch Upload")
+        section_header("📤 Bulk Punch Upload")
 
         with st.container(border=True):
             st.markdown(
@@ -152,7 +149,7 @@ def punch_ui():
         if file:
             df = pd.read_excel(file)
 
-            st.markdown("### 👀 Preview")
+            section_header("👀 Preview")
             st.dataframe(df, use_container_width=True)
 
             required_cols = {"externalNumber", "dateTime"}
@@ -211,7 +208,7 @@ def punch_ui():
 
                 results_df = pd.DataFrame(results)
 
-                st.markdown("### 📊 Upload Summary")
+                section_header("📊 Upload Summary")
                 c1, c2, c3 = st.columns(3)
                 c1.metric("📄 Total", len(results))
                 c2.metric("✅ Uploaded", success)

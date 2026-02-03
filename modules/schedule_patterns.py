@@ -1,5 +1,7 @@
 import streamlit as st
 
+from modules.ui_helpers import module_header
+
 def schedule_patterns_ui():
-    st.header("🕒 Schedule Pattern")
-    st.success("Coming Soon 🚧 Under construction")
+    module_header("🕒 Schedule Pattern", "Module under construction")
+    st.info("Coming Soon 🚧 Under construction")

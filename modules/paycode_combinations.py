@@ -3,12 +3,13 @@ import pandas as pd
 import requests
 import io
 
+from modules.ui_helpers import module_header, section_header
+
 # ======================================================
 # MAIN UI
 # ======================================================
 def paycode_combinations_ui():
-    st.header("🔗 Paycode Combinations")
-    st.caption("Create, update and delete Paycode Combinations")
+    module_header("🔗 Paycode Combinations", "Create, update and delete Paycode Combinations")
 
     HOST = st.session_state.HOST.rstrip("/")
     COMBO_URL = HOST + "/resource-server/api/paycode_combinations"
@@ -23,7 +24,7 @@ def paycode_combinations_ui():
     # ==================================================
     # DOWNLOAD TEMPLATE
     # ==================================================
-    st.markdown("### 📥 Download Upload Template")
+    section_header("📥 Download Upload Template")
 
     template_df = pd.DataFrame(columns=[
         "id",
@@ -33,32 +34,32 @@ def paycode_combinations_ui():
         "inactive"
     ])
 
-    if st.button("⬇️ Download Template", use_container_width=True):
-        r = requests.get(PAYCODES_URL, headers=headers)
-        paycodes_df = (
-            pd.DataFrame(r.json())[["id", "code", "description"]]
-            if r.status_code == 200
-            else pd.DataFrame(columns=["id", "code", "description"])
-        )
+    r = requests.get(PAYCODES_URL, headers=headers)
+    paycodes_df = (
+        pd.DataFrame(r.json())[["id", "code", "description"]]
+        if r.status_code == 200
+        else pd.DataFrame(columns=["id", "code", "description"])
+    )
 
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Paycode_Combinations")
-            paycodes_df.to_excel(writer, index=False, sheet_name="Available_Paycodes")
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        template_df.to_excel(writer, index=False, sheet_name="Paycode_Combinations")
+        paycodes_df.to_excel(writer, index=False, sheet_name="Available_Paycodes")
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="paycode_combinations_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    st.download_button(
+        "⬇️ Download Template",
+        data=output.getvalue(),
+        file_name="paycode_combinations_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # UPLOAD PAYCODE COMBINATIONS (CREATE / UPDATE)
     # ==================================================
-    st.markdown("### 📤 Upload Paycode Combinations")
+    section_header("📤 Upload Paycode Combinations")
 
     uploaded_file = st.file_uploader(
         "Upload CSV or Excel",
@@ -135,7 +136,7 @@ def paycode_combinations_ui():
                             "Message": str(e)
                         })
 
-            st.markdown("#### 📊 Upload Result")
+            section_header("📊 Upload Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
@@ -143,7 +144,7 @@ def paycode_combinations_ui():
     # ==================================================
     # HARD DELETE PAYCODE COMBINATIONS
     # ==================================================
-    st.markdown("### 🗑️ Delete Paycode Combinations")
+    section_header("🗑️ Delete Paycode Combinations")
 
     ids_input = st.text_input(
         "Enter Combination IDs (comma-separated)",
@@ -170,28 +171,30 @@ def paycode_combinations_ui():
     # ==================================================
     # DOWNLOAD EXISTING COMBINATIONS
     # ==================================================
-    st.markdown("### ⬇️ Download Existing Paycode Combinations")
+    section_header("⬇️ Download Existing Paycode Combinations")
 
-    if st.button("Download Existing Combinations", use_container_width=True):
-        with st.spinner("⏳ Fetching combinations..."):
-            r = requests.get(COMBO_URL, headers=headers)
-            if r.status_code != 200:
-                st.error("❌ Failed to fetch combinations")
-            else:
-                rows = []
-                for c in r.json():
-                    rows.append({
-                        "id": c.get("id"),
-                        "firstPaycode": c.get("firstPaycode", {}).get("id"),
-                        "secondPaycode": c.get("secondPaycode", {}).get("id"),
-                        "combinedPaycode": c.get("combinedPaycode", {}).get("id"),
-                        "inactive": c.get("inactive", False)
-                    })
+    with st.spinner("⏳ Fetching combinations..."):
+        r = requests.get(COMBO_URL, headers=headers)
+        if r.status_code != 200:
+            st.error("❌ Failed to fetch combinations")
+            return
 
-                df = pd.DataFrame(rows)
-                st.download_button(
-                    "⬇️ Download CSV",
-                    data=df.to_csv(index=False),
-                    file_name="paycode_combinations_export.csv",
-                    mime="text/csv"
-                )
+        rows = []
+        for c in r.json():
+            rows.append({
+                "id": c.get("id"),
+                "firstPaycode": c.get("firstPaycode", {}).get("id"),
+                "secondPaycode": c.get("secondPaycode", {}).get("id"),
+                "combinedPaycode": c.get("combinedPaycode", {}).get("id"),
+                "inactive": c.get("inactive", False)
+            })
+
+        df = pd.DataFrame(rows)
+
+    st.download_button(
+        "⬇️ Download Existing Paycode Combinations",
+        data=df.to_csv(index=False),
+        file_name="paycode_combinations_export.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
