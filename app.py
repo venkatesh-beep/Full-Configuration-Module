@@ -39,8 +39,81 @@ st.set_page_config(
 # ================= GLOBAL STYLE =================
 st.markdown("""
     <style>
+    :root {
+        color-scheme: light;
+    }
     .stApp {
-        background-color: #F0F0F0;
+        background-color: #f7f9fb;
+        color: #1f2937;
+        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    h1, h2, h3 {
+        color: #0f172a;
+        letter-spacing: 0.2px;
+    }
+    .stCaption {
+        color: #64748b;
+    }
+    [data-testid="stSidebar"] {
+        background: #f1f5f9;
+        border-right: 1px solid #e2e8f0;
+    }
+    [data-testid="stSidebar"] .stRadio label {
+        padding: 0.2rem 0.35rem;
+        border-radius: 6px;
+    }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
+        gap: 0.35rem;
+    }
+    .stButton > button,
+    .stDownloadButton > button {
+        background: #e0ecff;
+        color: #1e3a8a;
+        border: 1px solid #c7dbff;
+        border-radius: 10px;
+        padding: 0.55rem 1rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        background: #cfe2ff;
+        border-color: #b6d0ff;
+        color: #1e3a8a;
+    }
+    .stButton > button:active {
+        transform: translateY(1px);
+    }
+    .stTextInput input,
+    .stTextArea textarea,
+    .stNumberInput input,
+    .stSelectbox select,
+    .stDateInput input,
+    .stMultiSelect select,
+    .stFileUploader section {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 0.35rem 0.5rem;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    }
+    .stAlert {
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+    }
+    [data-testid="stDataFrame"] {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding: 0.4rem 0.75rem;
+        border-radius: 8px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -61,6 +134,20 @@ logged_in_user = st.session_state.get("username", "Logged User")
 if not st.session_state.token:
     login_ui()
     st.stop()
+
+# ================= PAGE HEADER =================
+st.markdown(
+    """
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
+         padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);">
+        <div style="font-size: 1.6rem; font-weight: 700; color: #0f172a;">Configuration Portal</div>
+        <div style="color: #64748b; margin-top: 0.35rem;">
+            Manage all configuration modules with a clean, lightweight workspace.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ================= SESSION EXPIRY =================
 TOKEN_VALIDITY_SECONDS = 30 * 60

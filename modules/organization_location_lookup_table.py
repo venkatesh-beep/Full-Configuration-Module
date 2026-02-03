@@ -4,6 +4,8 @@ import requests
 import io
 from openpyxl.styles import PatternFill, Font
 
+from modules.ui_helpers import module_header, section_header
+
 # ======================================================
 # HELPER: CLEAN EXCEL VALUES (REMOVE .0 ISSUE)
 # ======================================================
@@ -33,8 +35,7 @@ def clean_excel_value(val):
 # MAIN UI
 # ======================================================
 def organization_location_lookup_table_ui():
-    st.header("🏢 Organization Location Lookup Table")
-    st.caption("Download and upload Organization Location Lookup Table")
+    module_header("🏢 Organization Location Lookup Table", "Download and upload Organization Location Lookup Table")
 
     BASE_URL = st.session_state.HOST.rstrip("/")
     GET_URL = BASE_URL + "/resource-server/api/organization_location_lookup_table"
@@ -67,49 +68,47 @@ def organization_location_lookup_table_ui():
     # ==================================================
     # DOWNLOAD EXISTING DATA
     # ==================================================
-    st.subheader("⬇️ Download Existing Data")
+    section_header("⬇️ Download Existing Data")
 
-    if st.button("⬇️ Download Existing Organization Location Data", use_container_width=True):
-        with st.spinner("Preparing download..."):
+    with st.spinner("Preparing download..."):
+        headers_meta, data = fetch_lookup_table()
+        if not headers_meta:
+            st.error("❌ Failed to fetch lookup data")
+            return
 
-            headers_meta, data = fetch_lookup_table()
-            if not headers_meta:
-                st.error("❌ Failed to fetch lookup data")
-                return
+        columns = [h["data"] for h in headers_meta]
+        input_columns = [h["data"] for h in headers_meta if h.get("type") == "INPUT"]
 
-            columns = [h["data"] for h in headers_meta]
-            input_columns = [h["data"] for h in headers_meta if h.get("type") == "INPUT"]
+        df = pd.DataFrame(data).reindex(columns=columns) if data else pd.DataFrame(columns=columns)
 
-            df = pd.DataFrame(data).reindex(columns=columns) if data else pd.DataFrame(columns=columns)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Existing_Data")
+            ws = writer.book["Existing_Data"]
 
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                df.to_excel(writer, index=False, sheet_name="Existing_Data")
-                ws = writer.book["Existing_Data"]
+            red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+            bold_font = Font(bold=True)
 
-                red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-                bold_font = Font(bold=True)
+            for col_idx, col_name in enumerate(columns, start=1):
+                if col_name in input_columns:
+                    cell = ws.cell(row=1, column=col_idx)
+                    cell.fill = red_fill
+                    cell.font = bold_font
 
-                for col_idx, col_name in enumerate(columns, start=1):
-                    if col_name in input_columns:
-                        cell = ws.cell(row=1, column=col_idx)
-                        cell.fill = red_fill
-                        cell.font = bold_font
-
-            st.download_button(
-                label="⬇️ Download",
-                data=output.getvalue(),
-                file_name="organization_location_lookup_data.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
+    st.download_button(
+        label="⬇️ Download Existing Organization Location Data",
+        data=output.getvalue(),
+        file_name="organization_location_lookup_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # UPLOAD DATA WITH FIX
     # ==================================================
-    st.subheader("📤 Upload Organization Location Lookup Table")
+    section_header("📤 Upload Organization Location Lookup Table")
 
     uploaded_file = st.file_uploader(
         "Upload Excel file (same format as downloaded)",

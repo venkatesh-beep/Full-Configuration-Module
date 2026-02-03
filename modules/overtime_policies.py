@@ -5,12 +5,13 @@ import io
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 
+from modules.ui_helpers import module_header, section_header
+
 # ======================================================
 # OVERTIME POLICIES UI
 # ======================================================
 def overtime_policies_ui():
-    st.markdown("## 📊 Overtime Policies")
-    st.caption("Create, update, delete and bulk upload overtime policies")
+    module_header("📊 Overtime Policies", "Create, update, delete and bulk upload overtime policies")
 
     # --------------------------------------------------
     # PRECHECK
@@ -31,57 +32,56 @@ def overtime_policies_ui():
     # ==================================================
     # 1️⃣ DOWNLOAD TEMPLATE (UNCHANGED)
     # ==================================================
-    st.markdown("### 📥 Download Upload Template")
+    section_header("📥 Download Upload Template")
 
-    if st.button("⬇️ Download Template", use_container_width=True):
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Overtime_Policies"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Overtime_Policies"
 
-        headers_row = [
-            "id", "name", "description", "Applicability",
-            "minMinute", "maxDailyMinute", "maxWeeklyMinute",
-            "maxMonthlyMinute", "maxQuarterlyMinute",
-            "weekoffMinMinute", "weekoffMaxDailyMinute",
-            "holidayMinMinute", "holidayMaxDailyMinute",
-            "skipTotalizationRoundings",
-            "rounding_startMinute1", "rounding_endMinute1", "rounding_roundMinute1",
-            "rounding_startMinute2", "rounding_endMinute2", "rounding_roundMinute2",
-            "holidayGroup1", "holidayGroup_minMinute1", "holidayGroup_maxDailyMinute1",
-            "holidayGroup2", "holidayGroup_minMinute2", "holidayGroup_maxDailyMinute2",
-        ]
-        ws.append(headers_row)
+    headers_row = [
+        "id", "name", "description", "Applicability",
+        "minMinute", "maxDailyMinute", "maxWeeklyMinute",
+        "maxMonthlyMinute", "maxQuarterlyMinute",
+        "weekoffMinMinute", "weekoffMaxDailyMinute",
+        "holidayMinMinute", "holidayMaxDailyMinute",
+        "skipTotalizationRoundings",
+        "rounding_startMinute1", "rounding_endMinute1", "rounding_roundMinute1",
+        "rounding_startMinute2", "rounding_endMinute2", "rounding_roundMinute2",
+        "holidayGroup1", "holidayGroup_minMinute1", "holidayGroup_maxDailyMinute1",
+        "holidayGroup2", "holidayGroup_minMinute2", "holidayGroup_maxDailyMinute2",
+    ]
+    ws.append(headers_row)
 
-        ws2 = wb.create_sheet("Applicability")
-        ws2.append(["Applicability"])
-        for v in ["TOTAL_HOURS", "BEFORE_SHIFT", "AFTER_SHIFT", "BEFORE_AFTER_SHIFT"]:
-            ws2.append([v])
+    ws2 = wb.create_sheet("Applicability")
+    ws2.append(["Applicability"])
+    for v in ["TOTAL_HOURS", "BEFORE_SHIFT", "AFTER_SHIFT", "BEFORE_AFTER_SHIFT"]:
+        ws2.append([v])
 
-        dv = DataValidation(
-            type="list",
-            formula1="=Applicability!$A$2:$A$5",
-            allow_blank=True
-        )
-        ws.add_data_validation(dv)
-        dv.add("D2:D1000")
+    dv = DataValidation(
+        type="list",
+        formula1="=Applicability!$A$2:$A$5",
+        allow_blank=True
+    )
+    ws.add_data_validation(dv)
+    dv.add("D2:D1000")
 
-        out = io.BytesIO()
-        wb.save(out)
-        out.seek(0)
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
 
-        st.download_button(
-            "⬇️ Download Excel Template",
-            data=out.getvalue(),
-            file_name="overtime_policies_template.xlsx",
-            use_container_width=True
-        )
+    st.download_button(
+        "⬇️ Download Template",
+        data=out.getvalue(),
+        file_name="overtime_policies_template.xlsx",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # 2️⃣ UPLOAD & PROCESS (UNCHANGED)
     # ==================================================
-    st.markdown("### 📤 Upload Overtime Policies")
+    section_header("📤 Upload Overtime Policies")
 
     uploaded_file = st.file_uploader("Upload Excel or CSV", ["xlsx", "xls", "csv"])
 
@@ -158,7 +158,7 @@ def overtime_policies_ui():
     # ==================================================
     # 3️⃣ DELETE (UNCHANGED)
     # ==================================================
-    st.markdown("### 🗑️ Delete Overtime Policies")
+    section_header("🗑️ Delete Overtime Policies")
 
     ids_input = st.text_input("Enter IDs (comma-separated)", placeholder="51,52")
 
@@ -175,52 +175,51 @@ def overtime_policies_ui():
     # ==================================================
     # 4️⃣ DOWNLOAD EXISTING (ENHANCED – AS REQUESTED)
     # ==================================================
-    st.markdown("### ⬇️ Download Existing Overtime Policies")
+    section_header("⬇️ Download Existing Overtime Policies")
 
-    if st.button("Download Existing Overtime Policies", use_container_width=True):
-        r = requests.get(BASE_URL, headers=headers)
-        if r.status_code != 200:
-            st.error("Failed to fetch overtime policies")
-            return
+    r = requests.get(BASE_URL, headers=headers)
+    if r.status_code != 200:
+        st.error("Failed to fetch overtime policies")
+        return
 
-        rows = []
-        for p in r.json():
-            base = {
-                "id": p.get("id"),
-                "name": p.get("name"),
-                "description": p.get("description"),
-                "Applicability": p.get("mode") or p.get("applicability"),
-                "minMinute": p.get("minMinute"),
-                "maxDailyMinute": p.get("maxDailyMinute"),
-                "maxWeeklyMinute": p.get("maxWeeklyMinute"),
-                "maxMonthlyMinute": p.get("maxMonthlyMinute"),
-                "maxQuarterlyMinute": p.get("maxQuarterlyMinute"),
-                "weekoffMinMinute": p.get("weekoffMinMinute"),
-                "weekoffMaxDailyMinute": p.get("weekoffMaxDailyMinute"),
-                "holidayMinMinute": p.get("holidayMinMinute"),
-                "holidayMaxDailyMinute": p.get("holidayMaxDailyMinute"),
-                "skipTotalizationRoundings": p.get("skipTotalizationRoundings")
-            }
+    rows = []
+    for p in r.json():
+        base = {
+            "id": p.get("id"),
+            "name": p.get("name"),
+            "description": p.get("description"),
+            "Applicability": p.get("mode") or p.get("applicability"),
+            "minMinute": p.get("minMinute"),
+            "maxDailyMinute": p.get("maxDailyMinute"),
+            "maxWeeklyMinute": p.get("maxWeeklyMinute"),
+            "maxMonthlyMinute": p.get("maxMonthlyMinute"),
+            "maxQuarterlyMinute": p.get("maxQuarterlyMinute"),
+            "weekoffMinMinute": p.get("weekoffMinMinute"),
+            "weekoffMaxDailyMinute": p.get("weekoffMaxDailyMinute"),
+            "holidayMinMinute": p.get("holidayMinMinute"),
+            "holidayMaxDailyMinute": p.get("holidayMaxDailyMinute"),
+            "skipTotalizationRoundings": p.get("skipTotalizationRoundings")
+        }
 
-            for i, r1 in enumerate(p.get("roundings", []), start=1):
-                base[f"rounding_startMinute{i}"] = r1.get("startMinute")
-                base[f"rounding_endMinute{i}"] = r1.get("endMinute")
-                base[f"rounding_roundMinute{i}"] = r1.get("roundMinute")
+        for i, r1 in enumerate(p.get("roundings", []), start=1):
+            base[f"rounding_startMinute{i}"] = r1.get("startMinute")
+            base[f"rounding_endMinute{i}"] = r1.get("endMinute")
+            base[f"rounding_roundMinute{i}"] = r1.get("roundMinute")
 
-            for i, h in enumerate(p.get("holidayGroupLimits", []), start=1):
-                base[f"holidayGroup{i}"] = h.get("holidayGroup")
-                base[f"holidayGroup_minMinute{i}"] = h.get("minMinute")
-                base[f"holidayGroup_maxDailyMinute{i}"] = h.get("maxDailyMinute")
+        for i, h in enumerate(p.get("holidayGroupLimits", []), start=1):
+            base[f"holidayGroup{i}"] = h.get("holidayGroup")
+            base[f"holidayGroup_minMinute{i}"] = h.get("minMinute")
+            base[f"holidayGroup_maxDailyMinute{i}"] = h.get("maxDailyMinute")
 
-            rows.append(base)
+        rows.append(base)
 
-        out = io.BytesIO()
-        pd.DataFrame(rows).to_excel(out, index=False)
-        out.seek(0)
+    out = io.BytesIO()
+    pd.DataFrame(rows).to_excel(out, index=False)
+    out.seek(0)
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=out.getvalue(),
-            file_name="overtime_policies_export.xlsx",
-            use_container_width=True
-        )
+    st.download_button(
+        "⬇️ Download Existing Overtime Policies",
+        data=out.getvalue(),
+        file_name="overtime_policies_export.xlsx",
+        use_container_width=True
+    )

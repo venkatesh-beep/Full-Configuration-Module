@@ -1,5 +1,7 @@
 import streamlit as st
 
+from modules.ui_helpers import module_header
+
 def accrual_policy_sets_ui():
-    st.header("📊 Accrual Policies Sets")
-    st.success("Coming Soon 🚧 Under construction")
+    module_header("📊 Accrual Policies Sets", "Module under construction")
+    st.info("Coming Soon 🚧 Under construction")

@@ -1,5 +1,7 @@
 import streamlit as st
 
+from modules.ui_helpers import module_header
+
 def regularization_policy_sets_ui():
-    st.header("📊 Regularization Policy sets")
-    st.success("Coming Soon 🚧 Under construction")
+    module_header("📊 Regularization Policy Sets", "Module under construction")
+    st.info("Coming Soon 🚧 Under construction")

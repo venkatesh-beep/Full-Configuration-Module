@@ -5,6 +5,8 @@ import io
 import re
 from datetime import datetime
 
+from modules.ui_helpers import module_header, section_header
+
 # ======================================================
 # DATE NORMALIZATION (STRICT YYYY-MM-DD)
 # ======================================================
@@ -36,8 +38,7 @@ def normalize_yyyy_mm_dd(date_value):
 # MAIN UI
 # ======================================================
 def paycode_events_ui():
-    st.header("🧾 Paycode Events")
-    st.caption("Create • Update • Delete • Download Paycode Events")
+    module_header("🧾 Paycode Events", "Create • Update • Delete • Download Paycode Events")
 
     HOST = st.session_state.HOST.rstrip("/")
     BASE_URL = f"{HOST}/resource-server/api/paycode_events"
@@ -52,7 +53,7 @@ def paycode_events_ui():
     # ==================================================
     # DOWNLOAD TEMPLATE
     # ==================================================
-    st.subheader("📥 Download Upload Template")
+    section_header("📥 Download Upload Template")
 
     template_df = pd.DataFrame(columns=[
         "id",
@@ -65,42 +66,42 @@ def paycode_events_ui():
         "repeatWeekday"
     ])
 
-    if st.button("⬇️ Download Template"):
-        r = requests.get(PAYCODES_URL, headers=headers)
+    r = requests.get(PAYCODES_URL, headers=headers)
 
-        # ✅ Sheet 2: ONLY id, code, description
-        paycodes_df = (
-            pd.DataFrame(
-                [
-                    {
-                        "id": p.get("id"),
-                        "code": p.get("code"),
-                        "description": p.get("description")
-                    }
-                    for p in r.json()
-                ]
-            ) if r.status_code == 200
-            else pd.DataFrame(columns=["id", "code", "description"])
-        )
+    # ✅ Sheet 2: ONLY id, code, description
+    paycodes_df = (
+        pd.DataFrame(
+            [
+                {
+                    "id": p.get("id"),
+                    "code": p.get("code"),
+                    "description": p.get("description")
+                }
+                for p in r.json()
+            ]
+        ) if r.status_code == 200
+        else pd.DataFrame(columns=["id", "code", "description"])
+    )
 
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Paycode Events")
-            paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes")
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        template_df.to_excel(writer, index=False, sheet_name="Paycode Events")
+        paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes")
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="paycode_events_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    st.download_button(
+        "⬇️ Download Template",
+        data=output.getvalue(),
+        file_name="paycode_events_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # UPLOAD
     # ==================================================
-    st.subheader("📤 Upload Paycode Events")
+    section_header("📤 Upload Paycode Events")
 
     uploaded_file = st.file_uploader(
         "Upload CSV or Excel",
@@ -171,7 +172,7 @@ def paycode_events_ui():
     # ==================================================
     # CREATE / UPDATE
     # ==================================================
-    st.subheader("🚀 Create / Update Paycode Events")
+    section_header("🚀 Create / Update Paycode Events")
 
     if st.button("Submit Paycode Events"):
         results = []
@@ -206,7 +207,7 @@ def paycode_events_ui():
     # ==================================================
     # DELETE
     # ==================================================
-    st.subheader("🗑️ Delete Paycode Events")
+    section_header("🗑️ Delete Paycode Events")
 
     delete_ids = st.text_input(
         "Enter Paycode Event IDs (comma-separated)",
@@ -226,41 +227,41 @@ def paycode_events_ui():
     # ==================================================
     # DOWNLOAD EXISTING
     # ==================================================
-    st.subheader("⬇️ Download Existing Paycode Events")
+    section_header("⬇️ Download Existing Paycode Events")
 
-    if st.button("Download Existing Paycode Events"):
-        r = requests.get(BASE_URL, headers=headers)
-        if r.status_code != 200:
-            st.error("❌ Failed to fetch Paycode Events")
-            return
+    r = requests.get(BASE_URL, headers=headers)
+    if r.status_code != 200:
+        st.error("❌ Failed to fetch Paycode Events")
+        return
 
-        rows = []
-        for e in r.json():
-            for s in e.get("schedules", []):
-                ry = s.get("repeatYear")
-                rm = s.get("repeatMonth")
-                rd = s.get("repeatDay")
+    rows = []
+    for e in r.json():
+        for s in e.get("schedules", []):
+            ry = s.get("repeatYear")
+            rm = s.get("repeatMonth")
+            rd = s.get("repeatDay")
 
-                holiday_date = ""
-                if str(ry).isdigit() and str(rm).isdigit() and str(rd).isdigit():
-                    holiday_date = f"{int(ry):04d}-{int(rm):02d}-{int(rd):02d}"
+            holiday_date = ""
+            if str(ry).isdigit() and str(rm).isdigit() and str(rd).isdigit():
+                holiday_date = f"{int(ry):04d}-{int(rm):02d}-{int(rd):02d}"
 
-                rows.append({
-                    "id": e.get("id"),
-                    "Paycode Event Name": e.get("name"),
-                    "Description": e.get("description"),
-                    "paycode_id": e.get("paycode", {}).get("id"),
-                    "holiday_name": s.get("name"),
-                    "holiday_date(YYYY-MM-DD)": holiday_date,
-                    "repeatWeek": s.get("repeatWeek", "*"),
-                    "repeatWeekday": s.get("repeatWeekday", "*")
-                })
+            rows.append({
+                "id": e.get("id"),
+                "Paycode Event Name": e.get("name"),
+                "Description": e.get("description"),
+                "paycode_id": e.get("paycode", {}).get("id"),
+                "holiday_name": s.get("name"),
+                "holiday_date(YYYY-MM-DD)": holiday_date,
+                "repeatWeek": s.get("repeatWeek", "*"),
+                "repeatWeekday": s.get("repeatWeekday", "*")
+            })
 
-        df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
 
-        st.download_button(
-            "⬇️ Download CSV",
-            data=df.to_csv(index=False),
-            file_name="paycode_events_export.csv",
-            mime="text/csv"
-        )
+    st.download_button(
+        "⬇️ Download Existing Paycode Events",
+        data=df.to_csv(index=False),
+        file_name="paycode_events_export.csv",
+        mime="text/csv",
+        use_container_width=True
+    )

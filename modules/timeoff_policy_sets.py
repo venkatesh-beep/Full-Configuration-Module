@@ -3,12 +3,13 @@ import pandas as pd
 import requests
 import io
 
+from modules.ui_helpers import module_header, section_header
+
 # ======================================================
 # MAIN UI
 # ======================================================
 def timeoff_policy_sets_ui():
-    st.header("🏖️ Time-off Policy Sets")
-    st.caption("Create, Update, Delete and Download Time-off Policy Sets")
+    module_header("🏖️ Time-off Policy Sets", "Create, Update, Delete and Download Time-off Policy Sets")
 
     # --------------------------------------------------
     # PRECHECK
@@ -30,7 +31,7 @@ def timeoff_policy_sets_ui():
     # ==================================================
     # 1️⃣ DOWNLOAD TEMPLATE
     # ==================================================
-    st.subheader("📥 Download Upload Template")
+    section_header("📥 Download Upload Template")
 
     template_df = pd.DataFrame(columns=[
         "id",
@@ -40,50 +41,49 @@ def timeoff_policy_sets_ui():
         "paycode_id"
     ])
 
-    if st.button("⬇️ Download Template", use_container_width=True):
-        # Sheet 2 → Paycodes
-        paycodes_resp = requests.get(PAYCODES_URL, headers=headers)
-        paycodes_df = (
-            pd.DataFrame([
-                {
-                    "id": p.get("id"),
-                    "code": p.get("code"),
-                    "description": p.get("description")
-                }
-                for p in paycodes_resp.json()
-            ])
-            if paycodes_resp.status_code == 200
-            else pd.DataFrame(columns=["id", "code", "description"])
-        )
+    # Sheet 2 → Paycodes
+    paycodes_resp = requests.get(PAYCODES_URL, headers=headers)
+    paycodes_df = (
+        pd.DataFrame([
+            {
+                "id": p.get("id"),
+                "code": p.get("code"),
+                "description": p.get("description")
+            }
+            for p in paycodes_resp.json()
+        ])
+        if paycodes_resp.status_code == 200
+        else pd.DataFrame(columns=["id", "code", "description"])
+    )
 
-        # Sheet 3 → Existing Timeoff Policy Sets
-        sets_resp = requests.get(BASE_URL, headers=headers)
-        sets_df = (
-            pd.DataFrame(sets_resp.json())
-            if sets_resp.status_code == 200
-            else pd.DataFrame()
-        )
+    # Sheet 3 → Existing Timeoff Policy Sets
+    sets_resp = requests.get(BASE_URL, headers=headers)
+    sets_df = (
+        pd.DataFrame(sets_resp.json())
+        if sets_resp.status_code == 200
+        else pd.DataFrame()
+    )
 
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Upload_Template")
-            paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes")
-            sets_df.to_excel(writer, index=False, sheet_name="Existing_Timeoff_Policy_Sets")
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        template_df.to_excel(writer, index=False, sheet_name="Upload_Template")
+        paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes")
+        sets_df.to_excel(writer, index=False, sheet_name="Existing_Timeoff_Policy_Sets")
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="timeoff_policy_sets_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+    st.download_button(
+        "⬇️ Download Template",
+        data=output.getvalue(),
+        file_name="timeoff_policy_sets_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # 2️⃣ UPLOAD & PROCESS
     # ==================================================
-    st.subheader("📤 Upload Time-off Policy Sets")
+    section_header("📤 Upload Time-off Policy Sets")
 
     uploaded_file = st.file_uploader(
         "Upload CSV or Excel file",
@@ -172,7 +172,7 @@ def timeoff_policy_sets_ui():
                         "Status": "Success" if r.status_code in (200, 201) else "Failed"
                     })
 
-            st.subheader("📊 Upload Result")
+            section_header("📊 Upload Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
@@ -180,7 +180,7 @@ def timeoff_policy_sets_ui():
     # ==================================================
     # 3️⃣ DELETE
     # ==================================================
-    st.subheader("🗑️ Delete Time-off Policy Sets")
+    section_header("🗑️ Delete Time-off Policy Sets")
 
     delete_ids = st.text_input(
         "Enter Time-off Policy Set IDs (comma separated)",
@@ -201,18 +201,17 @@ def timeoff_policy_sets_ui():
     # ==================================================
     # 4️⃣ DOWNLOAD EXISTING
     # ==================================================
-    st.subheader("⬇️ Download Existing Time-off Policy Sets")
+    section_header("⬇️ Download Existing Time-off Policy Sets")
 
-    if st.button("Download Existing Data", use_container_width=True):
-        r = requests.get(BASE_URL, headers=headers)
-        if r.status_code != 200:
-            st.error("Failed to fetch Time-off Policy Sets")
-        else:
-            df_existing = pd.DataFrame(r.json())
-            st.download_button(
-                "⬇️ Download CSV",
-                data=df_existing.to_csv(index=False),
-                file_name="timeoff_policy_sets_export.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
+    r = requests.get(BASE_URL, headers=headers)
+    if r.status_code != 200:
+        st.error("Failed to fetch Time-off Policy Sets")
+    else:
+        df_existing = pd.DataFrame(r.json())
+        st.download_button(
+            "⬇️ Download Existing Time-off Policy Sets",
+            data=df_existing.to_csv(index=False),
+            file_name="timeoff_policy_sets_export.csv",
+            mime="text/csv",
+            use_container_width=True
+        )

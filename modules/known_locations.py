@@ -4,6 +4,8 @@ import requests
 import io
 import hashlib
 
+from modules.ui_helpers import module_header, section_header
+
 
 # ======================================================
 # FILE HASH (PREVENT REPROCESS)
@@ -40,8 +42,7 @@ def to_int(value):
 # MAIN UI
 # ======================================================
 def known_locations_ui():
-    st.header("📍 Known Locations")
-    st.caption("Create, update, delete, and download Known Locations")
+    module_header("📍 Known Locations", "Create, update, delete, and download Known Locations")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/known_locations"
 
@@ -54,7 +55,7 @@ def known_locations_ui():
     # ==================================================
     # DOWNLOAD UPLOAD TEMPLATE
     # ==================================================
-    st.subheader("📥 Download Upload Template")
+    section_header("📥 Download Upload Template")
 
     template_df = pd.DataFrame(columns=[
         "id",
@@ -66,24 +67,24 @@ def known_locations_ui():
         "accuracy"
     ])
 
-    if st.button("⬇️ Download Known Locations Upload Template", use_container_width=True):
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            template_df.to_excel(writer, index=False, sheet_name="Known_Locations")
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        template_df.to_excel(writer, index=False, sheet_name="Known_Locations")
 
-        st.download_button(
-            "⬇️ Download Excel",
-            data=output.getvalue(),
-            file_name="known_locations_upload_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    st.download_button(
+        "⬇️ Download Known Locations Upload Template",
+        data=output.getvalue(),
+        file_name="known_locations_upload_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     st.divider()
 
     # ==================================================
     # UPLOAD KNOWN LOCATIONS
     # ==================================================
-    st.subheader("📤 Upload Known Locations (Create / Update)")
+    section_header("📤 Upload Known Locations (Create / Update)")
 
     uploaded_file = st.file_uploader(
         "Upload CSV or Excel file",
@@ -182,7 +183,7 @@ def known_locations_ui():
                             "Message": str(exc)
                         })
 
-            st.markdown("#### 📊 Upload Result")
+            section_header("📊 Upload Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
@@ -190,7 +191,7 @@ def known_locations_ui():
     # ==================================================
     # DELETE KNOWN LOCATIONS
     # ==================================================
-    st.subheader("🗑️ Delete Known Locations")
+    section_header("🗑️ Delete Known Locations")
 
     ids_input = st.text_input(
         "Enter Known Location IDs (comma-separated)",
@@ -212,18 +213,19 @@ def known_locations_ui():
     # ==================================================
     # DOWNLOAD EXISTING KNOWN LOCATIONS
     # ==================================================
-    st.subheader("⬇️ Download Existing Known Locations")
+    section_header("⬇️ Download Existing Known Locations")
 
-    if st.button("Download Existing Known Locations", use_container_width=True):
-        with st.spinner("⏳ Fetching known locations..."):
-            r = requests.get(BASE_URL, headers=headers)
-            if r.status_code != 200:
-                st.error("❌ Failed to fetch known locations")
-            else:
-                df = pd.DataFrame(r.json())
-                st.download_button(
-                    "⬇️ Download CSV",
-                    data=df.to_csv(index=False),
-                    file_name="known_locations_export.csv",
-                    mime="text/csv"
-                )
+    with st.spinner("⏳ Fetching known locations..."):
+        r = requests.get(BASE_URL, headers=headers)
+        if r.status_code != 200:
+            st.error("❌ Failed to fetch known locations")
+            return
+        df = pd.DataFrame(r.json())
+
+    st.download_button(
+        "⬇️ Download Existing Known Locations",
+        data=df.to_csv(index=False),
+        file_name="known_locations_export.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
