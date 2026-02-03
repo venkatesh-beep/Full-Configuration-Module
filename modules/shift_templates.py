@@ -10,6 +10,12 @@ from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 
 
+def cache_with_ttl(ttl):
+    if hasattr(st, "cache_data"):
+        return st.cache_data(ttl=ttl)
+    return st.cache
+
+
 def to_bool(v):
     return str(v).strip().upper() == "TRUE"
 
@@ -52,6 +58,7 @@ def flatten_shift(s):
     }
 
 
+@cache_with_ttl(ttl=300)
 @st.cache_data(ttl=300)
 def build_template_excel(host, token):
     headers = {
@@ -139,6 +146,7 @@ def build_template_excel(host, token):
     return output.getvalue()
 
 
+@cache_with_ttl(ttl=300)
 @st.cache_data(ttl=300)
 def build_existing_csv(host, token):
     headers = {
@@ -465,6 +473,14 @@ def shift_templates_ui():
     # =========================================================
     st.subheader("⬇️ Download Existing Shift Templates")
     st.caption("One click CSV download of flattened existing templates.")
+
+    existing_csv = None
+    try:
+        with st.spinner("Preparing CSV..."):
+            existing_csv = build_existing_csv(HOST, st.session_state.token)
+    except requests.RequestException as exc:
+        st.error(f"Unable to download existing templates: {exc}")
+
 
     existing_csv = None
     try:
