@@ -13,11 +13,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 def cache_with_ttl(ttl):
     if hasattr(st, "cache_data"):
         return st.cache_data(ttl=ttl)
-    if hasattr(st, "cache"):
-        return st.cache
-    def decorator(func):
-        return func
-    return decorator
+    return st.cache
 
 
 def to_bool(v):
@@ -63,6 +59,7 @@ def flatten_shift(s):
 
 
 @cache_with_ttl(ttl=300)
+@st.cache_data(ttl=300)
 def build_template_excel(host, token):
     headers = {
         "Authorization": f"Bearer {token}",
@@ -150,6 +147,7 @@ def build_template_excel(host, token):
 
 
 @cache_with_ttl(ttl=300)
+@st.cache_data(ttl=300)
 def build_existing_csv(host, token):
     headers = {
         "Authorization": f"Bearer {token}",
@@ -202,6 +200,86 @@ def shift_templates_ui():
             template_bytes = build_template_excel(HOST, st.session_state.token)
     except requests.RequestException as exc:
         st.error(f"Unable to build template: {exc}")
+    if st.button("⬇️ Download Create Template", use_container_width=True):
+
+        paycodes = requests.get(PAYCODE_URL, headers=headers).json()
+        shifts = requests.get(BASE_URL, headers=headers).json()
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Template"
+
+        dynamic_count = 2
+        headers_row = [
+            "name","description","startTime","endTime",
+            "beforeStartToleranceMinute","afterStartToleranceMinute",
+            "lateInToleranceMinute","earlyOutToleranceMinute",
+            "report","monday","tuesday","wednesday",
+            "thursday","friday","saturday","sunday",
+            "reportGroup","optionalShiftTemplateId",
+            "paycode_id","paycode_startMinute","paycode_endMinute",
+            "exception_paycode_id","exception_type",
+            "exception_startMinute","exception_endMinute",
+            "rounding_startMinute","rounding_endMinute","rounding_roundMinute",
+            "adjustment_type_id","adjustment_startMinute",
+            "adjustment_endMinute","adjustment_amountMinute",
+        ]
+        for idx in range(1, dynamic_count + 1):
+            suffix = str(idx)
+            headers_row.extend([
+                f"paycode_id{suffix}", f"paycode_startMinute{suffix}", f"paycode_endMinute{suffix}",
+                f"exception_paycode_id{suffix}", f"exception_type{suffix}",
+                f"exception_startMinute{suffix}", f"exception_endMinute{suffix}",
+                f"rounding_startMinute{suffix}", f"rounding_endMinute{suffix}", f"rounding_roundMinute{suffix}",
+                f"adjustment_type_id{suffix}", f"adjustment_startMinute{suffix}",
+                f"adjustment_endMinute{suffix}", f"adjustment_amountMinute{suffix}",
+            ])
+        ws.append(headers_row)
+
+        # -------- Sheet 2 : Master --------
+        ws2 = wb.create_sheet("Master")
+        ws2.append(["Boolean", "ExceptionType"])
+        ws2.append(["TRUE", "LATE_IN"])
+        ws2.append(["FALSE", "EARLY_OUT"])
+        ws2.append(["", "BOTH"])
+
+        # -------- Sheet 3 : Paycodes --------
+        ws3 = wb.create_sheet("Paycodes")
+        ws3.append(["id","code","description"])
+        for p in paycodes:
+            ws3.append([p["id"], p["code"], p.get("description")])
+
+        # -------- Sheet 4 : Existing Shifts (FLATTENED) --------
+        ws4 = wb.create_sheet("Existing_Shifts")
+        flat = [flatten_shift(s) for s in shifts]
+        df = pd.DataFrame(flat)
+        ws4.append(list(df.columns))
+        for _, r in df.iterrows():
+            ws4.append(list(r))
+
+        # -------- Data Validations --------
+        bool_dv = DataValidation(type="list", formula1="=Master!$A$2:$A$3")
+        exc_dv = DataValidation(type="list", formula1="=Master!$B$2:$B$4")
+
+        ws.add_data_validation(bool_dv)
+        ws.add_data_validation(exc_dv)
+
+        bool_dv.add("I2:P1000")
+        exc_dv.add("U2:U1000")
+        boolean_columns = {
+            "report", "monday", "tuesday", "wednesday",
+            "thursday", "friday", "saturday", "sunday",
+        }
+        for col_idx, header in enumerate(headers_row, start=1):
+            column_letter = get_column_letter(col_idx)
+            if header in boolean_columns:
+                bool_dv.add(f"{column_letter}2:{column_letter}1000")
+            if header.startswith("exception_type"):
+                exc_dv.add(f"{column_letter}2:{column_letter}1000")
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
 
     if template_bytes:
         st.download_button(
@@ -231,6 +309,12 @@ def shift_templates_ui():
         disabled=not upload,
         help="Upload the Excel file to enable creation."
     )
+    with st.form("shift_template_upload"):
+        upload = st.file_uploader("Upload Excel", type=["xlsx"])
+        create_clicked = st.form_submit_button("Create Shift Templates")
+
+    if upload:
+        st.success(f"Ready to create from: {upload.name}")
     if create_clicked and not upload:
         st.warning("Please upload the Excel file before creating shift templates.")
     if upload and create_clicked:
@@ -397,9 +481,19 @@ def shift_templates_ui():
     except requests.RequestException as exc:
         st.error(f"Unable to download existing templates: {exc}")
 
+
+    existing_csv = None
+    try:
+        with st.spinner("Preparing CSV..."):
+            existing_csv = build_existing_csv(HOST, st.session_state.token)
+    except requests.RequestException as exc:
+        st.error(f"Unable to download existing templates: {exc}")
+
     if existing_csv:
         st.download_button(
             "Download Existing CSV",
             existing_csv,
             "shift_templates_existing.csv"
         )
+            "Download CSV",
+            df.to_csv(index=False)
