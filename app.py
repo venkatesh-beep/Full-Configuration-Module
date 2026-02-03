@@ -26,6 +26,7 @@ from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
 from modules.punch import punch_ui
 from modules.schedule_pattern_mapper import schedule_pattern_mapper_ui
+from modules.known_locations import known_locations_ui
 
 
 # ================= PAGE CONFIG =================
@@ -100,6 +101,7 @@ with st.sidebar:
             "Timecard Updation",
             "Punch Update",
             "Schedule Pattern Update",
+            "Known Locations",
         ]
     )
 
@@ -154,3 +156,5 @@ elif menu == "Punch Update":
     punch_ui()
 elif menu == "Schedule Pattern Update":
     schedule_pattern_mapper_ui()
+elif menu == "Known Locations":
+    known_locations_ui()
