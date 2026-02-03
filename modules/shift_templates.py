@@ -95,7 +95,7 @@ def shift_templates_ui():
         ws = wb.active
         ws.title = "Template"
 
-        dynamic_count = 3
+        dynamic_count = 2
         headers_row = [
             "name","description","startTime","endTime",
             "beforeStartToleranceMinute","afterStartToleranceMinute",
