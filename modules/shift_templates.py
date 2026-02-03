@@ -103,6 +103,12 @@ def shift_templates_ui():
             "report","monday","tuesday","wednesday",
             "thursday","friday","saturday","sunday",
             "reportGroup","optionalShiftTemplateId",
+            "paycode_id","paycode_startMinute","paycode_endMinute",
+            "exception_paycode_id","exception_type",
+            "exception_startMinute","exception_endMinute",
+            "rounding_startMinute","rounding_endMinute","rounding_roundMinute",
+            "adjustment_type_id","adjustment_startMinute",
+            "adjustment_endMinute","adjustment_amountMinute",
         ]
         for idx in range(1, dynamic_count + 1):
             suffix = str(idx)
@@ -144,6 +150,8 @@ def shift_templates_ui():
         ws.add_data_validation(bool_dv)
         ws.add_data_validation(exc_dv)
 
+        bool_dv.add("I2:P1000")
+        exc_dv.add("U2:U1000")
         boolean_columns = {
             "report", "monday", "tuesday", "wednesday",
             "thursday", "friday", "saturday", "sunday",
@@ -171,10 +179,25 @@ def shift_templates_ui():
     # UPLOAD & CREATE
     # =========================================================
     st.subheader("📤 Upload & Create Shift Templates")
+    st.caption(
+        "Upload the Excel template with sheets named Template, Master, Paycodes, and Existing_Shifts. "
+        "Dynamic blocks must use numbered headers like paycode_id1, paycode_id2, etc."
+    )
 
-    upload = st.file_uploader("Upload Excel", type=["xlsx"])
-    if upload and st.button("Create Shift Templates"):
-        df = pd.read_excel(upload, sheet_name="Template")
+    with st.form("shift_template_upload"):
+        upload = st.file_uploader("Upload Excel", type=["xlsx"])
+        create_clicked = st.form_submit_button("Create Shift Templates")
+
+    if upload:
+        st.success(f"Ready to create from: {upload.name}")
+    if create_clicked and not upload:
+        st.warning("Please upload the Excel file before creating shift templates.")
+    if upload and create_clicked:
+        try:
+            df = pd.read_excel(upload, sheet_name="Template")
+        except ValueError:
+            st.error("Template sheet not found. Please use the downloaded template.")
+            return
         created = 0
         errors = []
 
@@ -331,6 +354,4 @@ def shift_templates_ui():
         df = pd.DataFrame(flat)
         st.download_button(
             "Download CSV",
-            df.to_csv(index=False),
-            "shift_templates_existing.csv"
-        )
+            df.to_csv(index=False)
