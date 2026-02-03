@@ -146,17 +146,20 @@ def known_locations_ui():
                         location_id = to_int(raw_id)
 
                         if location_id is not None:
+                            payload["id"] = location_id
                             r = requests.put(
                                 f"{BASE_URL}/{location_id}",
                                 headers=headers,
-                                json=payload
+                                json=payload,
+                                timeout=30
                             )
                             action = "Update"
                         else:
                             r = requests.post(
                                 BASE_URL,
                                 headers=headers,
-                                json=payload
+                                json=payload,
+                                timeout=30
                             )
                             action = "Create"
 
