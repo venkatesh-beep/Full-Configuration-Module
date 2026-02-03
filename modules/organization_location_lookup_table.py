@@ -5,6 +5,31 @@ import io
 from openpyxl.styles import PatternFill, Font
 
 # ======================================================
+# HELPER: CLEAN EXCEL VALUES (REMOVE .0 ISSUE)
+# ======================================================
+def clean_excel_value(val):
+    if pd.isna(val):
+        return ""
+
+    val_str = str(val).strip()
+
+    # Remove trailing .0 from numbers like 11650029.0
+    if val_str.endswith(".0"):
+        try:
+            return str(int(float(val_str)))
+        except:
+            pass
+
+    # Handle pandas float values
+    if isinstance(val, float):
+        if val.is_integer():
+            return str(int(val))
+        return str(val).strip()
+
+    return val_str
+
+
+# ======================================================
 # MAIN UI
 # ======================================================
 def organization_location_lookup_table_ui():
@@ -22,7 +47,7 @@ def organization_location_lookup_table_ui():
     }
 
     # ==================================================
-    # HELPER: FETCH LOOKUP TABLE
+    # FETCH LOOKUP TABLE
     # ==================================================
     def fetch_lookup_table():
         r = requests.get(GET_URL, headers=headers_auth, timeout=30)
@@ -36,17 +61,11 @@ def organization_location_lookup_table_ui():
             key=lambda x: x.get("sequence", 999)
         )
 
-        if "content" in raw and isinstance(raw["content"], list):
-            data = raw["content"]
-        elif "data" in raw and isinstance(raw["data"], list):
-            data = raw["data"]
-        else:
-            data = []
-
+        data = raw.get("content") or raw.get("data") or []
         return headers_meta, data
 
     # ==================================================
-    # DOWNLOAD EXISTING DATA (AUTO DOWNLOAD)
+    # DOWNLOAD EXISTING DATA
     # ==================================================
     st.subheader("⬇️ Download Existing Data")
 
@@ -61,27 +80,14 @@ def organization_location_lookup_table_ui():
             columns = [h["data"] for h in headers_meta]
             input_columns = [h["data"] for h in headers_meta if h.get("type") == "INPUT"]
 
-            df = (
-                pd.DataFrame(data).reindex(columns=columns)
-                if data else pd.DataFrame(columns=columns)
-            )
+            df = pd.DataFrame(data).reindex(columns=columns) if data else pd.DataFrame(columns=columns)
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                df.to_excel(
-                    writer,
-                    index=False,
-                    sheet_name="Existing_Data"
-                )
-
-                # ---------- HIGHLIGHT INPUT COLUMNS ----------
+                df.to_excel(writer, index=False, sheet_name="Existing_Data")
                 ws = writer.book["Existing_Data"]
 
-                red_fill = PatternFill(
-                    start_color="FFC7CE",
-                    end_color="FFC7CE",
-                    fill_type="solid"
-                )
+                red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
                 bold_font = Font(bold=True)
 
                 for col_idx, col_name in enumerate(columns, start=1):
@@ -101,7 +107,7 @@ def organization_location_lookup_table_ui():
     st.divider()
 
     # ==================================================
-    # UPLOAD DATA (UNCHANGED LOGIC)
+    # UPLOAD DATA WITH FIX
     # ==================================================
     st.subheader("📤 Upload Organization Location Lookup Table")
 
@@ -114,6 +120,9 @@ def organization_location_lookup_table_ui():
         df_upload = pd.read_excel(uploaded_file).fillna("")
         st.info(f"Rows detected: {len(df_upload)}")
 
+        # ✅ CLEAN WHOLE DATAFRAME (fix .0 everywhere)
+        df_upload = df_upload.applymap(clean_excel_value)
+
         if st.button("🚀 Validate & Upload", type="primary"):
             with st.spinner("Validating and uploading data..."):
 
@@ -122,9 +131,7 @@ def organization_location_lookup_table_ui():
                     st.error("❌ Failed to fetch headers for validation")
                     return
 
-                input_columns = [
-                    h["data"] for h in headers_meta if h.get("type") == "INPUT"
-                ]
+                input_columns = [h["data"] for h in headers_meta if h.get("type") == "INPUT"]
                 all_columns = [h["data"] for h in headers_meta]
 
                 validation_errors = []
@@ -135,9 +142,10 @@ def organization_location_lookup_table_ui():
                     record = {}
                     row_has_error = False
 
-                    # ---------- INPUT VALIDATION ----------
+                    # INPUT VALIDATION
                     for col in input_columns:
-                        if col not in df_upload.columns or str(row[col]).strip() == "":
+                        value = clean_excel_value(row.get(col, ""))
+                        if value == "":
                             validation_errors.append({
                                 "Row": excel_row,
                                 "Field": col,
@@ -148,22 +156,18 @@ def organization_location_lookup_table_ui():
                     if row_has_error:
                         continue
 
-                    # ---------- BUILD DATA ----------
+                    # BUILD DATA
                     for col in all_columns:
-                        if col in df_upload.columns:
-                            value = str(row[col]).strip()
-                            if value != "":
-                                record[col] = value
+                        value = clean_excel_value(row.get(col, ""))
+                        if value != "":
+                            record[col] = value
 
                     if record:
                         data_rows.append(record)
 
                 if validation_errors:
                     st.error("❌ Validation failed. Fix the errors below and re-upload.")
-                    st.dataframe(
-                        pd.DataFrame(validation_errors),
-                        use_container_width=True
-                    )
+                    st.dataframe(pd.DataFrame(validation_errors), use_container_width=True)
                     return
 
                 if not data_rows:
@@ -179,12 +183,7 @@ def organization_location_lookup_table_ui():
                     }
                 }
 
-                r = requests.post(
-                    POST_URL,
-                    headers=headers_auth,
-                    json=payload,
-                    timeout=60
-                )
+                r = requests.post(POST_URL, headers=headers_auth, json=payload, timeout=60)
 
                 if r.status_code in (200, 201):
                     st.success("✅ Organization Location Lookup Table updated successfully")
