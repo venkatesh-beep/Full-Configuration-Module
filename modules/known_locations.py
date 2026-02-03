@@ -201,11 +201,7 @@ def known_locations_ui():
         with st.spinner("⏳ Deleting known locations..."):
             ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
             for location_id in ids:
-                r = requests.delete(
-                    f"{BASE_URL}/{location_id}",
-                    headers=headers,
-                    timeout=30
-                )
+                r = requests.delete(f"{BASE_URL}/{location_id}", headers=headers)
                 if r.status_code in (200, 204):
                     st.success(f"Deleted Known Location ID {location_id}")
                 else:
@@ -220,7 +216,7 @@ def known_locations_ui():
 
     if st.button("Download Existing Known Locations", use_container_width=True):
         with st.spinner("⏳ Fetching known locations..."):
-            r = requests.get(BASE_URL, headers=headers, timeout=30)
+            r = requests.get(BASE_URL, headers=headers)
             if r.status_code != 200:
                 st.error("❌ Failed to fetch known locations")
             else:
