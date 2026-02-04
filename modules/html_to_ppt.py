@@ -1,6 +1,7 @@
 from html.parser import HTMLParser
 import io
 import tempfile
+import subprocess
 
 import streamlit as st
 from pptx import Presentation
@@ -89,6 +90,24 @@ def html_to_ppt_ui():
     st.info(
         "For visual fidelity, install Playwright Chromium: `playwright install chromium`."
     )
+    if st.button("Install Playwright Chromium"):
+        with st.spinner("Installing Chromium..."):
+            try:
+                result = subprocess.run(
+                    ["playwright", "install", "chromium"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                st.success("Chromium installed successfully.")
+                if result.stdout:
+                    st.code(result.stdout)
+            except subprocess.CalledProcessError as exc:
+                st.error("Failed to install Chromium.")
+                if exc.stdout:
+                    st.code(exc.stdout)
+                if exc.stderr:
+                    st.code(exc.stderr)
 
     if "html_slide_count" not in st.session_state:
         st.session_state.html_slide_count = 4
@@ -135,7 +154,8 @@ def html_to_ppt_ui():
         except PlaywrightError as exc:
             if render_mode == "Render HTML as image (requires Playwright Chromium)":
                 st.error(
-                    "Playwright Chromium is not available. Falling back to text-only slides."
+                    "Playwright Chromium is not available. Click 'Install Playwright Chromium' "
+                    "or use text-only mode."
                 )
                 pptx_buffer = build_pptx(
                     slide_html_list,
