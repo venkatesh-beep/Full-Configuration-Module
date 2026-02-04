@@ -30,16 +30,45 @@ def html_to_text(html):
     return parser.get_text() or " "
 
 
+def install_chromium(with_deps):
+    command = [sys.executable, "-m", "playwright", "install"]
+    if with_deps:
+        command.append("--with-deps")
+    command.append("chromium")
+    result = subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout
+
+
 def render_html_to_png(html, width=1280, height=720):
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            args=["--disable-dev-shm-usage", "--no-sandbox"]
-        )
-        page = browser.new_page(viewport={"width": width, "height": height})
-        page.set_content(html, wait_until="networkidle")
-        png_bytes = page.screenshot(full_page=True)
-        browser.close()
-    return png_bytes
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(
+                args=["--disable-dev-shm-usage", "--no-sandbox"]
+            )
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.set_content(html, wait_until="networkidle")
+            png_bytes = page.screenshot(full_page=True)
+            browser.close()
+        return png_bytes
+    except PlaywrightError:
+        try:
+            install_chromium(with_deps=False)
+        except subprocess.CalledProcessError:
+            install_chromium(with_deps=True)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(
+                args=["--disable-dev-shm-usage", "--no-sandbox"]
+            )
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.set_content(html, wait_until="networkidle")
+            png_bytes = page.screenshot(full_page=True)
+            browser.close()
+        return png_bytes
 
 
 def build_pptx(slide_html_list, include_text_layer, render_mode):
@@ -96,15 +125,10 @@ def html_to_ppt_ui():
     if st.button("Install Playwright Chromium"):
         with st.spinner("Installing Chromium..."):
             try:
-                result = subprocess.run(
-                    [sys.executable, "-m", "playwright", "install", "chromium"],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
+                output = install_chromium(with_deps=False)
                 st.success("Chromium installed successfully.")
-                if result.stdout:
-                    st.code(result.stdout)
+                if output:
+                    st.code(output)
             except subprocess.CalledProcessError as exc:
                 st.warning("Standard install failed. Trying `--with-deps`.")
                 if exc.stdout:
@@ -112,15 +136,10 @@ def html_to_ppt_ui():
                 if exc.stderr:
                     st.code(exc.stderr)
                 try:
-                    result = subprocess.run(
-                        [sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"],
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
+                    output = install_chromium(with_deps=True)
                     st.success("Chromium installed successfully with dependencies.")
-                    if result.stdout:
-                        st.code(result.stdout)
+                    if output:
+                        st.code(output)
                 except subprocess.CalledProcessError as deps_exc:
                     st.error("Failed to install Chromium (with deps).")
                     if deps_exc.stdout:
