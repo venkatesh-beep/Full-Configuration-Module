@@ -2,6 +2,7 @@ from html.parser import HTMLParser
 import io
 import tempfile
 import subprocess
+import sys
 
 import streamlit as st
 from pptx import Presentation
@@ -31,7 +32,9 @@ def html_to_text(html):
 
 def render_html_to_png(html, width=1280, height=720):
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        browser = playwright.chromium.launch(
+            args=["--disable-dev-shm-usage", "--no-sandbox"]
+        )
         page = browser.new_page(viewport={"width": width, "height": height})
         page.set_content(html, wait_until="networkidle")
         png_bytes = page.screenshot(full_page=True)
@@ -94,7 +97,7 @@ def html_to_ppt_ui():
         with st.spinner("Installing Chromium..."):
             try:
                 result = subprocess.run(
-                    ["playwright", "install", "chromium"],
+                    [sys.executable, "-m", "playwright", "install", "chromium"],
                     check=True,
                     capture_output=True,
                     text=True,
@@ -103,11 +106,27 @@ def html_to_ppt_ui():
                 if result.stdout:
                     st.code(result.stdout)
             except subprocess.CalledProcessError as exc:
-                st.error("Failed to install Chromium.")
+                st.warning("Standard install failed. Trying `--with-deps`.")
                 if exc.stdout:
                     st.code(exc.stdout)
                 if exc.stderr:
                     st.code(exc.stderr)
+                try:
+                    result = subprocess.run(
+                        [sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    st.success("Chromium installed successfully with dependencies.")
+                    if result.stdout:
+                        st.code(result.stdout)
+                except subprocess.CalledProcessError as deps_exc:
+                    st.error("Failed to install Chromium (with deps).")
+                    if deps_exc.stdout:
+                        st.code(deps_exc.stdout)
+                    if deps_exc.stderr:
+                        st.code(deps_exc.stderr)
 
     if "html_slide_count" not in st.session_state:
         st.session_state.html_slide_count = 4
@@ -154,7 +173,8 @@ def html_to_ppt_ui():
         except PlaywrightError as exc:
             if render_mode == "Render HTML as image (requires Playwright Chromium)":
                 st.error(
-                    "Playwright Chromium is not available. Click 'Install Playwright Chromium' "
+                    "Playwright Chromium is not available or missing dependencies. "
+                    "Click 'Install Playwright Chromium', then restart the app if needed, "
                     "or use text-only mode."
                 )
                 pptx_buffer = build_pptx(
