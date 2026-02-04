@@ -74,12 +74,25 @@ def organization_locations_ui():
     def build_rows_from_locations(locations, level_names, level_id_map):
         rows = []
         for location in locations:
-            row = {"Id": location.get("id", ""), "Name": location.get("name", ""), "KnownLocation": ""}
+            row = {
+                "Id": location.get("id", ""),
+                "Name": location.get("name", ""),
+                "KnownLocation": "",
+                "Period Start Day": "",
+                "Paycode Event Set": "",
+                "Shift Template Set": "",
+            }
             for level_name in level_names:
                 row[level_name] = ""
 
             known_location = location.get("knownLocation") or {}
             row["KnownLocation"] = known_location.get("id") or location.get("knownLocationId", "")
+            properties = location.get("properties") or {}
+            row["Period Start Day"] = properties.get("PERIOD_START_DAY", "")
+            paycode_event_set = location.get("paycodeEventSet") or {}
+            row["Paycode Event Set"] = paycode_event_set.get("id", "")
+            shift_template_set = location.get("shiftTemplateSet") or {}
+            row["Shift Template Set"] = shift_template_set.get("id", "")
 
             for entry in location.get("organizationEntries", []) or []:
                 level_id = entry.get("organizationLevelId")
@@ -111,7 +124,15 @@ def organization_locations_ui():
         return
 
     level_names = get_level_names(levels)
-    template_columns = ["Id", "Name", *level_names, "KnownLocation"]
+    template_columns = [
+        "Id",
+        "Name",
+        *level_names,
+        "KnownLocation",
+        "Period Start Day",
+        "Paycode Event Set",
+        "Shift Template Set",
+    ]
     template_df = pd.DataFrame(columns=template_columns)
 
     output = io.BytesIO()
@@ -167,6 +188,9 @@ def organization_locations_ui():
                 name_col = column_lookup.get("name")
                 id_col = column_lookup.get("id")
                 known_col = column_lookup.get("knownlocation")
+                period_col = column_lookup.get("period start day")
+                paycode_event_col = column_lookup.get("paycode event set")
+                shift_template_col = column_lookup.get("shift template set")
 
                 missing = [label for label, col in (("Name", name_col),) if col is None]
                 if missing:
@@ -185,14 +209,28 @@ def organization_locations_ui():
                             "name": name,
                             "inactive": False,
                             "locked": False,
-                            "properties": {"PERIOD_START_DAY": 1},
+                            "properties": {},
                             "organizationEntries": [],
                         }
+
+                        period_start_day = to_int(row.get(period_col)) if period_col else None
+                        if period_start_day is not None:
+                            payload["properties"]["PERIOD_START_DAY"] = period_start_day
 
                         if known_col:
                             known_id = to_int(row.get(known_col))
                             if known_id is not None:
                                 payload["knownLocation"] = {"id": known_id}
+
+                        if paycode_event_col:
+                            paycode_event_set_id = to_int(row.get(paycode_event_col))
+                            if paycode_event_set_id is not None:
+                                payload["paycodeEventSet"] = {"id": paycode_event_set_id}
+
+                        if shift_template_col:
+                            shift_template_set_id = to_int(row.get(shift_template_col))
+                            if shift_template_set_id is not None:
+                                payload["shiftTemplateSet"] = {"id": shift_template_set_id}
 
                         for level_name in level_names:
                             level_col = column_lookup.get(level_name.lower())
