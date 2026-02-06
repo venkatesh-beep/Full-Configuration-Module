@@ -68,6 +68,8 @@ st.markdown("""
         padding: 1.5rem 1rem;
         height: 100vh;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
     }
     .sidebar-card {
         background: #ffffff;
@@ -75,7 +77,8 @@ st.markdown("""
         border-radius: 20px;
         padding: 1.25rem 1rem;
         box-shadow: 0 18px 32px rgba(80, 88, 120, 0.12);
-        height: 100%;
+        flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
     }
