@@ -31,171 +31,153 @@ from modules.organization_locations import organization_locations_ui
 
 
 # ================= PAGE CONFIG =================
-st.set_page_config(
-    page_title="Configuration Portal",
-    page_icon="⚙️",
-    layout="wide"
-)
+st.set_page_config("Configuration Portal", "⚙️", layout="wide")
+
+# ================= CSS (ANIMATION + UX) =================
+st.markdown("""
+<style>
+.sidebar-modules {
+    transition: all 0.35s ease-in-out;
+}
+.favorite {
+    color: gold;
+    cursor: pointer;
+}
+.group-header {
+    font-weight: 700;
+    margin-top: 0.75rem;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ================= SESSION STATE =================
-if "HOST" not in st.session_state:
-    st.session_state.HOST = "https://saas-beeforce.labour.tech"
+if "favorites" not in st.session_state:
+    st.session_state.favorites = set()
 
-if "token" not in st.session_state:
-    st.session_state.token = None
-
-if "token_issued_at" not in st.session_state:
-    st.session_state.token_issued_at = None
-
-logged_in_user = st.session_state.get("username", "Logged User")
+if "selected_index" not in st.session_state:
+    st.session_state.selected_index = 0
 
 # ================= LOGIN =================
-if not st.session_state.token:
+if not st.session_state.get("token"):
     login_ui()
     st.stop()
 
-# ================= SESSION EXPIRY =================
-TOKEN_VALIDITY_SECONDS = 30 * 60
-issued_at = st.session_state.token_issued_at
-
-if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
-    st.session_state.clear()
-    st.rerun()
-
-# ================= SIDEBAR MENU =================
-menu_options = [
-    "Paycodes",
-    "Paycode Events",
-    "Paycode Combinations",
-    "Paycode Event Sets",
-    "Shift Templates",
-    "Shift Template Sets",
-    "Schedule Patterns",
-    "Schedule Pattern Sets",
-    "Emp Lookup Table",
-    "Org Lookup Table",
-    "Accruals",
-    "Accrual Policies",
-    "Accrual Policy Sets",
-    "Timeoff Policies",
-    "Timeoff Policy Sets",
-    "Regularization Policies",
-    "Regularization Policy Sets",
-    "Roles",
-    "Overtime Policies",
-    "Timecard Updation",
-    "Punch Update",
-    "Schedule Pattern Update",
-    "Known Locations",
-    "Org Locations",
-]
-
-menu_icons = {
-    "Paycodes": "🏠",
-    "Paycode Events": "📊",
-    "Paycode Combinations": "🧩",
-    "Paycode Event Sets": "🗂️",
-    "Shift Templates": "🗓️",
-    "Shift Template Sets": "📁",
-    "Schedule Patterns": "📈",
-    "Schedule Pattern Sets": "🧮",
-    "Emp Lookup Table": "👥",
-    "Org Lookup Table": "🏢",
-    "Accruals": "💼",
-    "Accrual Policies": "📌",
-    "Accrual Policy Sets": "🧾",
-    "Timeoff Policies": "🌴",
-    "Timeoff Policy Sets": "🧳",
-    "Regularization Policies": "🧭",
-    "Regularization Policy Sets": "🧩",
-    "Roles": "🔐",
-    "Overtime Policies": "⏱️",
-    "Timecard Updation": "📝",
-    "Punch Update": "⏲️",
-    "Schedule Pattern Update": "🧷",
-    "Known Locations": "📍",
-    "Org Locations": "🗺️",
+# ================= MODULE GROUPS =================
+MODULE_GROUPS = {
+    "⭐ Pinned": [],
+    "💰 Payroll": [
+        "Paycodes", "Paycode Events", "Paycode Combinations", "Paycode Event Sets"
+    ],
+    "🗓 Scheduling": [
+        "Shift Templates", "Shift Template Sets",
+        "Schedule Patterns", "Schedule Pattern Sets", "Schedule Pattern Update"
+    ],
+    "📜 Policies": [
+        "Accruals", "Accrual Policies", "Accrual Policy Sets",
+        "Timeoff Policies", "Timeoff Policy Sets",
+        "Regularization Policies", "Regularization Policy Sets",
+        "Overtime Policies"
+    ],
+    "⚙️ Operations": [
+        "Timecard Updation", "Punch Update"
+    ],
+    "🏢 Master Data": [
+        "Emp Lookup Table", "Org Lookup Table",
+        "Known Locations", "Org Locations", "Roles"
+    ]
 }
 
+menu_icons = {
+    "Paycodes": "🏠", "Paycode Events": "📊", "Paycode Combinations": "🧩",
+    "Paycode Event Sets": "🗂️", "Shift Templates": "🗓️",
+    "Shift Template Sets": "📁", "Schedule Patterns": "📈",
+    "Schedule Pattern Sets": "🧮", "Emp Lookup Table": "👥",
+    "Org Lookup Table": "🏢", "Accruals": "💼",
+    "Accrual Policies": "📌", "Accrual Policy Sets": "🧾",
+    "Timeoff Policies": "🌴", "Timeoff Policy Sets": "🧳",
+    "Regularization Policies": "🧭",
+    "Regularization Policy Sets": "🧩",
+    "Roles": "🔐", "Overtime Policies": "⏱️",
+    "Timecard Updation": "📝", "Punch Update": "⏲️",
+    "Schedule Pattern Update": "🧷",
+    "Known Locations": "📍", "Org Locations": "🗺️",
+}
+
+# ================= SIDEBAR =================
 with st.sidebar:
-    st.markdown(f"### 👤 {logged_in_user}")
+    st.markdown("### 🔍 Modules")
 
-    # ===== SLIDING BAR CONTROLS =====
-    search_text = st.text_input(
-        "",
-        placeholder="Search modules...",
-        label_visibility="collapsed"
+    search = st.text_input("", placeholder="Search…", label_visibility="collapsed")
+
+    visible_limit = st.slider(
+        "Visible modules", 5, 25, 15
     )
 
-    visible_count = st.slider(
-        "Visible modules",
-        min_value=5,
-        max_value=len(menu_options),
-        value=len(menu_options)
-    )
+    all_modules = []
+    for group in MODULE_GROUPS.values():
+        all_modules.extend(group)
 
-    filtered_options = [
-        opt for opt in menu_options
-        if search_text.lower() in opt.lower()
-    ][:visible_count]
+    filtered = [m for m in all_modules if search.lower() in m.lower()]
 
-    menu = st.radio(
-        "",
-        filtered_options,
-        format_func=lambda option: f"{menu_icons.get(option, '📄')} {option}",
-        label_visibility="collapsed",
-    )
+    # ----- Favorites -----
+    MODULE_GROUPS["⭐ Pinned"] = list(st.session_state.favorites)
 
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
+    rendered_modules = []
 
-# ================= MAIN ROUTER =================
-if menu == "Paycodes":
-    paycodes_ui()
-elif menu == "Paycode Events":
-    paycode_events_ui()
-elif menu == "Paycode Combinations":
-    paycode_combinations_ui()
-elif menu == "Paycode Event Sets":
-    paycode_event_sets_ui()
-elif menu == "Shift Templates":
-    shift_templates_ui()
-elif menu == "Shift Template Sets":
-    shift_template_sets_ui()
-elif menu == "Schedule Patterns":
-    schedule_patterns_ui()
-elif menu == "Schedule Pattern Sets":
-    schedule_pattern_sets_ui()
-elif menu == "Emp Lookup Table":
-    employee_lookup_table_ui()
-elif menu == "Org Lookup Table":
-    organization_location_lookup_table_ui()
-elif menu == "Accruals":
-    accruals_ui()
-elif menu == "Accrual Policies":
-    accrual_policies_ui()
-elif menu == "Accrual Policy Sets":
-    accrual_policy_sets_ui()
-elif menu == "Timeoff Policies":
-    timeoff_policies_ui()
-elif menu == "Timeoff Policy Sets":
-    timeoff_policy_sets_ui()
-elif menu == "Regularization Policies":
-    regularization_policies_ui()
-elif menu == "Regularization Policy Sets":
-    regularization_policy_sets_ui()
-elif menu == "Roles":
-    roles_ui()
-elif menu == "Overtime Policies":
-    overtime_policies_ui()
-elif menu == "Timecard Updation":
-    timecard_updation_ui()
-elif menu == "Punch Update":
-    punch_ui()
-elif menu == "Schedule Pattern Update":
-    schedule_pattern_mapper_ui()
-elif menu == "Known Locations":
-    known_locations_ui()
-elif menu == "Org Locations":
-    organization_locations_ui()
+    for group, modules in MODULE_GROUPS.items():
+        with st.expander(group, expanded=(group == "⭐ Pinned")):
+            for mod in modules:
+                if mod not in filtered:
+                    continue
+                rendered_modules.append(mod)
+
+                col1, col2 = st.columns([8, 1])
+                with col1:
+                    st.markdown(f"{menu_icons.get(mod, '📄')} {mod}")
+                with col2:
+                    if st.button("⭐" if mod not in st.session_state.favorites else "★", key=f"fav_{mod}"):
+                        if mod in st.session_state.favorites:
+                            st.session_state.favorites.remove(mod)
+                        else:
+                            st.session_state.favorites.add(mod)
+                        st.rerun()
+
+    # ----- Keyboard Navigation -----
+    if st.button("⬆️"):
+        st.session_state.selected_index = max(0, st.session_state.selected_index - 1)
+    if st.button("⬇️"):
+        st.session_state.selected_index = min(len(rendered_modules) - 1, st.session_state.selected_index + 1)
+
+    selected_module = rendered_modules[
+        st.session_state.selected_index % len(rendered_modules)
+    ]
+
+# ================= ROUTER =================
+ROUTER = {
+    "Paycodes": paycodes_ui,
+    "Paycode Events": paycode_events_ui,
+    "Paycode Combinations": paycode_combinations_ui,
+    "Paycode Event Sets": paycode_event_sets_ui,
+    "Shift Templates": shift_templates_ui,
+    "Shift Template Sets": shift_template_sets_ui,
+    "Schedule Patterns": schedule_patterns_ui,
+    "Schedule Pattern Sets": schedule_pattern_sets_ui,
+    "Emp Lookup Table": employee_lookup_table_ui,
+    "Org Lookup Table": organization_location_lookup_table_ui,
+    "Accruals": accruals_ui,
+    "Accrual Policies": accrual_policies_ui,
+    "Accrual Policy Sets": accrual_policy_sets_ui,
+    "Timeoff Policies": timeoff_policies_ui,
+    "Timeoff Policy Sets": timeoff_policy_sets_ui,
+    "Regularization Policies": regularization_policies_ui,
+    "Regularization Policy Sets": regularization_policy_sets_ui,
+    "Roles": roles_ui,
+    "Overtime Policies": overtime_policies_ui,
+    "Timecard Updation": timecard_updation_ui,
+    "Punch Update": punch_ui,
+    "Schedule Pattern Update": schedule_pattern_mapper_ui,
+    "Known Locations": known_locations_ui,
+    "Org Locations": organization_locations_ui,
+}
+
+ROUTER[selected_module]()
