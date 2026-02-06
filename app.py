@@ -66,6 +66,8 @@ st.markdown("""
     }
     [data-testid="stSidebar"] > div {
         padding: 1.5rem 1rem;
+        height: 100vh;
+        overflow: hidden;
     }
     .sidebar-card {
         background: #ffffff;
@@ -299,7 +301,7 @@ menu_options = [
     "Schedule Pattern Update",
     "Known Locations",
     "Org Locations",
-    "HTML to PPT",
+    # "HTML to PPT",
 ]
 menu_icons = {
     "Paycodes": "🏠",
@@ -326,7 +328,7 @@ menu_icons = {
     "Schedule Pattern Update": "🧷",
     "Known Locations": "📍",
     "Org Locations": "🗺️",
-    "HTML to PPT": "🖼️",
+    # "HTML to PPT": "🖼️",
 }
 
 with st.sidebar:
@@ -412,5 +414,5 @@ elif menu == "Known Locations":
     known_locations_ui()
 elif menu == "Org Locations":
     organization_locations_ui()
-elif menu == "HTML to PPT":
-    html_to_ppt_ui()
+# elif menu == "HTML to PPT":
+#     html_to_ppt_ui()
