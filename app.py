@@ -70,6 +70,7 @@ st.markdown("""
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        box-sizing: border-box;
     }
     .sidebar-card {
         background: #ffffff;
@@ -154,13 +155,15 @@ st.markdown("""
         border-radius: 10px;
         font-size: 0.85rem;
         color: #4b5563;
+        transition: background 0.2s ease, color 0.2s ease;
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
         gap: 0.4rem;
         max-height: 55vh;
         overflow-y: scroll;
+        overflow-x: hidden;
         scrollbar-gutter: stable;
-        padding-right: 0.15rem;
+        padding-right: 0.3rem;
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar {
         width: 6px;
