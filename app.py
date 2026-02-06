@@ -89,22 +89,6 @@ st.markdown("""
         gap: 0.75rem;
         margin-bottom: 1rem;
     }
-    .sidebar-modules {
-        flex: 1;
-        min-height: 0;
-        overflow-y: auto;
-        padding-right: 0.15rem;
-    }
-    .sidebar-modules::-webkit-scrollbar {
-        width: 6px;
-    }
-    .sidebar-modules::-webkit-scrollbar-thumb {
-        background: #d6d9e6;
-        border-radius: 999px;
-    }
-    .sidebar-modules::-webkit-scrollbar-track {
-        background: transparent;
-    }
     .sidebar-profile {
         display: flex;
         align-items: center;
@@ -173,6 +157,19 @@ st.markdown("""
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
         gap: 0.4rem;
+        max-height: 55vh;
+        overflow-y: auto;
+        padding-right: 0.15rem;
+    }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar {
+        width: 6px;
+    }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar-thumb {
+        background: #d6d9e6;
+        border-radius: 999px;
+    }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar-track {
+        background: transparent;
     }
     [data-testid="stSidebar"] .stRadio label:has(input:checked) {
         background: #6d5dfc;
@@ -358,14 +355,12 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-modules">', unsafe_allow_html=True)
     menu = st.radio(
         "",
         menu_options,
         format_func=lambda option: f"{menu_icons.get(option, '📄')} {option}",
         label_visibility="collapsed",
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
     if st.button("🚪 Logout", key="logout_button"):
         st.session_state.clear()
