@@ -164,6 +164,8 @@ st.markdown("""
         overflow-x: hidden;
         scrollbar-gutter: stable;
         padding-right: 0.3rem;
+        scrollbar-width: thin;
+        scrollbar-color: #d6d9e6 transparent;
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar {
         width: 6px;
