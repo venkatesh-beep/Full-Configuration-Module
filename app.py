@@ -61,15 +61,142 @@ st.markdown("""
         color: #64748b;
     }
     [data-testid="stSidebar"] {
-        background: #f1f5f9;
-        border-right: 1px solid #e2e8f0;
+        background: #f4f5fb;
+        border-right: 1px solid #e6e9f2;
+    }
+    [data-testid="stSidebar"] > div {
+        padding: 1.5rem 1rem;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+    }
+    .sidebar-card {
+        background: #ffffff;
+        border: 1px solid #e6e9f2;
+        border-radius: 20px;
+        padding: 1.25rem 1rem;
+        box-shadow: 0 18px 32px rgba(80, 88, 120, 0.12);
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    .sidebar-profile {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .profile-badge {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: #6d5dfc;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 10px 20px rgba(109, 93, 252, 0.3);
+    }
+    .profile-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+    }
+    .profile-meta span:first-child {
+        font-weight: 700;
+        color: #1f2937;
+    }
+    .profile-meta span:last-child {
+        font-size: 0.75rem;
+        color: #8b93a7;
+    }
+    .sidebar-actions {
+        display: flex;
+        gap: 0.4rem;
+    }
+    .sidebar-action {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #f0f1f8;
+        color: #6d5dfc;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .sidebar-divider {
+        height: 1px;
+        background: #eceff6;
+        margin: 0.85rem 0;
+    }
+    [data-testid="stSidebar"] .stTextInput input {
+        background: #f3f4fb;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        padding: 0.55rem 0.75rem;
+        font-size: 0.85rem;
+        color: #374151;
+        box-shadow: none;
     }
     [data-testid="stSidebar"] .stRadio label {
-        padding: 0.2rem 0.35rem;
-        border-radius: 6px;
+        padding: 0.45rem 0.65rem;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        color: #4b5563;
+        transition: background 0.2s ease, color 0.2s ease;
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-        gap: 0.35rem;
+        gap: 0.4rem;
+        max-height: 55vh;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+        padding-right: 0.3rem;
+        scrollbar-width: thin;
+        scrollbar-color: #c1c7d6 #f0f2f8;
+    }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar {
+        width: 8px;
+    }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar-thumb {
+        background: #c1c7d6;
+        border-radius: 999px;
+        border: 2px solid #f0f2f8;
+    }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar-track {
+        background: #f0f2f8;
+        border-radius: 999px;
+    }
+    [data-testid="stSidebar"] .stRadio label:has(input:checked) {
+        background: #6d5dfc;
+        color: #ffffff;
+        box-shadow: 0 10px 20px rgba(109, 93, 252, 0.28);
+    }
+    [data-testid="stSidebar"] .stButton > button {
+        width: 100%;
+        background: #f3f4fb;
+        border: none;
+        color: #4b5563;
+        padding: 0.55rem 0.65rem;
+        text-align: center;
+        border-radius: 12px;
+        box-shadow: none;
+        font-weight: 600;
+    }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: #e9ebf7;
+        color: #374151;
     }
     .stButton > button,
     .stDownloadButton > button {
@@ -160,47 +287,92 @@ if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
     st.rerun()
 
 # ================= SIDEBAR =================
+menu_options = [
+    "Paycodes",
+    "Paycode Events",
+    "Paycode Combinations",
+    "Paycode Event Sets",
+    "Shift Templates",
+    "Shift Template Sets",
+    "Schedule Patterns",
+    "Schedule Pattern Sets",
+    "Emp Lookup Table",
+    "Org Lookup Table",
+    "Accruals",
+    "Accrual Policies",
+    "Accrual Policy Sets",
+    "Timeoff Policies",
+    "Timeoff Policy Sets",
+    "Regularization Policies",
+    "Regularization Policy Sets",
+    "Roles",
+    "Overtime Policies",
+    "Timecard Updation",
+    "Punch Update",
+    "Schedule Pattern Update",
+    "Known Locations",
+    "Org Locations",
+    # "HTML to PPT",
+]
+menu_icons = {
+    "Paycodes": "🏠",
+    "Paycode Events": "📊",
+    "Paycode Combinations": "🧩",
+    "Paycode Event Sets": "🗂️",
+    "Shift Templates": "🗓️",
+    "Shift Template Sets": "📁",
+    "Schedule Patterns": "📈",
+    "Schedule Pattern Sets": "🧮",
+    "Emp Lookup Table": "👥",
+    "Org Lookup Table": "🏢",
+    "Accruals": "💼",
+    "Accrual Policies": "📌",
+    "Accrual Policy Sets": "🧾",
+    "Timeoff Policies": "🌴",
+    "Timeoff Policy Sets": "🧳",
+    "Regularization Policies": "🧭",
+    "Regularization Policy Sets": "🧩",
+    "Roles": "🔐",
+    "Overtime Policies": "⏱️",
+    "Timecard Updation": "📝",
+    "Punch Update": "⏲️",
+    "Schedule Pattern Update": "🧷",
+    "Known Locations": "📍",
+    "Org Locations": "🗺️",
+    # "HTML to PPT": "🖼️",
+}
+
 with st.sidebar:
-    st.markdown("#### 👤 Logged in")
-    st.write(logged_in_user)
-    st.markdown("---")
-
-    menu = st.radio(
-        "📂 Configuration Modules",
-        [
-            "Paycodes",
-            "Paycode Events",
-            "Paycode Combinations",
-            "Paycode Event Sets",
-            "Shift Templates",
-            "Shift Template Sets",
-            "Schedule Patterns",
-            "Schedule Pattern Sets",
-            "Emp Lookup Table",
-            "Org Lookup Table",
-            "Accruals",
-            "Accrual Policies",
-            "Accrual Policy Sets",
-            "Timeoff Policies",
-            "Timeoff Policy Sets",
-            "Regularization Policies",
-            "Regularization Policy Sets",
-            "Roles",
-            "Overtime Policies",
-            "Timecard Updation",
-            "Punch Update",
-            "Schedule Pattern Update",
-            "Known Locations",
-            "Org Locations",
-            "HTML to PPT",
-        ]
+    st.markdown(
+        """
+        <div class="sidebar-card">
+            <div class="sidebar-header">
+                <div class="sidebar-profile">
+                    <div class="profile-badge">CL</div>
+                    <div class="profile-meta">
+                        <span>{username}</span>
+                    </div>
+                </div>
+                <div class="sidebar-actions">
+                    <span class="sidebar-action">⋯</span>
+                    <span class="sidebar-action">›</span>
+                </div>
+            </div>
+        """.format(username=logged_in_user),
+        unsafe_allow_html=True,
     )
-
-    st.markdown("---")
-
-    if st.button("🚪 Logout"):
+    st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+    menu = st.radio(
+        "",
+        menu_options,
+        format_func=lambda option: f"{menu_icons.get(option, '📄')} {option}",
+        label_visibility="collapsed",
+    )
+    st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+    if st.button("🚪 Logout", key="logout_button"):
         st.session_state.clear()
         st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ================= MAIN ROUTER =================
 if menu == "Paycodes":
@@ -251,5 +423,5 @@ elif menu == "Known Locations":
     known_locations_ui()
 elif menu == "Org Locations":
     organization_locations_ui()
-elif menu == "HTML to PPT":
-    html_to_ppt_ui()
+# elif menu == "HTML to PPT":
+#     html_to_ppt_ui()
