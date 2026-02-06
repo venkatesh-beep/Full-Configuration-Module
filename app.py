@@ -67,6 +67,7 @@ st.markdown("""
     [data-testid="stSidebar"] > div {
         padding: 1.5rem 1rem;
         height: 100vh;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
