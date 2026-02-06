@@ -75,6 +75,9 @@ st.markdown("""
         border-radius: 20px;
         padding: 1.25rem 1rem;
         box-shadow: 0 18px 32px rgba(80, 88, 120, 0.12);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
     .sidebar-header {
         display: flex;
@@ -84,7 +87,8 @@ st.markdown("""
         margin-bottom: 1rem;
     }
     .sidebar-modules {
-        max-height: 60vh;
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
         padding-right: 0.15rem;
     }
