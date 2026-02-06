@@ -165,17 +165,19 @@ st.markdown("""
         scrollbar-gutter: stable;
         padding-right: 0.3rem;
         scrollbar-width: thin;
-        scrollbar-color: #d6d9e6 transparent;
+        scrollbar-color: #c1c7d6 #f0f2f8;
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar {
-        width: 6px;
+        width: 8px;
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar-thumb {
-        background: #d6d9e6;
+        background: #c1c7d6;
         border-radius: 999px;
+        border: 2px solid #f0f2f8;
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar-track {
-        background: transparent;
+        background: #f0f2f8;
+        border-radius: 999px;
     }
     [data-testid="stSidebar"] .stRadio label:has(input:checked) {
         background: #6d5dfc;
