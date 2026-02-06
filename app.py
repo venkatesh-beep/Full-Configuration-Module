@@ -93,9 +93,23 @@ st.markdown("""
     .sidebar-modules {
         flex: 1;
         min-height: 0;
-        overflow-y: auto;
+        overflow-y: scroll;
         display: flex;
         flex-direction: column;
+        scrollbar-width: thin;
+        scrollbar-color: #c1c7d6 #f0f2f8;
+    }
+    .sidebar-modules::-webkit-scrollbar {
+        width: 8px;
+    }
+    .sidebar-modules::-webkit-scrollbar-thumb {
+        background: #c1c7d6;
+        border-radius: 999px;
+        border: 2px solid #f0f2f8;
+    }
+    .sidebar-modules::-webkit-scrollbar-track {
+        background: #f0f2f8;
+        border-radius: 999px;
     }
     .sidebar-footer {
         margin-top: auto;
@@ -177,24 +191,9 @@ st.markdown("""
         gap: 0.4rem;
         max-height: 100%;
         height: 100%;
-        overflow-y: auto;
+        overflow-y: visible;
         overflow-x: hidden;
-        scrollbar-gutter: stable;
         padding-right: 0.3rem;
-        scrollbar-width: thin;
-        scrollbar-color: #c1c7d6 #f0f2f8;
-    }
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar {
-        width: 8px;
-    }
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar-thumb {
-        background: #c1c7d6;
-        border-radius: 999px;
-        border: 2px solid #f0f2f8;
-    }
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar-track {
-        background: #f0f2f8;
-        border-radius: 999px;
     }
     [data-testid="stSidebar"] .stRadio label:has(input:checked) {
         background: #6d5dfc;
