@@ -37,11 +37,15 @@ st.set_page_config(
     layout="wide"
 )
 
-# ================= ANIMATED SLIDER CSS =================
+# ================= VERTICAL SLIDER CSS =================
 st.markdown("""
 <style>
-[data-testid="stRadio"] {
-    transition: all 0.35s ease-in-out;
+/* Rotate slider vertically */
+div[data-testid="stSlider"] {
+    transform: rotate(-90deg);
+    width: 200px;
+    margin-left: -60px;
+    margin-top: 60px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -73,60 +77,36 @@ if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
 
 # ================= SIDEBAR MENU =================
 menu_options = [
-    "Paycodes",
-    "Paycode Events",
-    "Paycode Combinations",
-    "Paycode Event Sets",
-    "Shift Templates",
-    "Shift Template Sets",
-    "Schedule Patterns",
-    "Schedule Pattern Sets",
-    "Emp Lookup Table",
-    "Org Lookup Table",
-    "Accruals",
-    "Accrual Policies",
-    "Accrual Policy Sets",
-    "Timeoff Policies",
-    "Timeoff Policy Sets",
-    "Regularization Policies",
-    "Regularization Policy Sets",
-    "Roles",
-    "Overtime Policies",
-    "Timecard Updation",
-    "Punch Update",
+    "Paycodes", "Paycode Events", "Paycode Combinations", "Paycode Event Sets",
+    "Shift Templates", "Shift Template Sets",
+    "Schedule Patterns", "Schedule Pattern Sets",
+    "Emp Lookup Table", "Org Lookup Table",
+    "Accruals", "Accrual Policies", "Accrual Policy Sets",
+    "Timeoff Policies", "Timeoff Policy Sets",
+    "Regularization Policies", "Regularization Policy Sets",
+    "Roles", "Overtime Policies",
+    "Timecard Updation", "Punch Update",
     "Schedule Pattern Update",
-    "Known Locations",
-    "Org Locations",
+    "Known Locations", "Org Locations"
 ]
 
 menu_icons = {
-    "Paycodes": "🏠",
-    "Paycode Events": "📊",
-    "Paycode Combinations": "🧩",
-    "Paycode Event Sets": "🗂️",
-    "Shift Templates": "🗓️",
-    "Shift Template Sets": "📁",
-    "Schedule Patterns": "📈",
-    "Schedule Pattern Sets": "🧮",
-    "Emp Lookup Table": "👥",
-    "Org Lookup Table": "🏢",
-    "Accruals": "💼",
-    "Accrual Policies": "📌",
-    "Accrual Policy Sets": "🧾",
-    "Timeoff Policies": "🌴",
-    "Timeoff Policy Sets": "🧳",
+    "Paycodes": "🏠", "Paycode Events": "📊", "Paycode Combinations": "🧩",
+    "Paycode Event Sets": "🗂️", "Shift Templates": "🗓️",
+    "Shift Template Sets": "📁", "Schedule Patterns": "📈",
+    "Schedule Pattern Sets": "🧮", "Emp Lookup Table": "👥",
+    "Org Lookup Table": "🏢", "Accruals": "💼",
+    "Accrual Policies": "📌", "Accrual Policy Sets": "🧾",
+    "Timeoff Policies": "🌴", "Timeoff Policy Sets": "🧳",
     "Regularization Policies": "🧭",
     "Regularization Policy Sets": "🧩",
-    "Roles": "🔐",
-    "Overtime Policies": "⏱️",
-    "Timecard Updation": "📝",
-    "Punch Update": "⏲️",
+    "Roles": "🔐", "Overtime Policies": "⏱️",
+    "Timecard Updation": "📝", "Punch Update": "⏲️",
     "Schedule Pattern Update": "🧷",
-    "Known Locations": "📍",
-    "Org Locations": "🗺️",
+    "Known Locations": "📍", "Org Locations": "🗺️",
 }
 
-WINDOW_SIZE = 8  # how many modules visible at once
+WINDOW_SIZE = 8
 
 with st.sidebar:
     st.markdown(f"### 👤 {logged_in_user}")
@@ -137,18 +117,16 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-    filtered = [
-        opt for opt in menu_options
-        if search_text.lower() in opt.lower()
-    ]
+    filtered = [m for m in menu_options if search_text.lower() in m.lower()]
 
     max_start = max(len(filtered) - WINDOW_SIZE, 0)
 
     start_index = st.slider(
-        "Slide modules",
+        "Scroll",
         min_value=0,
         max_value=max_start,
-        value=0
+        value=0,
+        label_visibility="collapsed"
     )
 
     visible_modules = filtered[start_index:start_index + WINDOW_SIZE]
@@ -156,8 +134,8 @@ with st.sidebar:
     menu = st.radio(
         "",
         visible_modules,
-        format_func=lambda option: f"{menu_icons.get(option, '📄')} {option}",
-        label_visibility="collapsed",
+        format_func=lambda m: f"{menu_icons.get(m, '📄')} {m}",
+        label_visibility="collapsed"
     )
 
     if st.button("🚪 Logout"):
