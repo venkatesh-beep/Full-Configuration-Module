@@ -37,15 +37,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# ================= ANIMATED SLIDER CSS =================
-st.markdown("""
-<style>
-[data-testid="stRadio"] {
-    transition: all 0.35s ease-in-out;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # ================= SESSION STATE =================
 if "HOST" not in st.session_state:
     st.session_state.HOST = "https://saas-beeforce.labour.tech"
@@ -126,36 +117,31 @@ menu_icons = {
     "Org Locations": "🗺️",
 }
 
-WINDOW_SIZE = 8  # how many modules visible at once
-
 with st.sidebar:
     st.markdown(f"### 👤 {logged_in_user}")
 
+    # ===== SLIDING BAR CONTROLS =====
     search_text = st.text_input(
         "",
         placeholder="Search modules...",
         label_visibility="collapsed"
     )
 
-    filtered = [
-        opt for opt in menu_options
-        if search_text.lower() in opt.lower()
-    ]
-
-    max_start = max(len(filtered) - WINDOW_SIZE, 0)
-
-    start_index = st.slider(
-        "Slide modules",
-        min_value=0,
-        max_value=max_start,
-        value=0
+    visible_count = st.slider(
+        "Visible modules",
+        min_value=5,
+        max_value=len(menu_options),
+        value=len(menu_options)
     )
 
-    visible_modules = filtered[start_index:start_index + WINDOW_SIZE]
+    filtered_options = [
+        opt for opt in menu_options
+        if search_text.lower() in opt.lower()
+    ][:visible_count]
 
     menu = st.radio(
         "",
-        visible_modules,
+        filtered_options,
         format_func=lambda option: f"{menu_icons.get(option, '📄')} {option}",
         label_visibility="collapsed",
     )
