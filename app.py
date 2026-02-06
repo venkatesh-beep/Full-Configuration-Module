@@ -81,6 +81,21 @@ st.markdown("""
         gap: 0.75rem;
         margin-bottom: 1rem;
     }
+    .sidebar-modules {
+        max-height: 60vh;
+        overflow-y: auto;
+        padding-right: 0.15rem;
+    }
+    .sidebar-modules::-webkit-scrollbar {
+        width: 6px;
+    }
+    .sidebar-modules::-webkit-scrollbar-thumb {
+        background: #d6d9e6;
+        border-radius: 999px;
+    }
+    .sidebar-modules::-webkit-scrollbar-track {
+        background: transparent;
+    }
     .sidebar-profile {
         display: flex;
         align-items: center;
@@ -157,20 +172,18 @@ st.markdown("""
     }
     [data-testid="stSidebar"] .stButton > button {
         width: 100%;
-        background: transparent;
+        background: #f3f4fb;
         border: none;
         color: #4b5563;
-        padding: 0.45rem 0.65rem;
-        text-align: left;
-        border-radius: 10px;
+        padding: 0.55rem 0.65rem;
+        text-align: center;
+        border-radius: 12px;
         box-shadow: none;
+        font-weight: 600;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
-        background: #f3f4fb;
+        background: #e9ebf7;
         color: #374151;
-    }
-    [data-testid="stSidebar"] .stToggle {
-        padding-top: 0.25rem;
     }
     .stButton > button,
     .stDownloadButton > button {
@@ -325,7 +338,6 @@ with st.sidebar:
                     <div class="profile-badge">CL</div>
                     <div class="profile-meta">
                         <span>{username}</span>
-                        <span>Web developer</span>
                     </div>
                 </div>
                 <div class="sidebar-actions">
@@ -336,24 +348,19 @@ with st.sidebar:
         """.format(username=logged_in_user),
         unsafe_allow_html=True,
     )
-    st.text_input(
-        "",
-        placeholder="Search...",
-        label_visibility="collapsed",
-        key="sidebar_search",
-    )
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-modules">', unsafe_allow_html=True)
     menu = st.radio(
         "",
         menu_options,
         format_func=lambda option: f"{menu_icons.get(option, '📄')} {option}",
         label_visibility="collapsed",
     )
+    st.markdown("</div>", unsafe_allow_html=True)
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
     if st.button("🚪 Logout", key="logout_button"):
         st.session_state.clear()
         st.rerun()
-    st.toggle("Dark Mode", value=False, key="dark_mode_toggle")
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ================= MAIN ROUTER =================
