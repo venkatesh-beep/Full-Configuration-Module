@@ -158,7 +158,8 @@ st.markdown("""
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
         gap: 0.4rem;
         max-height: 55vh;
-        overflow-y: auto;
+        overflow-y: scroll;
+        scrollbar-gutter: stable;
         padding-right: 0.15rem;
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"]::-webkit-scrollbar {
