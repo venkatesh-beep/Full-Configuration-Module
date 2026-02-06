@@ -94,6 +94,11 @@ st.markdown("""
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+    }
+    .sidebar-footer {
+        margin-top: auto;
     }
     .sidebar-profile {
         display: flex;
@@ -162,9 +167,16 @@ st.markdown("""
         color: #4b5563;
         transition: background 0.2s ease, color 0.2s ease;
     }
+    [data-testid="stSidebar"] .stRadio {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+    }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
         gap: 0.4rem;
         max-height: 100%;
+        height: 100%;
         overflow-y: auto;
         overflow-x: hidden;
         scrollbar-gutter: stable;
@@ -377,9 +389,11 @@ with st.sidebar:
     )
     st.markdown("</div>", unsafe_allow_html=True)
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-footer">', unsafe_allow_html=True)
     if st.button("🚪 Logout", key="logout_button"):
         st.session_state.clear()
         st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ================= MAIN ROUTER =================
