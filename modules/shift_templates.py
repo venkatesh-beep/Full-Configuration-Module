@@ -35,20 +35,16 @@ def js_number(value):
 def normalize_datetime(value):
     """
     ALWAYS returns: 1970-01-01 HH:MM:SS
-    Handles all Excel cases safely.
     """
     if is_blank_or_null(value):
         return None
 
-    # pandas Timestamp / datetime
     if isinstance(value, (pd.Timestamp, datetime.datetime)):
         return value.strftime("1970-01-01 %H:%M:%S")
 
-    # time object
     if isinstance(value, datetime.time):
         return f"1970-01-01 {value.strftime('%H:%M:%S')}"
 
-    # timedelta (Excel duration)
     if isinstance(value, datetime.timedelta):
         total_seconds = int(value.total_seconds())
         h = total_seconds // 3600
@@ -56,7 +52,6 @@ def normalize_datetime(value):
         s = total_seconds % 60
         return f"1970-01-01 {h:02d}:{m:02d}:{s:02d}"
 
-    # Excel float (fraction of day)
     if isinstance(value, (int, float)):
         total_seconds = int(float(value) * 86400)
         h = total_seconds // 3600
@@ -64,18 +59,14 @@ def normalize_datetime(value):
         s = total_seconds % 60
         return f"1970-01-01 {h:02d}:{m:02d}:{s:02d}"
 
-    # string handling
     v = str(value).strip()
 
-    # already full datetime
     if len(v) == 19 and v[4] == "-" and v[13] == ":":
         return v
 
-    # HH:mm
     if len(v) == 5 and ":" in v:
         return f"1970-01-01 {v}:00"
 
-    # HH:mm:ss
     if len(v) == 8 and ":" in v:
         return f"1970-01-01 {v}"
 
@@ -104,6 +95,14 @@ def shift_templates_ui():
     # DOWNLOAD TEMPLATE
     # ==================================================
     section_header("📥 Download Create Template")
+
+    st.info(
+        "⏱️ **MANDATORY TIME FORMAT**\n\n"
+        "`1970-01-01 HH:MM:SS`\n\n"
+        "**Example:**\n"
+        "`1970-01-01 09:30:00`\n"
+        "`1970-01-01 17:30:00`"
+    )
 
     template_df = pd.DataFrame(columns=[
         "name", "description",
@@ -143,6 +142,13 @@ def shift_templates_ui():
     # ==================================================
     section_header("📤 Upload & Create Shift Templates")
 
+    st.warning(
+        "⚠️ **Time format is mandatory**\n\n"
+        "Use **only**:\n"
+        "`1970-01-01 HH:MM:SS`\n\n"
+        "Invalid formats will cause a **400 Bad Request**."
+    )
+
     uploaded_file = st.file_uploader("Upload Excel / CSV", ["xlsx", "xls", "csv"])
 
     if "processed_shift_hash" not in st.session_state:
@@ -171,7 +177,7 @@ def shift_templates_ui():
 
             for i, row in df.iterrows():
                 try:
-                    # ---------------- PAYCODES ----------------
+                    # PAYCODES
                     paycodes = []
                     max_idx = None
 
@@ -202,13 +208,11 @@ def shift_templates_ui():
                         max_idx = len(paycodes) - 1
 
                     for idx, pc in enumerate(paycodes):
-                        if idx == max_idx:
+                        pc["max"] = idx == max_idx
+                        if pc["max"]:
                             pc.pop("endMinute", None)
-                            pc["max"] = True
-                        else:
-                            pc["max"] = False
 
-                    # ---------------- EXCEPTIONS ----------------
+                    # EXCEPTIONS (OPTIONAL)
                     exceptions = []
                     ex_max_idx = None
 
@@ -239,13 +243,11 @@ def shift_templates_ui():
                             ex_max_idx = len(exceptions) - 1
 
                         for idx, ex in enumerate(exceptions):
-                            if idx == ex_max_idx:
+                            ex["max"] = idx == ex_max_idx
+                            if ex["max"]:
                                 ex.pop("endMinute", None)
-                                ex["max"] = True
-                            else:
-                                ex["max"] = False
 
-                    # ---------------- PAYLOAD ----------------
+                    # PAYLOAD
                     payload = {
                         "name": row["name"],
                         "description": row["description"],
