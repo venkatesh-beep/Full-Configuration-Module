@@ -9,17 +9,34 @@ from modules.ui_helpers import module_header, section_header
 # ======================================================
 # SAFE BOOLEAN PARSER
 # ======================================================
-def to_bool(value, default=False):
-    if value is None or str(value).strip() == "":
-        return default
-    if isinstance(value, bool):
-        return value
-    v = str(value).strip().lower()
-    if v in ("true", "1", "yes", "y"):
+def to_bool(value):
+    return str(value).strip().lower() == "true"
+
+
+def is_blank_or_null(value):
+    if value is None:
         return True
-    if v in ("false", "0", "no", "n"):
-        return False
-    return default
+    v = str(value).strip()
+    return v == "" or v.lower() == "null"
+
+
+def parse_number(value):
+    if isinstance(value, (int, float)):
+        return int(value) if float(value).is_integer() else float(value)
+    v = str(value).strip()
+    number = float(v)
+    return int(number) if number.is_integer() else number
+
+
+def js_number(value):
+    if value is None:
+        return None
+    v = str(value).strip()
+    if v.lower() == "null":
+        return None
+    if v == "":
+        return 0
+    return parse_number(v)
 
 
 # ======================================================
@@ -52,7 +69,6 @@ def shift_templates_ui():
     template_df = pd.DataFrame(columns=[
         "name", "description", "startTime", "endTime",
         "beforeStartToleranceMinute", "afterStartToleranceMinute",
-        "lateInToleranceMinute", "earlyOutToleranceMinute",
         "report",
 
         "monday", "tuesday", "wednesday",
@@ -60,25 +76,11 @@ def shift_templates_ui():
 
         "paycode_id1", "paycode_startMinute1", "paycode_endMinute1",
         "paycode_id2", "paycode_startMinute2", "paycode_endMinute2",
-        "paycode_id3", "paycode_startMinute3", "paycode_endMinute3",
-        "paycode_id4", "paycode_startMinute4", "paycode_endMinute4",
-        "paycode_id5", "paycode_startMinute5",
 
         "exception_paycode_id1", "exception_type1",
         "exception_startMinute1", "exception_endMinute1",
         "exception_paycode_id2", "exception_type2",
-        "exception_startMinute2",
-
-        "adjustment_type_id1", "adjustment_startMinute1",
-        "adjustment_endMinute1", "adjustment_amountMinute1",
-        "adjustment_type_id2", "adjustment_startMinute2",
-        "adjustment_amountMinute2",
-
-        "rounding_startMinute1", "rounding_endMinute1",
-        "rounding_roundMinute1",
-        "rounding_startMinute2", "rounding_roundMinute2",
-
-        "optionalShiftTemplateId"
+        "exception_startMinute2", "exception_endMinute2"
     ])
 
     # ---------- Existing Shifts ----------
@@ -167,38 +169,75 @@ def shift_templates_ui():
 
             for i, row in df.iterrows():
                 try:
-                    # PAYCODES
                     paycodes = []
-                    for x in range(1, 6):
-                        pc_id = row.get(f"paycode_id{x}")
+                    for x in range(1, 11):
                         start = row.get(f"paycode_startMinute{x}")
                         end = row.get(f"paycode_endMinute{x}")
+                        pc_id = row.get(f"paycode_id{x}")
 
-                        if pc_id == "" or start == "":
+                        if is_blank_or_null(start) or is_blank_or_null(pc_id):
                             continue
 
-                        pc = {
-                            "paycode": {"id": int(pc_id)},
-                            "startMinute": int(start)
+                        paycode_obj = {
+                            "startMinute": parse_number(start),
+                            "paycode": {"id": parse_number(pc_id)}
                         }
-                        if end != "":
-                            pc["endMinute"] = int(end)
-                        paycodes.append(pc)
+                        if not is_blank_or_null(end):
+                            paycode_obj["endMinute"] = parse_number(end)
 
-                    for idx, pc in enumerate(paycodes):
-                        pc["max"] = idx == len(paycodes) - 1
-                        if pc["max"]:
-                            pc.pop("endMinute", None)
+                        paycodes.append(paycode_obj)
+
+                    if paycodes:
+                        for idx, pc in enumerate(paycodes):
+                            if idx == len(paycodes) - 1:
+                                pc.pop("endMinute", None)
+                                pc["max"] = True
+                            else:
+                                pc["max"] = False
+
+                    exceptions = []
+                    for x in range(1, 11):
+                        start = row.get(f"exception_startMinute{x}")
+                        end = row.get(f"exception_endMinute{x}")
+                        pc_id = row.get(f"exception_paycode_id{x}")
+                        ex_type = row.get(f"exception_type{x}")
+
+                        if (
+                            is_blank_or_null(start)
+                            or is_blank_or_null(pc_id)
+                            or is_blank_or_null(ex_type)
+                        ):
+                            continue
+
+                        exception_obj = {
+                            "startMinute": parse_number(start),
+                            "type": ex_type,
+                            "paycode": {"id": parse_number(pc_id)}
+                        }
+                        if not is_blank_or_null(end):
+                            exception_obj["endMinute"] = parse_number(end)
+
+                        exceptions.append(exception_obj)
+
+                    if exceptions:
+                        for idx, ex in enumerate(exceptions):
+                            if idx == len(exceptions) - 1:
+                                ex.pop("endMinute", None)
+                                ex["max"] = True
+                            else:
+                                ex["max"] = False
 
                     payload = {
                         "name": row["name"],
                         "description": row["description"],
                         "startTime": row["startTime"],
                         "endTime": row["endTime"],
-                        "beforeStartToleranceMinute": int(row["beforeStartToleranceMinute"]),
-                        "afterStartToleranceMinute": int(row["afterStartToleranceMinute"]),
-                        "lateInToleranceMinute": int(row["lateInToleranceMinute"]),
-                        "earlyOutToleranceMinute": int(row["earlyOutToleranceMinute"]),
+                        "beforeStartToleranceMinute": js_number(
+                            row["beforeStartToleranceMinute"]
+                        ),
+                        "afterStartToleranceMinute": js_number(
+                            row["afterStartToleranceMinute"]
+                        ),
                         "report": to_bool(row["report"]),
                         "monday": to_bool(row["monday"]),
                         "tuesday": to_bool(row["tuesday"]),
@@ -207,7 +246,8 @@ def shift_templates_ui():
                         "friday": to_bool(row["friday"]),
                         "saturday": to_bool(row["saturday"]),
                         "sunday": to_bool(row["sunday"]),
-                        "paycodes": paycodes
+                        "paycodes": paycodes,
+                        "exceptions": exceptions
                     }
 
                     r = requests.post(BASE_URL, headers=headers, json=payload)
