@@ -14,18 +14,15 @@ def to_bool(value):
 
 
 def is_blank_or_null(value):
-    if value is None:
-        return True
-    v = str(value).strip()
-    return v == "" or v.lower() == "null"
+    return value is None or str(value).strip() == "" or str(value).lower() == "null"
 
 
 def parse_number(value):
     if isinstance(value, (int, float)):
         return int(value) if float(value).is_integer() else float(value)
     v = str(value).strip()
-    number = float(v)
-    return int(number) if number.is_integer() else number
+    n = float(v)
+    return int(n) if n.is_integer() else n
 
 
 def js_number(value):
@@ -34,8 +31,16 @@ def js_number(value):
     return parse_number(value)
 
 
-def format_time(value):
-    return str(value).strip()[-5:]  # HH:mm
+def normalize_datetime(value):
+    """
+    Ensures: 1970-01-01 HH:MM:SS
+    """
+    v = str(value).strip()
+    if len(v) == 5:  # HH:mm
+        return f"1970-01-01 {v}:00"
+    if len(v) == 8:  # HH:mm:ss
+        return f"1970-01-01 {v}"
+    return v
 
 
 def file_hash(file_bytes):
@@ -62,14 +67,22 @@ def shift_templates_ui():
     section_header("📥 Download Create Template")
 
     template_df = pd.DataFrame(columns=[
-        "name", "description", "startTime", "endTime",
+        "name", "description",
+        "startTime", "endTime",
         "beforeStartToleranceMinute", "afterStartToleranceMinute",
         "lateInToleranceMinute", "earlyOutToleranceMinute",
         "report",
         "monday", "tuesday", "wednesday",
         "thursday", "friday", "saturday", "sunday",
         "paycode_id1", "paycode_startMinute1", "paycode_endMinute1",
-        "paycode_id2", "paycode_startMinute2", "paycode_endMinute2"
+        "paycode_id2", "paycode_startMinute2", "paycode_endMinute2",
+        "paycode_id3", "paycode_startMinute3", "paycode_endMinute3",
+        "exception_paycode_id1", "exception_type1",
+        "exception_startMinute1", "exception_endMinute1",
+        "exception_paycode_id2", "exception_type2",
+        "exception_startMinute2", "exception_endMinute2",
+        "exception_paycode_id3", "exception_type3",
+        "exception_startMinute3", "exception_endMinute3",
     ])
 
     output = io.BytesIO()
@@ -87,7 +100,7 @@ def shift_templates_ui():
     st.divider()
 
     # ==================================================
-    # UPLOAD & CREATE SHIFTS
+    # UPLOAD & CREATE
     # ==================================================
     section_header("📤 Upload & Create Shift Templates")
 
@@ -123,40 +136,79 @@ def shift_templates_ui():
                     # PAYCODES
                     # -------------------------------
                     paycodes = []
-                    max_index = None
+                    max_idx = None
 
                     for x in range(1, 11):
+                        pc_id = row.get(f"paycode_id{x}")
                         start = row.get(f"paycode_startMinute{x}")
                         end = row.get(f"paycode_endMinute{x}")
-                        pc_id = row.get(f"paycode_id{x}")
 
-                        if is_blank_or_null(start) or is_blank_or_null(pc_id):
+                        if is_blank_or_null(pc_id) or is_blank_or_null(start):
                             continue
 
                         pc = {
-                            "startMinute": parse_number(start),
-                            "paycode": {"id": parse_number(pc_id)}
+                            "paycode": {"id": parse_number(pc_id)},
+                            "startMinute": parse_number(start)
                         }
 
                         if not is_blank_or_null(end):
                             pc["endMinute"] = parse_number(end)
                         else:
-                            max_index = len(paycodes)
+                            max_idx = len(paycodes)
 
                         paycodes.append(pc)
 
                     if not paycodes:
-                        raise Exception("At least one paycode is required")
+                        raise Exception("At least one paycode required")
 
-                    if max_index is None:
-                        max_index = len(paycodes) - 1
+                    if max_idx is None:
+                        max_idx = len(paycodes) - 1
 
                     for idx, pc in enumerate(paycodes):
-                        if idx == max_index:
+                        if idx == max_idx:
                             pc.pop("endMinute", None)
                             pc["max"] = True
                         else:
                             pc["max"] = False
+
+                    # -------------------------------
+                    # EXCEPTIONS (OPTIONAL)
+                    # -------------------------------
+                    exceptions = []
+                    ex_max_idx = None
+
+                    for x in range(1, 11):
+                        pc_id = row.get(f"exception_paycode_id{x}")
+                        ex_type = row.get(f"exception_type{x}")
+                        start = row.get(f"exception_startMinute{x}")
+                        end = row.get(f"exception_endMinute{x}")
+
+                        if is_blank_or_null(pc_id) or is_blank_or_null(ex_type) or is_blank_or_null(start):
+                            continue
+
+                        ex = {
+                            "paycode": {"id": parse_number(pc_id)},
+                            "type": ex_type,
+                            "startMinute": parse_number(start)
+                        }
+
+                        if not is_blank_or_null(end):
+                            ex["endMinute"] = parse_number(end)
+                        else:
+                            ex_max_idx = len(exceptions)
+
+                        exceptions.append(ex)
+
+                    if exceptions:
+                        if ex_max_idx is None:
+                            ex_max_idx = len(exceptions) - 1
+
+                        for idx, ex in enumerate(exceptions):
+                            if idx == ex_max_idx:
+                                ex.pop("endMinute", None)
+                                ex["max"] = True
+                            else:
+                                ex["max"] = False
 
                     # -------------------------------
                     # PAYLOAD
@@ -164,8 +216,8 @@ def shift_templates_ui():
                     payload = {
                         "name": row["name"],
                         "description": row["description"],
-                        "startTime": format_time(row["startTime"]),
-                        "endTime": format_time(row["endTime"]),
+                        "startTime": normalize_datetime(row["startTime"]),
+                        "endTime": normalize_datetime(row["endTime"]),
                         "beforeStartToleranceMinute": js_number(row.get("beforeStartToleranceMinute")),
                         "afterStartToleranceMinute": js_number(row.get("afterStartToleranceMinute")),
                         "lateInToleranceMinute": js_number(row.get("lateInToleranceMinute")),
@@ -181,12 +233,13 @@ def shift_templates_ui():
                         "paycodes": paycodes
                     }
 
-                    # 🔍 SHOW JSON PAYLOAD
-                    with st.expander(f"📄 Row {i + 1} JSON"):
+                    if exceptions:
+                        payload["exceptions"] = exceptions
+
+                    with st.expander(f"📄 JSON – Row {i + 1}"):
                         st.json(payload)
 
                     r = requests.post(BASE_URL, headers=headers, json=payload)
-
                     if r.status_code not in (200, 201):
                         raise Exception(f"{r.status_code}: {r.text}")
 
@@ -209,35 +262,29 @@ def shift_templates_ui():
     st.divider()
 
     # ==================================================
-    # DELETE SHIFT TEMPLATES
+    # DELETE
     # ==================================================
     section_header("🗑️ Delete Shift Templates")
 
-    ids_input = st.text_input(
-        "Enter Shift Template IDs (comma-separated)",
-        placeholder="Example: 165,166,167"
-    )
+    ids_input = st.text_input("Enter Shift Template IDs", placeholder="165,166,167")
 
     if st.button("Delete Shift Templates"):
-        ids = [i.strip() for i in ids_input.split(",") if i.strip().isdigit()]
-        for sid in ids:
+        for sid in [x.strip() for x in ids_input.split(",") if x.strip().isdigit()]:
             r = requests.delete(f"{BASE_URL}/{sid}", headers=headers)
             if r.status_code in (200, 204):
-                st.success(f"Deleted Shift Template ID {sid}")
+                st.success(f"Deleted {sid}")
             else:
-                st.error(f"Failed to delete {sid} → {r.text}")
+                st.error(f"Failed {sid}: {r.text}")
 
     st.divider()
 
     # ==================================================
-    # DOWNLOAD EXISTING SHIFT TEMPLATES
+    # DOWNLOAD EXISTING
     # ==================================================
     section_header("⬇️ Download Existing Shift Templates")
 
     r = requests.get(BASE_URL, headers=headers)
-    if r.status_code != 200:
-        st.error("❌ Failed to fetch shift templates")
-    else:
+    if r.status_code == 200:
         df = pd.json_normalize(r.json())
         st.download_button(
             "⬇️ Download Existing Shift Templates",
@@ -246,3 +293,5 @@ def shift_templates_ui():
             mime="text/csv",
             use_container_width=True
         )
+    else:
+        st.error("❌ Failed to fetch shift templates")
