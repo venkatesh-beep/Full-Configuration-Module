@@ -84,6 +84,7 @@ def shift_templates_ui():
     module_header("🕒 Shift Templates", "Create, delete and download Shift Templates")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/shift_templates"
+    PAYCODE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -123,9 +124,27 @@ def shift_templates_ui():
         "exception_startMinute3", "exception_endMinute3",
     ])
 
+    # ---------- PAYCODES MASTER ----------
+    paycodes_df = pd.DataFrame()
+    try:
+        r = requests.get(PAYCODE_URL, headers=headers)
+        if r.status_code == 200:
+            paycodes_df = pd.DataFrame([
+                {
+                    "id": p.get("id"),
+                    "code": p.get("code"),
+                    "description": p.get("description")
+                }
+                for p in r.json()
+            ])
+    except Exception:
+        pass
+
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="openpyxl") as writer:
         template_df.to_excel(writer, index=False, sheet_name="Template")
+        if not paycodes_df.empty:
+            paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes_Master")
 
     st.download_button(
         "⬇️ Download Create Template",
@@ -144,7 +163,6 @@ def shift_templates_ui():
 
     st.warning(
         "⚠️ **Time format is mandatory**\n\n"
-        "Use **only**:\n"
         "`1970-01-01 HH:MM:SS`\n\n"
         "Invalid formats will cause a **400 Bad Request**."
     )
@@ -247,7 +265,6 @@ def shift_templates_ui():
                             if ex["max"]:
                                 ex.pop("endMinute", None)
 
-                    # PAYLOAD
                     payload = {
                         "name": row["name"],
                         "description": row["description"],
