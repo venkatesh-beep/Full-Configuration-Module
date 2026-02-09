@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 import io
 import hashlib
+import datetime
 
 from modules.ui_helpers import module_header, section_header
 
@@ -33,14 +34,52 @@ def js_number(value):
 
 def normalize_datetime(value):
     """
-    Ensures: 1970-01-01 HH:MM:SS
+    ALWAYS returns: 1970-01-01 HH:MM:SS
+    Handles all Excel cases safely.
     """
+    if is_blank_or_null(value):
+        return None
+
+    # pandas Timestamp / datetime
+    if isinstance(value, (pd.Timestamp, datetime.datetime)):
+        return value.strftime("1970-01-01 %H:%M:%S")
+
+    # time object
+    if isinstance(value, datetime.time):
+        return f"1970-01-01 {value.strftime('%H:%M:%S')}"
+
+    # timedelta (Excel duration)
+    if isinstance(value, datetime.timedelta):
+        total_seconds = int(value.total_seconds())
+        h = total_seconds // 3600
+        m = (total_seconds % 3600) // 60
+        s = total_seconds % 60
+        return f"1970-01-01 {h:02d}:{m:02d}:{s:02d}"
+
+    # Excel float (fraction of day)
+    if isinstance(value, (int, float)):
+        total_seconds = int(float(value) * 86400)
+        h = total_seconds // 3600
+        m = (total_seconds % 3600) // 60
+        s = total_seconds % 60
+        return f"1970-01-01 {h:02d}:{m:02d}:{s:02d}"
+
+    # string handling
     v = str(value).strip()
-    if len(v) == 5:  # HH:mm
+
+    # already full datetime
+    if len(v) == 19 and v[4] == "-" and v[13] == ":":
+        return v
+
+    # HH:mm
+    if len(v) == 5 and ":" in v:
         return f"1970-01-01 {v}:00"
-    if len(v) == 8:  # HH:mm:ss
+
+    # HH:mm:ss
+    if len(v) == 8 and ":" in v:
         return f"1970-01-01 {v}"
-    return v
+
+    raise ValueError(f"Invalid time format: {value}")
 
 
 def file_hash(file_bytes):
@@ -62,7 +101,7 @@ def shift_templates_ui():
     }
 
     # ==================================================
-    # DOWNLOAD CREATE TEMPLATE
+    # DOWNLOAD TEMPLATE
     # ==================================================
     section_header("📥 Download Create Template")
 
@@ -85,13 +124,13 @@ def shift_templates_ui():
         "exception_startMinute3", "exception_endMinute3",
     ])
 
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+    out = io.BytesIO()
+    with pd.ExcelWriter(out, engine="openpyxl") as writer:
         template_df.to_excel(writer, index=False, sheet_name="Template")
 
     st.download_button(
         "⬇️ Download Create Template",
-        data=output.getvalue(),
+        data=out.getvalue(),
         file_name="shift_templates_create.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
@@ -132,9 +171,7 @@ def shift_templates_ui():
 
             for i, row in df.iterrows():
                 try:
-                    # -------------------------------
-                    # PAYCODES
-                    # -------------------------------
+                    # ---------------- PAYCODES ----------------
                     paycodes = []
                     max_idx = None
 
@@ -159,7 +196,7 @@ def shift_templates_ui():
                         paycodes.append(pc)
 
                     if not paycodes:
-                        raise Exception("At least one paycode required")
+                        raise Exception("At least one paycode is required")
 
                     if max_idx is None:
                         max_idx = len(paycodes) - 1
@@ -171,9 +208,7 @@ def shift_templates_ui():
                         else:
                             pc["max"] = False
 
-                    # -------------------------------
-                    # EXCEPTIONS (OPTIONAL)
-                    # -------------------------------
+                    # ---------------- EXCEPTIONS ----------------
                     exceptions = []
                     ex_max_idx = None
 
@@ -210,9 +245,7 @@ def shift_templates_ui():
                             else:
                                 ex["max"] = False
 
-                    # -------------------------------
-                    # PAYLOAD
-                    # -------------------------------
+                    # ---------------- PAYLOAD ----------------
                     payload = {
                         "name": row["name"],
                         "description": row["description"],
