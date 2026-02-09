@@ -24,8 +24,8 @@ def parse_number(value):
     if isinstance(value, (int, float)):
         return int(value) if float(value).is_integer() else float(value)
     v = str(value).strip()
-    num = float(v)
-    return int(num) if num.is_integer() else num
+    number = float(v)
+    return int(number) if number.is_integer() else number
 
 
 def js_number(value):
@@ -35,8 +35,7 @@ def js_number(value):
 
 
 def format_time(value):
-    # supports "01-01-1970 09:30" or "09:30"
-    return str(value).strip()[-5:]
+    return str(value).strip()[-5:]  # HH:mm
 
 
 def file_hash(file_bytes):
@@ -47,11 +46,9 @@ def file_hash(file_bytes):
 # MAIN UI
 # ======================================================
 def shift_templates_ui():
-
     module_header("🕒 Shift Templates", "Create, delete and download Shift Templates")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/shift_templates"
-    PAYCODE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -69,48 +66,15 @@ def shift_templates_ui():
         "beforeStartToleranceMinute", "afterStartToleranceMinute",
         "lateInToleranceMinute", "earlyOutToleranceMinute",
         "report",
-
         "monday", "tuesday", "wednesday",
         "thursday", "friday", "saturday", "sunday",
-
         "paycode_id1", "paycode_startMinute1", "paycode_endMinute1",
         "paycode_id2", "paycode_startMinute2", "paycode_endMinute2"
     ])
 
-    # existing shifts
-    existing_shifts_df = pd.DataFrame()
-    try:
-        r = requests.get(BASE_URL, headers=headers)
-        if r.status_code == 200:
-            existing_shifts_df = pd.json_normalize(r.json())
-    except Exception:
-        pass
-
-    # paycodes master
-    paycodes_df = pd.DataFrame()
-    try:
-        r = requests.get(PAYCODE_URL, headers=headers)
-        if r.status_code == 200:
-            paycodes_df = pd.DataFrame([
-                {
-                    "id": p.get("id"),
-                    "code": p.get("code"),
-                    "description": p.get("description")
-                }
-                for p in r.json()
-            ])
-    except Exception:
-        pass
-
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         template_df.to_excel(writer, index=False, sheet_name="Template")
-
-        if not existing_shifts_df.empty:
-            existing_shifts_df.to_excel(writer, index=False, sheet_name="Existing_Shifts")
-
-        if not paycodes_df.empty:
-            paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes_Master")
 
     st.download_button(
         "⬇️ Download Create Template",
@@ -123,7 +87,7 @@ def shift_templates_ui():
     st.divider()
 
     # ==================================================
-    # UPLOAD & CREATE SHIFT TEMPLATES
+    # UPLOAD & CREATE SHIFTS
     # ==================================================
     section_header("📤 Upload & Create Shift Templates")
 
@@ -155,9 +119,9 @@ def shift_templates_ui():
 
             for i, row in df.iterrows():
                 try:
-                    # ---------------------------
-                    # PAYCODES (ENHANCED)
-                    # ---------------------------
+                    # -------------------------------
+                    # PAYCODES
+                    # -------------------------------
                     paycodes = []
                     max_index = None
 
@@ -194,9 +158,9 @@ def shift_templates_ui():
                         else:
                             pc["max"] = False
 
-                    # ---------------------------
-                    # PAYLOAD (NO EXCEPTIONS SENT)
-                    # ---------------------------
+                    # -------------------------------
+                    # PAYLOAD
+                    # -------------------------------
                     payload = {
                         "name": row["name"],
                         "description": row["description"],
@@ -217,7 +181,12 @@ def shift_templates_ui():
                         "paycodes": paycodes
                     }
 
+                    # 🔍 SHOW JSON PAYLOAD
+                    with st.expander(f"📄 Row {i + 1} JSON"):
+                        st.json(payload)
+
                     r = requests.post(BASE_URL, headers=headers, json=payload)
+
                     if r.status_code not in (200, 201):
                         raise Exception(f"{r.status_code}: {r.text}")
 
