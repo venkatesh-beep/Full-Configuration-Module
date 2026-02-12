@@ -29,6 +29,7 @@ from modules.schedule_pattern_mapper import schedule_pattern_mapper_ui
 from modules.known_locations import known_locations_ui
 from modules.organization_locations import organization_locations_ui
 from modules.schedule_delete import schedule_delete_ui
+from modules.emp_unique_id_update import emp_unique_id_update_ui
 
 
 # ================= PAGE CONFIG =================
@@ -90,6 +91,7 @@ menu_options = [
     "Known Locations",
     "Org Locations",
     "Schedule Delete",
+    "Emp Unique ID Update",
 ]
 
 menu_icons = {
@@ -118,6 +120,7 @@ menu_icons = {
     "Known Locations": "📍",
     "Org Locations": "🗺️",
     "Schedule Delete": "🗑️",
+    "Emp Unique ID Update": "🆔",
 }
 
 with st.sidebar:
@@ -204,3 +207,5 @@ elif menu == "Org Locations":
     organization_locations_ui()
 elif menu == "Schedule Delete":
     schedule_delete_ui()
+elif menu == "Emp Unique ID Update":
+    emp_unique_id_update_ui()
