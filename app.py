@@ -28,8 +28,6 @@ from modules.punch import punch_ui
 from modules.schedule_pattern_mapper import schedule_pattern_mapper_ui
 from modules.known_locations import known_locations_ui
 from modules.organization_locations import organization_locations_ui
-from modules.schedule_delete import schedule_delete_ui
-from modules.emp_unique_id_update import emp_unique_id_update_ui
 
 
 # ================= PAGE CONFIG =================
@@ -41,7 +39,7 @@ st.set_page_config(
 
 # ================= SESSION STATE =================
 if "HOST" not in st.session_state:
-    st.session_state.HOST = "https://app-uat.beeforce.in"
+    st.session_state.HOST = "https://saas-beeforce.labour.tech"
 
 if "token" not in st.session_state:
     st.session_state.token = None
@@ -90,8 +88,6 @@ menu_options = [
     "Schedule Pattern Update",
     "Known Locations",
     "Org Locations",
-    "Schedule Delete",
-    "Emp Unique ID Update",
 ]
 
 menu_icons = {
@@ -119,8 +115,6 @@ menu_icons = {
     "Schedule Pattern Update": "🧷",
     "Known Locations": "📍",
     "Org Locations": "🗺️",
-    "Schedule Delete": "🗑️",
-    "Emp Unique ID Update": "🆔",
 }
 
 with st.sidebar:
@@ -205,7 +199,3 @@ elif menu == "Known Locations":
     known_locations_ui()
 elif menu == "Org Locations":
     organization_locations_ui()
-elif menu == "Schedule Delete":
-    schedule_delete_ui()
-elif menu == "Emp Unique ID Update":
-    emp_unique_id_update_ui()
