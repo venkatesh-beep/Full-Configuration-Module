@@ -130,14 +130,14 @@ def login_ui():
 
             submitted = st.form_submit_button("Submit", use_container_width=True)
 
-        # ---------- LOGIN LOGIC (UPDATED TO MATCH CURL) ----------
+        # ---------- LOGIN LOGIC ----------
         if submitted:
             host = st.session_state.HOST_INPUT.rstrip("/")
 
             try:
                 r = requests.post(
                     f"{host}/api/authorization/oauth/token",
-                    params={
+                    data={
                         "username": username,
                         "password": password,
                         "grant_type": "password"
@@ -152,8 +152,11 @@ def login_ui():
                 st.error(f"❌ Cannot reach server: {e}")
                 st.stop()
 
+            # 🔎 Debug (remove later if needed)
             if r.status_code != 200:
                 st.error("❌ Invalid credentials")
+                st.write("Status Code:", r.status_code)
+                st.write("Response:", r.text)
             else:
                 response_json = r.json()
 
