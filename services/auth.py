@@ -137,14 +137,16 @@ def login_ui():
             try:
                 r = requests.post(
                     f"{host}/api/authorization/oauth/token",
-                    data={
+                    params={   # MATCHING YOUR CURL (query parameters)
                         "username": username,
                         "password": password,
                         "grant_type": "password"
                     },
                     headers={
                         "Authorization": CLIENT_AUTH,
-                        "Content-Type": "application/x-www-form-urlencoded"
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Accept": "*/*",
+                        "User-Agent": "PostmanRuntime/7.32.3"
                     },
                     timeout=15
                 )
@@ -152,7 +154,6 @@ def login_ui():
                 st.error(f"❌ Cannot reach server: {e}")
                 st.stop()
 
-            # 🔎 Debug (remove later if needed)
             if r.status_code != 200:
                 st.error("❌ Invalid credentials")
                 st.write("Status Code:", r.status_code)
@@ -163,8 +164,6 @@ def login_ui():
                 st.session_state.token = response_json.get("access_token")
                 st.session_state.token_issued_at = time.time()
                 st.session_state.username = username
-
-                # Authoritative Host
                 st.session_state.HOST = host
 
                 st.success("✅ Login successful")
