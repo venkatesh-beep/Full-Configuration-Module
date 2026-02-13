@@ -8,7 +8,9 @@ import os
 # ======================================================
 CLIENT_AUTH = os.getenv("CLIENT_AUTH", "Basic YWRtaW4tY2xpZW50Oms0UCFYUmZRS3hEUyRtQHc=")
 
-DEFAULT_HOST = "https://app.beeforce.in"
+DEFAULT_HOST = "https://app-uat.beeforce.in"
+TOKEN_PATH = "/api/authorization/oauth/token"
+TOKEN_COOKIE = "AWSALB=/qRKwMehk1QvP10YJYTJe3j4m+aaruBuuFGc2aXVCewZldvrsTjB8r9mOqh6AQnT33t/+prcjI816zBZXn9/nEEgQdDNXqrQwIw4erOA7IvaA62Ew1rXZjvfpjBt; AWSALBCORS=/qRKwMehk1QvP10YJYTJe3j4m+aaruBuuFGc2aXVCewZldvrsTjB8r9mOqh6AQnT33t/+prcjI816zBZXn9/nEEgQdDNXqrQwIw4erOA7IvaA62Ew1rXZjvfpjBt"
 DEFAULT_USERNAME = "BTE362ONROLLADMIN"
 DEFAULT_PASSWORD = "Bt@123"
 
@@ -142,17 +144,20 @@ def login_ui():
         if submitted:
             host = st.session_state.HOST_INPUT.rstrip("/")
 
+            token_url = f"{host}{TOKEN_PATH}"
+
             try:
                 r = requests.post(
-                    host + "/api/authorization/oauth/token",
-                    data={
+                    token_url,
+                    params={
                         "username": username,
                         "password": password,
-                        "grant_type": "password"
+                        "grant_type": "password",
                     },
                     headers={
                         "Authorization": CLIENT_AUTH,
-                        "Content-Type": "application/x-www-form-urlencoded"
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Cookie": TOKEN_COOKIE,
                     },
                     timeout=12
                 )
