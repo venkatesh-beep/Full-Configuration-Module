@@ -38,8 +38,8 @@ def organization_location_lookup_table_ui():
     module_header("🏢 Organization Location Lookup Table", "Download and upload Organization Location Lookup Table")
 
     BASE_URL = st.session_state.HOST.rstrip("/")
-    GET_URL = BASE_URL + "/resource-server/api/organization_location_lookup_table"
-    POST_URL = BASE_URL + "/resource-server/api/organization_location_lookup_table/action/"
+    GET_URL = BASE_URL + "/api/attendance/organization_location_lookup_table"
+    POST_URL = BASE_URL + "/api/attendance/organization_location_lookup_table/action/"
 
     headers_auth = {
         "Authorization": f"Bearer {st.session_state.token}",
