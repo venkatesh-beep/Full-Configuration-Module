@@ -6,12 +6,13 @@ import os
 # ======================================================
 # ENV
 # ======================================================
-CLIENT_AUTH = os.getenv("CLIENT_AUTH")
+CLIENT_AUTH = os.getenv("CLIENT_AUTH", "Basic YWRtaW4tY2xpZW50Oms0UCFYUmZRS3hEUyRtQHc=")
 
-if not CLIENT_AUTH:
-    raise RuntimeError("CLIENT_AUTH environment variable is not set")
-
-DEFAULT_HOST = "https://app.beeforce.in"
+DEFAULT_HOST = "https://app-uat.beeforce.in"
+TOKEN_PATH = "/api/authorization/oauth/token"
+TOKEN_COOKIE = "AWSALB=/qRKwMehk1QvP10YJYTJe3j4m+aaruBuuFGc2aXVCewZldvrsTjB8r9mOqh6AQnT33t/+prcjI816zBZXn9/nEEgQdDNXqrQwIw4erOA7IvaA62Ew1rXZjvfpjBt; AWSALBCORS=/qRKwMehk1QvP10YJYTJe3j4m+aaruBuuFGc2aXVCewZldvrsTjB8r9mOqh6AQnT33t/+prcjI816zBZXn9/nEEgQdDNXqrQwIw4erOA7IvaA62Ew1rXZjvfpjBt"
+DEFAULT_USERNAME = "BTE362ONROLLADMIN"
+DEFAULT_PASSWORD = "Bt@123"
 
 # ======================================================
 # LOGIN UI
@@ -123,10 +124,19 @@ def login_ui():
             st.text_input(
                 "Base Host URL",
                 key="HOST_INPUT",
-                placeholder="https://your-tenant.labour.tech"
+                placeholder=DEFAULT_HOST
             )
-            username = st.text_input("Username", placeholder="you@example.com")
-            password = st.text_input("Password", type="password", placeholder="••••••••")
+            username = st.text_input(
+                "Username",
+                value=st.session_state.get("USERNAME_INPUT", DEFAULT_USERNAME),
+                placeholder="you@example.com"
+            )
+            password = st.text_input(
+                "Password",
+                type="password",
+                value=st.session_state.get("PASSWORD_INPUT", DEFAULT_PASSWORD),
+                placeholder="••••••••"
+            )
 
             submitted = st.form_submit_button("Submit", use_container_width=True)
 
@@ -134,17 +144,20 @@ def login_ui():
         if submitted:
             host = st.session_state.HOST_INPUT.rstrip("/")
 
+            token_url = f"{host}{TOKEN_PATH}"
+
             try:
                 r = requests.post(
-                    host + "/api/authorization/oauth/token",
-                    data={
+                    token_url,
+                    params={
                         "username": username,
                         "password": password,
-                        "grant_type": "password"
+                        "grant_type": "password",
                     },
                     headers={
                         "Authorization": CLIENT_AUTH,
-                        "Content-Type": "application/x-www-form-urlencoded"
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Cookie": TOKEN_COOKIE,
                     },
                     timeout=12
                 )
@@ -158,6 +171,8 @@ def login_ui():
                 st.session_state.token = r.json()["access_token"]
                 st.session_state.token_issued_at = time.time()
                 st.session_state.username = username
+                st.session_state.USERNAME_INPUT = username
+                st.session_state.PASSWORD_INPUT = password
 
                 # 🔑 AUTHORITATIVE HOST SET HERE
                 st.session_state.HOST = host

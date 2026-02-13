@@ -41,7 +41,7 @@ st.set_page_config(
 
 # ================= SESSION STATE =================
 if "HOST" not in st.session_state:
-    st.session_state.HOST = "https://app.beeforce.in"
+    st.session_state.HOST = "https://app-uat.beeforce.in"
 
 if "token" not in st.session_state:
     st.session_state.token = None
