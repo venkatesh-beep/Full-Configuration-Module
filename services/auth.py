@@ -11,7 +11,7 @@ CLIENT_AUTH = os.getenv("CLIENT_AUTH")
 if not CLIENT_AUTH:
     raise RuntimeError("CLIENT_AUTH environment variable is not set")
 
-DEFAULT_HOST = "https://saas-beeforce.labour.tech"
+DEFAULT_HOST = "https://app.beeforce.in"
 
 # ======================================================
 # LOGIN UI
@@ -136,7 +136,7 @@ def login_ui():
 
             try:
                 r = requests.post(
-                    host + "/authorization-server/oauth/token",
+                    host + "/api/authorization/oauth/token",
                     data={
                         "username": username,
                         "password": password,
