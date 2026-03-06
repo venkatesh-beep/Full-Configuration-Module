@@ -3,14 +3,15 @@ import pandas as pd
 import requests
 import streamlit as st
 
-# Assuming this module exists in your project structure
 from modules.ui_helpers import module_header, section_header
+
 
 def _safe_int(value):
     try:
         return int(float(value))
     except (TypeError, ValueError):
         return None
+
 
 def _extract_entry_ids(row):
     entry_ids = []
@@ -27,14 +28,17 @@ def _extract_entry_ids(row):
 
     return sorted(set(entry_ids))
 
+
 def _post_regularization_policy_set(base_url, headers, payload):
-    # FIX: Removed trailing slash from URL, standard REST practice
-    post_url = f"{base_url}" 
+    # FIX: Removed trailing slash - standard REST practice
+    post_url = f"{base_url}"
     return requests.post(post_url, headers=headers, json=payload)
+
 
 def _put_regularization_policy_set(base_url, set_id, headers, payload):
     put_url = f"{base_url}/{set_id}"
     return requests.put(put_url, headers=headers, json=payload)
+
 
 def _flatten_policy_sets(raw_sets):
     rows = []
@@ -68,6 +72,7 @@ def _flatten_policy_sets(raw_sets):
         ],
     )
 
+
 def regularization_policy_sets_ui():
     module_header(
         "📊 Regularization Policy Sets",
@@ -89,7 +94,7 @@ def regularization_policy_sets_ui():
         "Accept": "application/json",
     }
 
-    # --- Download Template Section (Unchanged) ---
+    # --- Download Template Section ---
     section_header("📥 Download Upload Template")
     template_columns = ["id", "name", "description"] + [
         f"RegularizationPolicyID{i}" for i in range(1, 11)
@@ -168,27 +173,30 @@ def regularization_policy_sets_ui():
                         }
 
                     for entry_id in entry_ids:
-                        grouped[group_key]["entries"].append({"id": entry_id})
+                        grouped[group_key]["entries"].append(entry_id)  # FIX: Store as integer, not object
 
                 for grouped_item in grouped.values():
                     unique_entries = sorted(
-                        {entry.get("id") for entry in grouped_item["entries"] if entry.get("id") is not None}
+                        {entry for entry in grouped_item["entries"] if entry is not None}
                     )
-                    grouped_item["entries"] = [{"id": entry_id} for entry_id in unique_entries]
+                    grouped_item["entries"] = unique_entries  # FIX: Keep as list of integers
 
                 for item in grouped.values():
+                    # FIX: Build payload correctly
                     payload = {
                         "name": item["name"],
                         "description": item["description"],
-                        "entries": item["entries"],
+                        "entries": item["entries"],  # FIX: List of integers, not objects
                     }
 
-                    # FIX: Only add ID to payload if it exists (for Update)
                     if item["id"] is not None:
-                        payload["id"] = item["id"]
+                        # For Update (PUT), do NOT include id in payload
+                        payload.pop("id", None)
                         response = _put_regularization_policy_set(base_url, item["id"], headers, payload)
                         action = "Update"
                     else:
+                        # For Create (POST), do NOT include id in payload
+                        payload.pop("id", None)
                         response = _post_regularization_policy_set(base_url, headers, payload)
                         action = "Create"
 
@@ -205,7 +213,7 @@ def regularization_policy_sets_ui():
                             "Response": error_msg,
                         }
                     )
-                    
+
                     # FIX: Show error immediately in UI if failed
                     if status == "Failed":
                         st.error(f"Failed to {action} '{item['name']}': {error_msg}")
@@ -215,7 +223,7 @@ def regularization_policy_sets_ui():
 
     st.divider()
 
-    # --- Delete Section (Unchanged) ---
+    # --- Delete Section ---
     section_header("🗑️ Delete Regularization Policy Sets")
     delete_ids = st.text_input(
         "Enter Regularization Policy Set IDs (comma separated)",
@@ -233,7 +241,7 @@ def regularization_policy_sets_ui():
 
     st.divider()
 
-    # --- Download Existing Section (Unchanged) ---
+    # --- Download Existing Section ---
     section_header("⬇️ Download Existing Regularization Policy Sets")
     response = requests.get(full_url, headers=headers)
     if response.status_code != 200:
