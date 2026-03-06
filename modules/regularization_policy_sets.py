@@ -1,18 +1,16 @@
 import io
-
 import pandas as pd
 import requests
 import streamlit as st
 
+# Assuming this module exists in your project structure
 from modules.ui_helpers import module_header, section_header
-
 
 def _safe_int(value):
     try:
         return int(float(value))
     except (TypeError, ValueError):
         return None
-
 
 def _extract_entry_ids(row):
     entry_ids = []
@@ -29,13 +27,10 @@ def _extract_entry_ids(row):
 
     return sorted(set(entry_ids))
 
-
-
-
 def _post_regularization_policy_set(base_url, headers, payload):
-    post_url = f"{base_url}/"
+    # FIX: Removed trailing slash from URL, standard REST practice
+    post_url = f"{base_url}" 
     return requests.post(post_url, headers=headers, json=payload)
-
 
 def _put_regularization_policy_set(base_url, set_id, headers, payload):
     put_url = f"{base_url}/{set_id}"
@@ -43,19 +38,16 @@ def _put_regularization_policy_set(base_url, set_id, headers, payload):
 
 def _flatten_policy_sets(raw_sets):
     rows = []
-
     for policy_set in raw_sets:
         set_id = policy_set.get("id")
         set_name = policy_set.get("name")
         description = policy_set.get("description")
-
         entries = policy_set.get("entries") or []
         for entry in entries:
             entry_id = entry.get("id")
             entry_name = entry.get("name")
             if entry_id is None:
                 continue
-
             rows.append(
                 {
                     "id": set_id,
@@ -65,7 +57,6 @@ def _flatten_policy_sets(raw_sets):
                     "Regularization Policy Name": entry_name,
                 }
             )
-
     return pd.DataFrame(
         rows,
         columns=[
@@ -76,7 +67,6 @@ def _flatten_policy_sets(raw_sets):
             "Regularization Policy Name",
         ],
     )
-
 
 def regularization_policy_sets_ui():
     module_header(
@@ -99,8 +89,8 @@ def regularization_policy_sets_ui():
         "Accept": "application/json",
     }
 
+    # --- Download Template Section (Unchanged) ---
     section_header("📥 Download Upload Template")
-
     template_columns = ["id", "name", "description"] + [
         f"RegularizationPolicyID{i}" for i in range(1, 11)
     ]
@@ -141,8 +131,8 @@ def regularization_policy_sets_ui():
 
     st.divider()
 
+    # --- Upload Section ---
     section_header("📤 Upload Regularization Policy Sets")
-
     uploaded_file = st.file_uploader("Upload CSV or Excel file", ["csv", "xlsx", "xls"])
 
     if uploaded_file:
@@ -193,6 +183,7 @@ def regularization_policy_sets_ui():
                         "entries": item["entries"],
                     }
 
+                    # FIX: Only add ID to payload if it exists (for Update)
                     if item["id"] is not None:
                         payload["id"] = item["id"]
                         response = _put_regularization_policy_set(base_url, item["id"], headers, payload)
@@ -201,23 +192,31 @@ def regularization_policy_sets_ui():
                         response = _post_regularization_policy_set(base_url, headers, payload)
                         action = "Create"
 
+                    # FIX: Improved Error Handling
+                    status = "Success" if response.status_code in (200, 201, 204) else "Failed"
+                    error_msg = response.text[:200] if status == "Failed" else ""
+
                     results.append(
                         {
                             "Name": item["name"],
                             "Action": action,
                             "Entries": len(item["entries"]),
-                            "Status": "Success" if response.status_code in (200, 201) else "Failed",
-                            "Response": response.text[:200],
+                            "Status": status,
+                            "Response": error_msg,
                         }
                     )
+                    
+                    # FIX: Show error immediately in UI if failed
+                    if status == "Failed":
+                        st.error(f"Failed to {action} '{item['name']}': {error_msg}")
 
             section_header("📊 Upload Result")
             st.dataframe(pd.DataFrame(results), use_container_width=True)
 
     st.divider()
 
+    # --- Delete Section (Unchanged) ---
     section_header("🗑️ Delete Regularization Policy Sets")
-
     delete_ids = st.text_input(
         "Enter Regularization Policy Set IDs (comma separated)",
         placeholder="Example: 39,40",
@@ -234,8 +233,8 @@ def regularization_policy_sets_ui():
 
     st.divider()
 
+    # --- Download Existing Section (Unchanged) ---
     section_header("⬇️ Download Existing Regularization Policy Sets")
-
     response = requests.get(full_url, headers=headers)
     if response.status_code != 200:
         st.error("Failed to fetch Regularization Policy Sets")
