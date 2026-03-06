@@ -33,17 +33,13 @@ def _extract_entry_ids(row):
 
 
 def _post_regularization_policy_set(base_url, headers, payload):
-    response = requests.post(base_url, headers=headers, json=payload)
-    if response.status_code in (404, 405, 307, 308):
-        response = requests.post(f"{base_url}/", headers=headers, json=payload)
-    return response
+    post_url = f"{base_url}/"
+    return requests.post(post_url, headers=headers, json=payload)
 
 
 def _put_regularization_policy_set(base_url, set_id, headers, payload):
-    response = requests.put(f"{base_url}/{set_id}", headers=headers, json=payload)
-    if response.status_code in (404, 405, 307, 308):
-        response = requests.put(f"{base_url}/{set_id}/", headers=headers, json=payload)
-    return response
+    put_url = f"{base_url}/{set_id}"
+    return requests.put(put_url, headers=headers, json=payload)
 
 def _flatten_policy_sets(raw_sets):
     rows = []
