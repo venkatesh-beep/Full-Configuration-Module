@@ -50,8 +50,8 @@ def _extract_entries(row):
     return list(unique.values())
 
 
-def _post_regularization_policy_set(base_url, set_id, headers, payload):
-    post_url = f"{base_url}/{set_id}"
+def _post_regularization_policy_set(base_url, headers, payload):
+    post_url = f"{base_url}/"
     return requests.post(post_url, headers=headers, json=payload)
 
 
@@ -111,9 +111,6 @@ def regularization_policy_sets_ui():
     base_url = f"{host}/resource-server/api/regularization_policy_sets"
     full_url = f"{base_url}?projection=FULL"
     regularization_policies_url = f"{host}/resource-server/api/regularization_policies"
-    attendance_regularization_types_url = (
-        f"{host}/resource-server/api/attendance_regularization_types"
-    )
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -138,27 +135,15 @@ def regularization_policy_sets_ui():
                     "id": policy.get("id"),
                     "name": policy.get("name"),
                     "description": policy.get("description"),
+                    "attendanceregularizationTypeID": (
+                        (policy.get("attendanceRegularizationType") or {}).get("id")
+                    ),
                 }
                 for policy in policies_resp.json()
             ]
         )
         if policies_resp.status_code == 200
-        else pd.DataFrame(columns=["id", "name", "description"])
-    )
-
-    attendance_types_resp = requests.get(attendance_regularization_types_url, headers=headers)
-    attendance_types_df = (
-        pd.DataFrame(
-            [
-                {
-                    "id": item.get("id"),
-                    "name": item.get("name"),
-                }
-                for item in attendance_types_resp.json()
-            ]
-        )
-        if attendance_types_resp.status_code == 200
-        else pd.DataFrame(columns=["id", "name"])
+        else pd.DataFrame(columns=["id", "name", "description", "attendanceregularizationTypeID"])
     )
 
     output = io.BytesIO()
@@ -168,11 +153,6 @@ def regularization_policy_sets_ui():
             writer,
             index=False,
             sheet_name="Regularization_Policies",
-        )
-        attendance_types_df.to_excel(
-            writer,
-            index=False,
-            sheet_name="Attendance_Regularization_Types",
         )
 
     st.download_button(
@@ -234,37 +214,23 @@ def regularization_policy_sets_ui():
                     grouped_item["entries"] = list(unique_entries.values())
 
                 for item in grouped.values():
-                    if item["id"] is None:
-                        results.append(
-                            {
-                                "Name": item["name"],
-                                "Action": "Create",
-                                "Entries": len(item["entries"]),
-                                "Status": "Failed",
-                                "Response": "id is required for create endpoint /regularization_policy_sets/{id}",
-                            }
-                        )
-                        continue
-
-                    create_payload = {
-                        "id": item["id"],
-                        "name": item["name"],
-                        "description": item["description"],
-                        "entries": item["entries"],
-                    }
-                    create_response = _post_regularization_policy_set(base_url, item["id"], headers, create_payload)
-
-                    if create_response.status_code in (200, 201):
-                        response = create_response
-                        action = "Create"
-                    else:
+                    if item["id"] is not None:
                         update_payload = {
+                            "id": item["id"],
                             "name": item["name"],
                             "description": item["description"],
                             "entries": item["entries"],
                         }
                         response = _put_regularization_policy_set(base_url, item["id"], headers, update_payload)
                         action = "Update"
+                    else:
+                        create_payload = {
+                            "name": item["name"],
+                            "description": item["description"],
+                            "entries": item["entries"],
+                        }
+                        response = _post_regularization_policy_set(base_url, headers, create_payload)
+                        action = "Create"
 
                     results.append(
                         {
