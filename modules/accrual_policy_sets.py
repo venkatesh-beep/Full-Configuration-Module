@@ -14,23 +14,6 @@ def _safe_int(value):
         return None
 
 
-def _compact_sets_df(raw_sets):
-    rows = []
-    for item in raw_sets:
-        entries = item.get("entries") or []
-        entry_summary = ", ".join(
-            f"{entry.get('id')} - {entry.get('name', '')}" for entry in entries if entry.get("id") is not None
-        )
-        rows.append(
-            {
-                "id": item.get("id"),
-                "name": item.get("name"),
-                "entries": entry_summary,
-            }
-        )
-    return pd.DataFrame(rows)
-
-
 def _extract_entry_ids(row):
     entry_ids = []
     for column in row.index:
@@ -45,6 +28,42 @@ def _extract_entry_ids(row):
         entry_ids.append(legacy_entry_id)
 
     return sorted(set(entry_ids))
+
+
+def _flatten_sets_df(raw_sets):
+    rows = []
+    for policy_set in raw_sets:
+        set_id = policy_set.get("id")
+        set_name = policy_set.get("name")
+        description = policy_set.get("description")
+
+        entries = policy_set.get("entries") or []
+        for entry in entries:
+            entry_id = entry.get("id")
+            entry_name = entry.get("name")
+            if entry_id is None:
+                continue
+
+            rows.append(
+                {
+                    "id": set_id,
+                    "Accural Policy Set Name": set_name,
+                    "Description": description,
+                    "Accural Policy ID": entry_id,
+                    "Accural Policy Name": entry_name,
+                }
+            )
+
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "id",
+            "Accural Policy Set Name",
+            "Description",
+            "Accural Policy ID",
+            "Accural Policy Name",
+        ],
+    )
 
 
 def accrual_policy_sets_ui():
@@ -85,16 +104,10 @@ def accrual_policy_sets_ui():
         else pd.DataFrame(columns=["id", "name"])
     )
 
-    existing_resp = requests.get(full_url, headers=headers)
-    existing_df = (
-        _compact_sets_df(existing_resp.json()) if existing_resp.status_code == 200 else pd.DataFrame(columns=["id", "name", "entries"])
-    )
-
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         template_df.to_excel(writer, index=False, sheet_name="Upload_Template")
         accrual_policies_df.to_excel(writer, index=False, sheet_name="Accrual_Policies")
-        existing_df.to_excel(writer, index=False, sheet_name="Existing_Accrual_Policy_Sets")
 
     st.download_button(
         "⬇️ Download Template",
@@ -128,9 +141,7 @@ def accrual_policy_sets_ui():
                     description = str(row.get("description", "")).strip() or name
                     entry_ids = _extract_entry_ids(row)
 
-                    if not name:
-                        continue
-                    if not entry_ids:
+                    if not name or not entry_ids:
                         continue
 
                     set_id = _safe_int(raw_id)
@@ -204,7 +215,8 @@ def accrual_policy_sets_ui():
     if response.status_code != 200:
         st.error("Failed to fetch Accrual Policy Sets")
     else:
-        export_df = _compact_sets_df(response.json())
+        export_df = _flatten_sets_df(response.json())
+        st.dataframe(export_df, use_container_width=True)
         st.download_button(
             "⬇️ Download Existing Accrual Policy Sets",
             data=export_df.to_csv(index=False),
