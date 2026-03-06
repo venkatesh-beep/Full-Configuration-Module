@@ -90,7 +90,7 @@ def regularization_policy_sets_ui():
 
     section_header("📥 Download Upload Template")
 
-    template_columns = ["id", "name", "description"] + [
+    template_columns = ["id", "name", "description", "action"] + [
         f"RegularizationPolicyID{i}" for i in range(1, 11)
     ]
     template_df = pd.DataFrame(columns=template_columns)
@@ -158,11 +158,16 @@ def regularization_policy_sets_ui():
                     set_id = _safe_int(raw_id)
                     group_key = set_id if set_id is not None else name
 
+                    requested_action = str(row.get("action", "")).strip().lower()
+                    if requested_action not in {"create", "update"}:
+                        requested_action = "update" if set_id is not None else "create"
+
                     if group_key not in grouped:
                         grouped[group_key] = {
                             "id": set_id,
                             "name": name,
                             "description": description,
+                            "action": requested_action,
                             "entries": [],
                         }
 
@@ -182,13 +187,27 @@ def regularization_policy_sets_ui():
                         "entries": item["entries"],
                     }
 
-                    if item["id"] is not None:
-                        payload["id"] = item["id"]
-                        response = requests.put(f"{base_url}/{item['id']}", headers=headers, json=payload)
-                        action = "Update"
-                    else:
-                        response = requests.post(base_url, headers=headers, json=payload)
+                    if item["id"] is None:
+                        results.append(
+                            {
+                                "Name": item["name"],
+                                "Action": item.get("action", "create").title(),
+                                "Entries": len(item["entries"]),
+                                "Status": "Failed",
+                                "Response": "id is required for create/update API endpoint",
+                            }
+                        )
+                        continue
+
+                    payload["id"] = item["id"]
+                    endpoint = f"{base_url}/{item['id']}"
+
+                    if item.get("action") == "create":
+                        response = requests.post(endpoint, headers=headers, json=payload)
                         action = "Create"
+                    else:
+                        response = requests.put(endpoint, headers=headers, json=payload)
+                        action = "Update"
 
                     results.append(
                         {
