@@ -30,6 +30,21 @@ def _extract_entry_ids(row):
     return sorted(set(entry_ids))
 
 
+
+
+def _post_regularization_policy_set(base_url, headers, payload):
+    response = requests.post(base_url, headers=headers, json=payload)
+    if response.status_code in (404, 405, 307, 308):
+        response = requests.post(f"{base_url}/", headers=headers, json=payload)
+    return response
+
+
+def _put_regularization_policy_set(base_url, set_id, headers, payload):
+    response = requests.put(f"{base_url}/{set_id}", headers=headers, json=payload)
+    if response.status_code in (404, 405, 307, 308):
+        response = requests.put(f"{base_url}/{set_id}/", headers=headers, json=payload)
+    return response
+
 def _flatten_policy_sets(raw_sets):
     rows = []
 
@@ -184,10 +199,10 @@ def regularization_policy_sets_ui():
 
                     if item["id"] is not None:
                         payload["id"] = item["id"]
-                        response = requests.put(f"{base_url}/{item['id']}", headers=headers, json=payload)
+                        response = _put_regularization_policy_set(base_url, item["id"], headers, payload)
                         action = "Update"
                     else:
-                        response = requests.post(base_url, headers=headers, json=payload)
+                        response = _post_regularization_policy_set(base_url, headers, payload)
                         action = "Create"
 
                     results.append(
