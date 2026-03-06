@@ -97,6 +97,16 @@ def _flatten_policy_sets(raw_sets):
     )
 
 
+
+
+def _get_attendance_type_id(policy):
+    attendance_type = policy.get("attendanceRegularizationType") or {}
+    return (
+        attendance_type.get("id")
+        or policy.get("attendanceRegularizationTypeID")
+        or policy.get("attendanceregularizationTypeID")
+    )
+
 def regularization_policy_sets_ui():
     module_header(
         "📊 Regularization Policy Sets",
@@ -135,12 +145,11 @@ def regularization_policy_sets_ui():
                     "id": policy.get("id"),
                     "name": policy.get("name"),
                     "description": policy.get("description"),
-                    "attendanceregularizationTypeID": (
-                        (policy.get("attendanceRegularizationType") or {}).get("id")
-                    ),
+                    "attendanceregularizationTypeID": _get_attendance_type_id(policy),
                 }
                 for policy in policies_resp.json()
-            ]
+            ],
+            columns=["id", "name", "description", "attendanceregularizationTypeID"],
         )
         if policies_resp.status_code == 200
         else pd.DataFrame(columns=["id", "name", "description", "attendanceregularizationTypeID"])
