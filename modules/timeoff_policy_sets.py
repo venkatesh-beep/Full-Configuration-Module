@@ -21,6 +21,7 @@ def timeoff_policy_sets_ui():
     HOST = st.session_state.HOST.rstrip("/")
     BASE_URL = f"{HOST}/resource-server/api/time_off_policy_sets"
     PAYCODES_URL = f"{HOST}/resource-server/api/paycodes"
+    TIMEOFF_POLICIES_URL = f"{HOST}/resource-server/api/time_off_policies"
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -33,13 +34,27 @@ def timeoff_policy_sets_ui():
     # ==================================================
     section_header("📥 Download Upload Template")
 
-    template_df = pd.DataFrame(columns=[
+    template_columns = [
         "id",
         "name",
         "description",
-        "timeoff_policy_id",
-        "paycode_id"
-    ])
+        "timeoff_policy_id1",
+        "paycode_id1",
+        "timeoff_policy_id2",
+        "paycode_id2",
+        "timeoff_policy_id3",
+        "paycode_id3",
+        "timeoff_policy_id4",
+        "paycode_id4",
+        "timeoff_policy_id5",
+        "paycode_id5",
+        "timeoff_policy_id6",
+        "paycode_id6",
+        "timeoff_policy_id7",
+        "paycode_id7"
+    ]
+
+    template_df = pd.DataFrame(columns=template_columns)
 
     # Sheet 2 → Paycodes
     paycodes_resp = requests.get(PAYCODES_URL, headers=headers)
@@ -56,19 +71,28 @@ def timeoff_policy_sets_ui():
         else pd.DataFrame(columns=["id", "code", "description"])
     )
 
-    # Sheet 3 → Existing Timeoff Policy Sets
-    sets_resp = requests.get(BASE_URL, headers=headers)
-    sets_df = (
-        pd.DataFrame(sets_resp.json())
-        if sets_resp.status_code == 200
-        else pd.DataFrame()
+    # Sheet 3 → Time-off Policies
+    timeoff_policies_resp = requests.get(TIMEOFF_POLICIES_URL, headers=headers)
+    timeoff_policies_df = (
+        pd.DataFrame([
+            {
+                "id": policy.get("id"),
+                "name": policy.get("name"),
+                "description": policy.get("description")
+            }
+            for policy in timeoff_policies_resp.json()
+        ])
+        if timeoff_policies_resp.status_code == 200
+        else pd.DataFrame(columns=["id", "name", "description"])
     )
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         template_df.to_excel(writer, index=False, sheet_name="Upload_Template")
         paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes")
-        sets_df.to_excel(writer, index=False, sheet_name="Existing_Timeoff_Policy_Sets")
+        timeoff_policies_df.to_excel(writer, index=False, sheet_name="Timeoff_Policies")
+
+    output.seek(0)
 
     st.download_button(
         "⬇️ Download Template",
@@ -112,8 +136,6 @@ def timeoff_policy_sets_ui():
                     raw_id = row.get("id", "")
                     name = str(row.get("name", "")).strip()
                     description = str(row.get("description", "")).strip() or name
-                    policy_id = int(row["timeoff_policy_id"])
-                    paycode_id = int(row["paycode_id"])
 
                     # ✅ CRITICAL FIX — HANDLE FLOAT IDS
                     numeric_id = None
@@ -132,10 +154,20 @@ def timeoff_policy_sets_ui():
                             "entries": []
                         }
 
-                    grouped[group_key]["entries"].append({
-                        "id": policy_id,
-                        "paycode": {"id": paycode_id}
-                    })
+                    for index in range(1, 8):
+                        raw_policy_id = str(row.get(f"timeoff_policy_id{index}", "")).strip()
+                        raw_paycode_id = str(row.get(f"paycode_id{index}", "")).strip()
+
+                        if not raw_policy_id and not raw_paycode_id:
+                            continue
+
+                        policy_id = int(float(raw_policy_id))
+                        paycode_id = int(float(raw_paycode_id))
+
+                        grouped[group_key]["entries"].append({
+                            "id": policy_id,
+                            "paycode": {"id": paycode_id}
+                        })
 
                 # -----------------------------
                 # API CALLS
