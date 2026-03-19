@@ -33,12 +33,17 @@ def timeoff_policy_sets_ui():
     # ==================================================
     section_header("📥 Download Upload Template")
 
+    dynamic_columns = [
+        column
+        for index in range(1, 8)
+        for column in (f"timeoff_policy_id{index}", f"paycode_id{index}")
+    ]
+
     template_df = pd.DataFrame(columns=[
         "id",
         "name",
         "description",
-        "timeoff_policy_id",
-        "paycode_id"
+        *dynamic_columns
     ])
 
     # Sheet 2 → Paycodes
@@ -112,8 +117,6 @@ def timeoff_policy_sets_ui():
                     raw_id = row.get("id", "")
                     name = str(row.get("name", "")).strip()
                     description = str(row.get("description", "")).strip() or name
-                    policy_id = int(row["timeoff_policy_id"])
-                    paycode_id = int(row["paycode_id"])
 
                     # ✅ CRITICAL FIX — HANDLE FLOAT IDS
                     numeric_id = None
@@ -132,10 +135,20 @@ def timeoff_policy_sets_ui():
                             "entries": []
                         }
 
-                    grouped[group_key]["entries"].append({
-                        "id": policy_id,
-                        "paycode": {"id": paycode_id}
-                    })
+                    for index in range(1, 8):
+                        raw_policy_id = str(row.get(f"timeoff_policy_id{index}", "")).strip()
+                        raw_paycode_id = str(row.get(f"paycode_id{index}", "")).strip()
+
+                        if not raw_policy_id and not raw_paycode_id:
+                            continue
+
+                        policy_id = int(float(raw_policy_id))
+                        paycode_id = int(float(raw_paycode_id))
+
+                        grouped[group_key]["entries"].append({
+                            "id": policy_id,
+                            "paycode": {"id": paycode_id}
+                        })
 
                 # -----------------------------
                 # API CALLS
