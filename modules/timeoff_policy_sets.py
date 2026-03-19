@@ -33,13 +33,27 @@ def timeoff_policy_sets_ui():
     # ==================================================
     section_header("📥 Download Upload Template")
 
-    template_df = pd.DataFrame(columns=[
+    template_columns = [
         "id",
         "name",
         "description",
-        "timeoff_policy_id",
-        "paycode_id"
-    ])
+        "timeoff_policy_id1",
+        "paycode_id1",
+        "timeoff_policy_id2",
+        "paycode_id2",
+        "timeoff_policy_id3",
+        "paycode_id3",
+        "timeoff_policy_id4",
+        "paycode_id4",
+        "timeoff_policy_id5",
+        "paycode_id5",
+        "timeoff_policy_id6",
+        "paycode_id6",
+        "timeoff_policy_id7",
+        "paycode_id7"
+    ]
+
+    template_df = pd.DataFrame(columns=template_columns)
 
     # Sheet 2 → Paycodes
     paycodes_resp = requests.get(PAYCODES_URL, headers=headers)
@@ -69,6 +83,8 @@ def timeoff_policy_sets_ui():
         template_df.to_excel(writer, index=False, sheet_name="Upload_Template")
         paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes")
         sets_df.to_excel(writer, index=False, sheet_name="Existing_Timeoff_Policy_Sets")
+
+    output.seek(0)
 
     st.download_button(
         "⬇️ Download Template",
@@ -112,8 +128,6 @@ def timeoff_policy_sets_ui():
                     raw_id = row.get("id", "")
                     name = str(row.get("name", "")).strip()
                     description = str(row.get("description", "")).strip() or name
-                    policy_id = int(row["timeoff_policy_id"])
-                    paycode_id = int(row["paycode_id"])
 
                     # ✅ CRITICAL FIX — HANDLE FLOAT IDS
                     numeric_id = None
@@ -132,10 +146,20 @@ def timeoff_policy_sets_ui():
                             "entries": []
                         }
 
-                    grouped[group_key]["entries"].append({
-                        "id": policy_id,
-                        "paycode": {"id": paycode_id}
-                    })
+                    for index in range(1, 8):
+                        raw_policy_id = str(row.get(f"timeoff_policy_id{index}", "")).strip()
+                        raw_paycode_id = str(row.get(f"paycode_id{index}", "")).strip()
+
+                        if not raw_policy_id and not raw_paycode_id:
+                            continue
+
+                        policy_id = int(float(raw_policy_id))
+                        paycode_id = int(float(raw_paycode_id))
+
+                        grouped[group_key]["entries"].append({
+                            "id": policy_id,
+                            "paycode": {"id": paycode_id}
+                        })
 
                 # -----------------------------
                 # API CALLS
