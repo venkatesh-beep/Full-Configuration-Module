@@ -21,6 +21,7 @@ def timeoff_policy_sets_ui():
     HOST = st.session_state.HOST.rstrip("/")
     BASE_URL = f"{HOST}/resource-server/api/time_off_policy_sets"
     PAYCODES_URL = f"{HOST}/resource-server/api/paycodes"
+    TIMEOFF_POLICIES_URL = f"{HOST}/resource-server/api/time_off_policies"
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -70,19 +71,28 @@ def timeoff_policy_sets_ui():
         else pd.DataFrame(columns=["id", "code", "description"])
     )
 
-    # Sheet 3 → Existing Timeoff Policy Sets
-    sets_resp = requests.get(BASE_URL, headers=headers)
-    sets_df = (
-        pd.DataFrame(sets_resp.json())
-        if sets_resp.status_code == 200
-        else pd.DataFrame()
+    # Sheet 3 → Time-off Policies
+    timeoff_policies_resp = requests.get(TIMEOFF_POLICIES_URL, headers=headers)
+    timeoff_policies_df = (
+        pd.DataFrame([
+            {
+                "id": policy.get("id"),
+                "name": policy.get("name"),
+                "description": policy.get("description")
+            }
+            for policy in timeoff_policies_resp.json()
+        ])
+        if timeoff_policies_resp.status_code == 200
+        else pd.DataFrame(columns=["id", "name", "description"])
     )
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         template_df.to_excel(writer, index=False, sheet_name="Upload_Template")
         paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes")
-        sets_df.to_excel(writer, index=False, sheet_name="Existing_Timeoff_Policy_Sets")
+        timeoff_policies_df.to_excel(writer, index=False, sheet_name="Timeoff_Policies")
+
+    output.seek(0)
 
     output.seek(0)
 
