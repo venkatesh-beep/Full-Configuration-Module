@@ -1,11 +1,11 @@
-import streamlit as st
-import requests
-import time
 import os
+import time
 
-# ======================================================
-# ENV
-# ======================================================
+import requests
+import streamlit as st
+
+from modules.ui_helpers import inject_brand_styles
+
 CLIENT_AUTH = os.getenv("CLIENT_AUTH")
 
 if not CLIENT_AUTH:
@@ -13,140 +13,143 @@ if not CLIENT_AUTH:
 
 DEFAULT_HOST = "https://saas-beeforce.labour.tech"
 
-# ======================================================
-# LOGIN UI
-# ======================================================
-def login_ui():
 
-    # ---------- Page styling ----------
-    st.markdown("""
+def login_ui():
+    inject_brand_styles()
+    st.markdown(
+        """
         <style>
-        .stApp {
-            background: radial-gradient(circle at top, #f7f9ff 0%, #eef5ff 45%, #e8f1ff 100%);
-            color: #0f172a;
-        }
         #MainMenu, footer, header {
             visibility: hidden;
         }
-        div[data-testid="stForm"] {
-            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-            padding: 34px 32px 28px;
+        .login-layout {
+            padding-top: 2.5rem;
+        }
+        .login-hero, .login-panel {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
             border-radius: 18px;
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
-            max-width: 420px;
-            margin: 0 auto;
+            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+            padding: 1.5rem;
+            min-height: 100%;
         }
-        div[data-testid="stForm"] .login-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
+        .login-kicker {
+            display: inline-block;
+            padding: 0.32rem 0.65rem;
             border-radius: 999px;
-            background: rgba(99, 102, 241, 0.12);
+            background: #eef2ff;
             color: #4338ca;
-            font-weight: 600;
-            font-size: 0.75rem;
-            letter-spacing: 0.03em;
+            font-size: 0.76rem;
+            font-weight: 700;
             text-transform: uppercase;
-            margin: 0 auto 12px;
+            letter-spacing: 0.05em;
         }
-        div[data-testid="stForm"] .login-header {
-            text-align: center;
-            margin-bottom: 8px;
+        .login-title {
+            font-size: 2rem;
+            line-height: 1.15;
+            font-weight: 800;
+            color: #111827;
+            margin: 0.9rem 0 0.45rem;
         }
-        div[data-testid="stForm"] h2 {
-            letter-spacing: -0.02em;
-        }
-        div[data-testid="stForm"] p {
+        .login-copy, .login-list {
+            color: #6b7280;
             font-size: 0.95rem;
         }
-        div[data-testid="stTextInput"] label {
-            color: #334155;
-            font-weight: 600;
+        .login-list {
+            margin-top: 1rem;
+            padding-left: 1rem;
+        }
+        .login-list li {
+            margin-bottom: 0.55rem;
+        }
+        .login-panel-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #111827;
+            margin-bottom: 0.25rem;
+        }
+        .login-panel-copy {
+            color: #6b7280;
+            font-size: 0.92rem;
+            margin-bottom: 1rem;
+        }
+        div[data-testid="stForm"] {
+            background: transparent;
+            border: none;
+            padding: 0;
+            box-shadow: none;
         }
         div[data-testid="stTextInput"] input {
-            border-radius: 10px;
-            border: 1px solid #e2e8f0;
-            background-color: #f8fafc;
-            padding: 0.6rem 0.75rem;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            border-radius: 12px;
+            border: 1px solid #d1d5db;
+            padding: 0.72rem 0.85rem;
         }
         div[data-testid="stTextInput"] input:focus {
             border-color: #4f46e5;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
         }
         div[data-testid="stForm"] .stButton > button {
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-            color: #ffffff;
-            border: none;
-            padding: 0.65rem 1rem;
             border-radius: 12px;
-            font-weight: 600;
-            box-shadow: 0 14px 30px rgba(79, 70, 229, 0.25);
+            min-height: 2.9rem;
+            background: #4f46e5;
+            border: 1px solid #4f46e5;
+            color: white;
+            font-weight: 700;
         }
         div[data-testid="stForm"] .stButton > button:hover {
-            background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
-        }
-        div[data-testid="stForm"] .stButton > button:focus {
-            box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.4);
+            background: #4338ca;
+            border-color: #4338ca;
         }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # ---------- Ensure input key exists ----------
     if "HOST_INPUT" not in st.session_state:
-        st.session_state.HOST_INPUT = st.session_state.get(
-            "HOST", DEFAULT_HOST
-        )
+        st.session_state.HOST_INPUT = st.session_state.get("HOST", DEFAULT_HOST)
 
-    # ---------- Center the form ----------
-    col1, col2, col3 = st.columns([1.6, 1.2, 1.6])
-
-    with col2:
+    st.markdown("<div class='login-layout'>", unsafe_allow_html=True)
+    hero_col, panel_col = st.columns([1.2, 1])
+    with hero_col:
         st.markdown(
-            "<div class='login-header'><span class='login-badge'>Secure sign-in</span></div>",
-            unsafe_allow_html=True
+            """
+            <div class="login-hero">
+                <div class="login-kicker">Attendance Configuration Portal</div>
+                <div class="login-title">Modern workspace for attendance operations</div>
+                <div class="login-copy">Manage configuration, imports, policy changes, and scheduler updates from a cleaner enterprise dashboard.</div>
+                <ul class="login-list">
+                    <li>Grouped navigation for faster module discovery</li>
+                    <li>Quick actions for common create and upload flows</li>
+                    <li>Cleaner visual hierarchy with lower cognitive load</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
+    with panel_col:
         st.markdown(
-            "<h2 style='text-align:center;margin-bottom:6px;'>Welcome back</h2>",
-            unsafe_allow_html=True
+            """
+            <div class="login-panel">
+                <div class="login-panel-title">Sign in</div>
+                <div class="login-panel-copy">Enter your tenant host and credentials to continue.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        st.markdown(
-            "<p style='text-align:center;color:#64748b;margin-bottom:26px;'>"
-            "Sign in to continue to Attendance Configuration.</p>",
-            unsafe_allow_html=True
-        )
-
-        # ---------- FORM ----------
         with st.form("login_form"):
-            st.text_input(
-                "Base Host URL",
-                key="HOST_INPUT",
-                placeholder="https://your-tenant.labour.tech"
-            )
+            st.text_input("Base Host URL", key="HOST_INPUT", placeholder="https://your-tenant.labour.tech")
             username = st.text_input("Username", placeholder="you@example.com")
             password = st.text_input("Password", type="password", placeholder="••••••••")
+            submitted = st.form_submit_button("Sign in", use_container_width=True)
 
-            submitted = st.form_submit_button("Submit", use_container_width=True)
-
-        # ---------- LOGIN LOGIC (FIXED ONLY HERE) ----------
         if submitted:
             host = st.session_state.HOST_INPUT.rstrip("/")
-
             try:
                 r = requests.post(
                     host + "/authorization-server/oauth/token",
-                    data={
-                        "username": username,
-                        "password": password,
-                        "grant_type": "password"
-                    },
-                    headers={
-                        "Authorization": CLIENT_AUTH,
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    timeout=12
+                    data={"username": username, "password": password, "grant_type": "password"},
+                    headers={"Authorization": CLIENT_AUTH, "Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=12,
                 )
             except requests.exceptions.RequestException as e:
                 st.error(f"❌ Cannot reach server: {e}")
@@ -158,9 +161,8 @@ def login_ui():
                 st.session_state.token = r.json()["access_token"]
                 st.session_state.token_issued_at = time.time()
                 st.session_state.username = username
-
-                # 🔑 AUTHORITATIVE HOST SET HERE
                 st.session_state.HOST = host
-
                 st.success("✅ Login successful")
                 st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
