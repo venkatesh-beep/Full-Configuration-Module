@@ -28,6 +28,7 @@ from modules.punch import punch_ui
 from modules.schedule_pattern_mapper import schedule_pattern_mapper_ui
 from modules.known_locations import known_locations_ui
 from modules.organization_locations import organization_locations_ui
+from modules.schedule_delete import schedule_delete_ui
 
 
 # ================= PAGE CONFIG =================
@@ -88,6 +89,7 @@ menu_options = [
     "Schedule Pattern Update",
     "Known Locations",
     "Org Locations",
+    "Schedule Delete",
 ]
 
 menu_icons = {
@@ -115,6 +117,7 @@ menu_icons = {
     "Schedule Pattern Update": "🧷",
     "Known Locations": "📍",
     "Org Locations": "🗺️",
+    "Schedule Delete": "🗑️",
 }
 
 with st.sidebar:
@@ -199,3 +202,5 @@ elif menu == "Known Locations":
     known_locations_ui()
 elif menu == "Org Locations":
     organization_locations_ui()
+elif menu == "Schedule Delete":
+    schedule_delete_ui()
