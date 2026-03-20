@@ -202,3 +202,5 @@ elif menu == "Known Locations":
     known_locations_ui()
 elif menu == "Org Locations":
     organization_locations_ui()
+elif menu == "Schedule Delete":
+    schedule_delete_ui()
