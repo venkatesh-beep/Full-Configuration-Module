@@ -29,13 +29,25 @@ def login_ui():
             visibility: hidden;
         }
         div[data-testid="stForm"] {
-            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.96) 100%);
             padding: 34px 32px 28px;
-            border-radius: 18px;
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
-            max-width: 420px;
+            border-radius: 24px;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            box-shadow: 0 30px 80px rgba(15, 23, 42, 0.14);
+            max-width: 460px;
             margin: 0 auto;
+            backdrop-filter: blur(16px);
+        }
+        div[data-testid="stForm"]:before {
+            content: "";
+            position: absolute;
+            inset: -80px -40px auto auto;
+            width: 180px;
+            height: 180px;
+            border-radius: 999px;
+            background: rgba(99, 102, 241, 0.10);
         }
         div[data-testid="stForm"] .login-badge {
             display: inline-flex;
@@ -114,7 +126,7 @@ def login_ui():
         )
         st.markdown(
             "<p style='text-align:center;color:#64748b;margin-bottom:26px;'>"
-            "Sign in to continue to Attendance Configuration.</p>",
+            "Sign in to access the premium attendance configuration workspace.</p>",
             unsafe_allow_html=True
         )
 
@@ -128,7 +140,7 @@ def login_ui():
             username = st.text_input("Username", placeholder="you@example.com")
             password = st.text_input("Password", type="password", placeholder="••••••••")
 
-            submitted = st.form_submit_button("Submit", use_container_width=True)
+            submitted = st.form_submit_button("Enter workspace", use_container_width=True)
 
         # ---------- LOGIN LOGIC (FIXED ONLY HERE) ----------
         if submitted:
