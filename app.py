@@ -292,6 +292,9 @@ if "token_issued_at" not in st.session_state:
 if "active_module" not in st.session_state:
     st.session_state.active_module = MODULE_CATALOG[0]["name"]
 
+if "active_module" not in st.session_state:
+    st.session_state.active_module = MODULE_CATALOG[0]["name"]
+
 logged_in_user = st.session_state.get("username", "Logged User")
 
 if not st.session_state.token:
@@ -306,6 +309,7 @@ if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
 
 inject_shell_styles()
 
+# ================= SIDEBAR MENU =================
 with st.sidebar:
     st.markdown("## ⚙️ Configuration Portal")
     st.caption("Structured workspace for attendance and policy operations")
