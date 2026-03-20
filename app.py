@@ -28,7 +28,6 @@ from modules.punch import punch_ui
 from modules.schedule_pattern_mapper import schedule_pattern_mapper_ui
 from modules.known_locations import known_locations_ui
 from modules.organization_locations import organization_locations_ui
-from modules.schedule_delete import schedule_delete_ui
 
 
 st.set_page_config(
@@ -307,7 +306,60 @@ if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
     st.session_state.clear()
     st.rerun()
 
-inject_shell_styles()
+# ================= SIDEBAR MENU =================
+menu_options = [
+    "Paycodes",
+    "Paycode Events",
+    "Paycode Combinations",
+    "Paycode Event Sets",
+    "Shift Templates",
+    "Shift Template Sets",
+    "Schedule Patterns",
+    "Schedule Pattern Sets",
+    "Emp Lookup Table",
+    "Org Lookup Table",
+    "Accruals",
+    "Accrual Policies",
+    "Accrual Policy Sets",
+    "Timeoff Policies",
+    "Timeoff Policy Sets",
+    "Regularization Policies",
+    "Regularization Policy Sets",
+    "Roles",
+    "Overtime Policies",
+    "Timecard Updation",
+    "Punch Update",
+    "Schedule Pattern Update",
+    "Known Locations",
+    "Org Locations",
+]
+
+menu_icons = {
+    "Paycodes": "🏠",
+    "Paycode Events": "📊",
+    "Paycode Combinations": "🧩",
+    "Paycode Event Sets": "🗂️",
+    "Shift Templates": "🗓️",
+    "Shift Template Sets": "📁",
+    "Schedule Patterns": "📈",
+    "Schedule Pattern Sets": "🧮",
+    "Emp Lookup Table": "👥",
+    "Org Lookup Table": "🏢",
+    "Accruals": "💼",
+    "Accrual Policies": "📌",
+    "Accrual Policy Sets": "🧾",
+    "Timeoff Policies": "🌴",
+    "Timeoff Policy Sets": "🧳",
+    "Regularization Policies": "🧭",
+    "Regularization Policy Sets": "🧩",
+    "Roles": "🔐",
+    "Overtime Policies": "⏱️",
+    "Timecard Updation": "📝",
+    "Punch Update": "⏲️",
+    "Schedule Pattern Update": "🧷",
+    "Known Locations": "📍",
+    "Org Locations": "🗺️",
+}
 
 # ================= SIDEBAR MENU =================
 with st.sidebar:
@@ -361,6 +413,52 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-menu = st.session_state.active_module
-render_workspace_header(menu)
-ROUTER[menu]()
+# ================= MAIN ROUTER =================
+if menu == "Paycodes":
+    paycodes_ui()
+elif menu == "Paycode Events":
+    paycode_events_ui()
+elif menu == "Paycode Combinations":
+    paycode_combinations_ui()
+elif menu == "Paycode Event Sets":
+    paycode_event_sets_ui()
+elif menu == "Shift Templates":
+    shift_templates_ui()
+elif menu == "Shift Template Sets":
+    shift_template_sets_ui()
+elif menu == "Schedule Patterns":
+    schedule_patterns_ui()
+elif menu == "Schedule Pattern Sets":
+    schedule_pattern_sets_ui()
+elif menu == "Emp Lookup Table":
+    employee_lookup_table_ui()
+elif menu == "Org Lookup Table":
+    organization_location_lookup_table_ui()
+elif menu == "Accruals":
+    accruals_ui()
+elif menu == "Accrual Policies":
+    accrual_policies_ui()
+elif menu == "Accrual Policy Sets":
+    accrual_policy_sets_ui()
+elif menu == "Timeoff Policies":
+    timeoff_policies_ui()
+elif menu == "Timeoff Policy Sets":
+    timeoff_policy_sets_ui()
+elif menu == "Regularization Policies":
+    regularization_policies_ui()
+elif menu == "Regularization Policy Sets":
+    regularization_policy_sets_ui()
+elif menu == "Roles":
+    roles_ui()
+elif menu == "Overtime Policies":
+    overtime_policies_ui()
+elif menu == "Timecard Updation":
+    timecard_updation_ui()
+elif menu == "Punch Update":
+    punch_ui()
+elif menu == "Schedule Pattern Update":
+    schedule_pattern_mapper_ui()
+elif menu == "Known Locations":
+    known_locations_ui()
+elif menu == "Org Locations":
+    organization_locations_ui()
