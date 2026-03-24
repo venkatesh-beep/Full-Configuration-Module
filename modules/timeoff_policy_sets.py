@@ -9,7 +9,6 @@ from modules.ui_helpers import module_header, section_header
 def _flatten_timeoff_policy_sets(raw_sets):
     policies = raw_sets if isinstance(raw_sets, list) else [raw_sets]
     rows = []
-
     for policy_set in policies:
         set_id = policy_set.get("id")
         set_name = policy_set.get("name")
