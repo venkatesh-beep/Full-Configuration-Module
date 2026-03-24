@@ -5,6 +5,40 @@ import io
 
 from modules.ui_helpers import module_header, section_header
 
+
+def _flatten_timeoff_policy_sets(raw_sets):
+    policies = raw_sets if isinstance(raw_sets, list) else [raw_sets]
+    rows = []
+
+    for policy_set in policies:
+        set_id = policy_set.get("id")
+        set_name = policy_set.get("name")
+        set_description = policy_set.get("description")
+
+        for entry in policy_set.get("entries") or []:
+            rows.append(
+                {
+                    "Set ID": set_id,
+                    "Set Name": set_name,
+                    "Set Description": set_description,
+                    "Paycode ID": (entry.get("paycode") or {}).get("id", ""),
+                    "Time off Policy ID": entry.get("id"),
+                    "Time off Policy Name": entry.get("name"),
+                }
+            )
+
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "Set ID",
+            "Set Name",
+            "Set Description",
+            "Paycode ID",
+            "Time off Policy ID",
+            "Time off Policy Name",
+        ],
+    )
+
 # ======================================================
 # MAIN UI
 # ======================================================
@@ -237,15 +271,42 @@ def timeoff_policy_sets_ui():
     # ==================================================
     section_header("⬇️ Download Existing Time-off Policy Sets")
 
-    r = requests.get(BASE_URL, headers=headers)
-    if r.status_code != 200:
+    export_sets_url = "https://saas-beeforce.labour.tech/resource-server/api/time_off_policy_sets?projection=FULL"
+    export_paycodes_url = "https://app.beeforce.in/api/attendance/paycode"
+
+    export_sets_resp = requests.get(export_sets_url, headers=headers)
+    export_paycodes_resp = requests.get(export_paycodes_url, headers=headers)
+
+    if export_sets_resp.status_code != 200:
         st.error("Failed to fetch Time-off Policy Sets")
     else:
-        df_existing = pd.DataFrame(r.json())
+        sets_df = _flatten_timeoff_policy_sets(export_sets_resp.json())
+        paycodes_df = (
+            pd.DataFrame(
+                [
+                    {
+                        "id": paycode.get("id"),
+                        "name": paycode.get("name"),
+                        "description": paycode.get("description"),
+                    }
+                    for paycode in export_paycodes_resp.json()
+                ]
+            )
+            if export_paycodes_resp.status_code == 200
+            else pd.DataFrame(columns=["id", "name", "description"])
+        )
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            sets_df.to_excel(writer, index=False, sheet_name="Timeoff_Policy_Sets")
+            paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes")
+
+        output.seek(0)
+
         st.download_button(
             "⬇️ Download Existing Time-off Policy Sets",
-            data=df_existing.to_csv(index=False),
-            file_name="timeoff_policy_sets_export.csv",
-            mime="text/csv",
+            data=output.getvalue(),
+            file_name="timeoff_policy_sets_export.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
