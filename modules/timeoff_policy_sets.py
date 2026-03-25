@@ -9,6 +9,7 @@ from modules.ui_helpers import module_header, section_header
 def _flatten_timeoff_policy_sets(raw_sets):
     policies = raw_sets if isinstance(raw_sets, list) else [raw_sets]
     rows = []
+
     for policy_set in policies:
         set_id = policy_set.get("id")
         set_name = policy_set.get("name")
@@ -270,8 +271,8 @@ def timeoff_policy_sets_ui():
     # ==================================================
     section_header("⬇️ Download Existing Time-off Policy Sets")
 
-    export_sets_url = "https://saas-beeforce.labour.tech/resource-server/api/time_off_policy_sets?projection=FULL"
-    export_paycodes_url = "https://app.beeforce.in/api/attendance/paycode"
+    export_sets_url = f"{HOST}/resource-server/api/time_off_policy_sets?projection=FULL"
+    export_paycodes_url = f"{HOST}/resource-server/api/paycode"
 
     export_sets_resp = requests.get(export_sets_url, headers=headers)
     export_paycodes_resp = requests.get(export_paycodes_url, headers=headers)
