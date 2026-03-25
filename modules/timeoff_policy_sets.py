@@ -5,7 +5,6 @@ import io
 
 from modules.ui_helpers import module_header, section_header
 
-
 def _flatten_timeoff_policy_sets(raw_sets):
     policies = raw_sets if isinstance(raw_sets, list) else [raw_sets]
     rows = []
