@@ -89,9 +89,9 @@ def timecard_updation_ui():
         return
 
     df = (
-        pd.read_csv(uploaded_file)
+        pd.read_csv(uploaded_file, dtype=str)
         if uploaded_file.name.endswith(".csv")
-        else pd.read_excel(uploaded_file)
+        else pd.read_excel(uploaded_file, dtype=str)
     )
 
     # --------------------------------------------------
