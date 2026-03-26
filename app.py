@@ -4,6 +4,7 @@ import streamlit as st
 import time
 
 from services.auth import login_ui
+from services.activity_logger import install_file_uploader_logging, install_requests_logging
 
 # ---- Core Modules ----
 from modules.paycodes import paycodes_ui
@@ -31,6 +32,7 @@ from modules.schedule_pattern_mapper import schedule_pattern_mapper_ui
 from modules.known_locations import known_locations_ui
 from modules.organization_locations import organization_locations_ui
 from modules.schedule_delete import schedule_delete_ui
+from modules.admin_logs import admin_logs_ui
 
 
 # ================= PAGE CONFIG =================
@@ -39,6 +41,9 @@ st.set_page_config(
     page_icon="⚙️",
     layout="wide"
 )
+
+install_requests_logging()
+install_file_uploader_logging()
 
 # ================= SESSION STATE =================
 if "HOST" not in st.session_state:
@@ -66,7 +71,7 @@ if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
     st.rerun()
 
 # ================= SIDEBAR MENU =================
-menu_options = [
+default_menu_options = [
     "Accrual Policies",
     "Accrual Policy Sets",
     "Accruals",
@@ -94,7 +99,14 @@ menu_options = [
     "Timeoff Policy Sets",
 ]
 
+is_logs_admin = st.session_state.get("username") == "Logs@BT"
+if is_logs_admin:
+    menu_options = ["Admin Logs"]
+else:
+    menu_options = default_menu_options
+
 menu_icons = {
+    "Admin Logs": "📜",
     "Paycodes": "🏠",
     "Paycode Events": "📊",
     "Paycode Combinations": "🧩",
@@ -131,12 +143,15 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-    visible_count = st.slider(
-        "Visible modules",
-        min_value=5,
-        max_value=len(menu_options),
-        value=len(menu_options)
-    )
+    if len(menu_options) <= 5:
+        visible_count = len(menu_options)
+    else:
+        visible_count = st.slider(
+            "Visible modules",
+            min_value=5,
+            max_value=len(menu_options),
+            value=len(menu_options)
+        )
 
     filtered_options = [
         opt for opt in menu_options
@@ -153,6 +168,8 @@ with st.sidebar:
     if st.button("🚪 Logout"):
         st.session_state.clear()
         st.rerun()
+
+st.session_state.active_module = menu
 
 # ================= MAIN ROUTER =================
 if menu == "Paycodes":
@@ -205,3 +222,5 @@ elif menu == "Org Locations":
     organization_locations_ui()
 elif menu == "Schedule Delete":
     schedule_delete_ui()
+elif menu == "Admin Logs":
+    admin_logs_ui()
