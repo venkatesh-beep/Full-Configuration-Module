@@ -16,7 +16,14 @@ TOKEN_EXPIRED_MESSAGE = "Token expired"
 
 
 def logout_user(error_message=None):
+<<<<<<< codex/retain-page-state-after-refresh-zhgj3r
+    query_params = st.query_params
     st.session_state.clear()
+    for key in ("token", "token_iat", "username", "host"):
+        query_params.pop(key, None)
+=======
+    st.session_state.clear()
+>>>>>>> main
     if error_message:
         st.session_state.auth_error = error_message
     st.rerun()
@@ -173,6 +180,10 @@ def login_ui():
 
                 # 🔑 AUTHORITATIVE HOST SET HERE
                 st.session_state.HOST = host
+                st.query_params["token"] = st.session_state.token
+                st.query_params["token_iat"] = str(st.session_state.token_issued_at)
+                st.query_params["username"] = username
+                st.query_params["host"] = host
 
                 st.success("✅ Login successful")
                 st.rerun()

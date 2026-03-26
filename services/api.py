@@ -3,6 +3,10 @@ import requests
 
 from services.auth import logout_user, TOKEN_EXPIRED_MESSAGE
 
+<<<<<<< codex/retain-page-state-after-refresh-zhgj3r
+
+=======
+>>>>>>> main
 def headers():
     return {
         "Authorization": f"Bearer {st.session_state.token}",
