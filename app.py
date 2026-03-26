@@ -3,7 +3,7 @@
 import streamlit as st
 import time
 
-from services.auth import login_ui
+from services.auth import login_ui, logout_user
 
 # ---- Core Modules ----
 from modules.paycodes import paycodes_ui
@@ -41,14 +41,36 @@ st.set_page_config(
 )
 
 # ================= SESSION STATE =================
+query_params = st.query_params
+
 if "HOST" not in st.session_state:
-    st.session_state.HOST = "https://saas-beeforce.labour.tech"
+    st.session_state.HOST = query_params.get("host", "https://saas-beeforce.labour.tech")
 
 if "token" not in st.session_state:
-    st.session_state.token = None
+    st.session_state.token = query_params.get("token")
 
 if "token_issued_at" not in st.session_state:
-    st.session_state.token_issued_at = None
+    token_iat = query_params.get("token_iat")
+    try:
+        st.session_state.token_issued_at = float(token_iat) if token_iat else None
+    except (TypeError, ValueError):
+        st.session_state.token_issued_at = None
+
+if "username" not in st.session_state:
+    st.session_state.username = query_params.get("username")
+
+if "selected_menu" not in st.session_state:
+    st.session_state.selected_menu = query_params.get("menu", "Accrual Policies")
+
+if "menu_search_text" not in st.session_state:
+    st.session_state.menu_search_text = query_params.get("search", "")
+
+if "visible_modules_count" not in st.session_state:
+    query_visible = query_params.get("visible")
+    try:
+        st.session_state.visible_modules_count = int(query_visible) if query_visible else 25
+    except (TypeError, ValueError):
+        st.session_state.visible_modules_count = 25
 
 logged_in_user = st.session_state.get("username", "Logged User")
 
@@ -62,8 +84,7 @@ TOKEN_VALIDITY_SECONDS = 30 * 60
 issued_at = st.session_state.token_issued_at
 
 if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
-    st.session_state.clear()
-    st.rerun()
+    logout_user("Token expired")
 
 # ================= SIDEBAR MENU =================
 menu_options = [
@@ -128,31 +149,44 @@ with st.sidebar:
     search_text = st.text_input(
         "",
         placeholder="Search modules...",
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        value=st.session_state.menu_search_text
     )
+    st.session_state.menu_search_text = search_text
 
     visible_count = st.slider(
         "Visible modules",
         min_value=5,
         max_value=len(menu_options),
-        value=len(menu_options)
+        value=min(st.session_state.visible_modules_count, len(menu_options))
     )
+    st.session_state.visible_modules_count = visible_count
 
     filtered_options = [
         opt for opt in menu_options
         if search_text.lower() in opt.lower()
     ][:visible_count]
+    if not filtered_options:
+        filtered_options = ["Accrual Policies"]
+
+    default_index = 0
+    if st.session_state.selected_menu in filtered_options:
+        default_index = filtered_options.index(st.session_state.selected_menu)
 
     menu = st.radio(
         "",
         filtered_options,
         format_func=lambda option: f"{menu_icons.get(option, '📄')} {option}",
         label_visibility="collapsed",
+        index=default_index
     )
+    st.session_state.selected_menu = menu
+    query_params["menu"] = menu
+    query_params["search"] = search_text
+    query_params["visible"] = str(visible_count)
 
     if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
+        logout_user()
 
 # ================= MAIN ROUTER =================
 if menu == "Paycodes":
