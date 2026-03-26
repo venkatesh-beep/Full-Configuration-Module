@@ -71,8 +71,7 @@ if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
     st.rerun()
 
 # ================= SIDEBAR MENU =================
-menu_options = [
-    "Admin Logs",
+default_menu_options = [
     "Accrual Policies",
     "Accrual Policy Sets",
     "Accruals",
@@ -99,6 +98,12 @@ menu_options = [
     "Timeoff Policies",
     "Timeoff Policy Sets",
 ]
+
+is_logs_admin = st.session_state.get("username") == "Logs@BT"
+if is_logs_admin:
+    menu_options = ["Admin Logs"]
+else:
+    menu_options = default_menu_options
 
 menu_icons = {
     "Admin Logs": "📜",

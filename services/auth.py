@@ -177,7 +177,7 @@ def login_ui():
                 st.session_state.token = r.json()["access_token"]
                 st.session_state.token_issued_at = time.time()
                 st.session_state.username = username_clean
-                st.session_state.is_admin = False
+                st.session_state.is_admin = username_clean == ADMIN_USERNAME
                 log_action("STANDARD_LOGIN_SUCCESS", module_name="Authentication")
 
                 # 🔑 AUTHORITATIVE HOST SET HERE
