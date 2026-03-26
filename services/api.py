@@ -3,7 +3,6 @@ import requests
 
 from services.auth import logout_user, TOKEN_EXPIRED_MESSAGE
 
-
 def headers():
     return {
         "Authorization": f"Bearer {st.session_state.token}",
