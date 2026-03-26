@@ -230,11 +230,31 @@ def shift_template_sets_ui():
     # ==================================================
     section_header("⬇️ Download Existing Shift Template Sets")
 
-    r = requests.get(BASE_URL, headers=headers)
+    export_url = f"{BASE_URL}?projection=FULL"
+    r = requests.get(export_url, headers=headers)
     if r.status_code != 200:
         st.error("❌ Failed to fetch data")
     else:
-        df = pd.json_normalize(r.json())
+        response_data = r.json()
+        sets = response_data if isinstance(response_data, list) else [response_data]
+
+        rows = []
+        for item in sets:
+            set_id = item.get("id")
+            set_name = item.get("name")
+            set_description = item.get("description")
+
+            for entry in item.get("entries", []):
+                rows.append({
+                    "Set ID": set_id,
+                    "Set Name": set_name,
+                    "Set Description": set_description,
+                    "Shift Template ID": entry.get("id"),
+                    "Shift Template Name": entry.get("name"),
+                    "Shift Template Description": entry.get("description"),
+                })
+
+        df = pd.DataFrame(rows)
         st.download_button(
             "⬇️ Download Existing Shift Template Sets",
             data=df.to_csv(index=False),
