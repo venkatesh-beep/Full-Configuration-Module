@@ -12,6 +12,8 @@ if not CLIENT_AUTH:
     raise RuntimeError("CLIENT_AUTH environment variable is not set")
 
 DEFAULT_HOST = "https://saas-beeforce.labour.tech"
+ADMIN_USERNAME = "Logs@BT"
+ADMIN_PASSWORD = "8684##"
 
 # ======================================================
 # LOGIN UI
@@ -132,14 +134,29 @@ def login_ui():
 
         # ---------- LOGIN LOGIC (FIXED ONLY HERE) ----------
         if submitted:
-            host = st.session_state.HOST_INPUT.rstrip("/")
+            host = st.session_state.HOST_INPUT.strip().rstrip("/")
+            username_clean = username.strip()
+            password_clean = password.strip()
+
+            print(f"[Login Debug] submitted username={username_clean!r}")
+            print("[Login Debug] checking admin shortcut before normal API flow")
+
+            if username_clean == ADMIN_USERNAME and password_clean == ADMIN_PASSWORD:
+                print("[Login Debug] admin shortcut matched; bypassing normal login API")
+                st.session_state.token = "admin-local-session"
+                st.session_state.token_issued_at = time.time()
+                st.session_state.username = ADMIN_USERNAME
+                st.session_state.is_admin = True
+                st.session_state.HOST = host or DEFAULT_HOST
+                st.success("✅ Admin login successful")
+                st.rerun()
 
             try:
                 r = requests.post(
                     host + "/authorization-server/oauth/token",
                     data={
-                        "username": username,
-                        "password": password,
+                        "username": username_clean,
+                        "password": password_clean,
                         "grant_type": "password"
                     },
                     headers={
@@ -157,7 +174,8 @@ def login_ui():
             else:
                 st.session_state.token = r.json()["access_token"]
                 st.session_state.token_issued_at = time.time()
-                st.session_state.username = username
+                st.session_state.username = username_clean
+                st.session_state.is_admin = False
 
                 # 🔑 AUTHORITATIVE HOST SET HERE
                 st.session_state.HOST = host

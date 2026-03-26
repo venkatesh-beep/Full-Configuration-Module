@@ -31,6 +31,7 @@ from modules.schedule_pattern_mapper import schedule_pattern_mapper_ui
 from modules.known_locations import known_locations_ui
 from modules.organization_locations import organization_locations_ui
 from modules.schedule_delete import schedule_delete_ui
+from modules.admin_logs import admin_logs_ui
 
 
 # ================= PAGE CONFIG =================
@@ -67,6 +68,7 @@ if issued_at and (time.time() - issued_at) >= TOKEN_VALIDITY_SECONDS:
 
 # ================= SIDEBAR MENU =================
 menu_options = [
+    "Admin Logs",
     "Accrual Policies",
     "Accrual Policy Sets",
     "Accruals",
@@ -95,6 +97,7 @@ menu_options = [
 ]
 
 menu_icons = {
+    "Admin Logs": "📜",
     "Paycodes": "🏠",
     "Paycode Events": "📊",
     "Paycode Combinations": "🧩",
@@ -205,3 +208,5 @@ elif menu == "Org Locations":
     organization_locations_ui()
 elif menu == "Schedule Delete":
     schedule_delete_ui()
+elif menu == "Admin Logs":
+    admin_logs_ui()
