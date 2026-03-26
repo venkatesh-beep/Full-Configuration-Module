@@ -3,7 +3,7 @@ import requests
 import time
 import os
 
-# ======================================================
+# =====================================================
 # ENV
 # ======================================================
 CLIENT_AUTH = os.getenv("CLIENT_AUTH")
@@ -16,10 +16,14 @@ TOKEN_EXPIRED_MESSAGE = "Token expired"
 
 
 def logout_user(error_message=None):
+<<<<<<< codex/retain-page-state-after-refresh-zhgj3r
     query_params = st.query_params
     st.session_state.clear()
     for key in ("token", "token_iat", "username", "host"):
         query_params.pop(key, None)
+=======
+    st.session_state.clear()
+>>>>>>> main
     if error_message:
         st.session_state.auth_error = error_message
     st.rerun()

@@ -1,7 +1,10 @@
 
 import streamlit as st
 import time
+<<<<<<< codex/retain-page-state-after-refresh-zhgj3r
 
+=======
+>>>>>>> main
 from services.auth import login_ui, logout_user
 
 # ---- Core Modules ----
@@ -54,6 +57,16 @@ if "token_issued_at" not in st.session_state:
 
 if "username" not in st.session_state:
     st.session_state.username = query_params.get("username")
+
+if "selected_menu" not in st.session_state:
+    st.session_state.selected_menu = query_params.get("menu", "Accrual Policies")
+
+if "menu_search_text" not in st.session_state:
+    st.session_state.menu_search_text = query_params.get("search", "")
+
+if "visible_modules_count" not in st.session_state:
+    query_visible = query_params.get("visible")
+    st.session_state.visible_modules_count = int(query_visible) if query_visible else 25
 
 if "selected_menu" not in st.session_state:
     st.session_state.selected_menu = query_params.get("menu", "Accrual Policies")
