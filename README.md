@@ -9,6 +9,7 @@ Modules:
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
+```
 
 ## Admin Logs access
 - `Logs@BT` is the only user who can view **Admin Logs**.

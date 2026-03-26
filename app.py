@@ -143,12 +143,15 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-    visible_count = st.slider(
-        "Visible modules",
-        min_value=5,
-        max_value=len(menu_options),
-        value=len(menu_options)
-    )
+    if len(menu_options) <= 5:
+        visible_count = len(menu_options)
+    else:
+        visible_count = st.slider(
+            "Visible modules",
+            min_value=5,
+            max_value=len(menu_options),
+            value=len(menu_options)
+        )
 
     filtered_options = [
         opt for opt in menu_options
