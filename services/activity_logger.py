@@ -46,11 +46,36 @@ def upload_file_to_supabase(uploaded_file, module_name="Unknown"):
         print(f"[Log Debug] file upload failed {res.status_code}: {res.text}")
         return uploaded_file.name, None
 
+    signed_url = _create_signed_file_url(path)
     public_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{path}"
+    final_url = signed_url or public_url
     st.session_state.last_uploaded_file_name = uploaded_file.name
-    st.session_state.last_uploaded_file_url = public_url
-    print(f"[Log Debug] uploaded file to Supabase Storage: {public_url}")
-    return uploaded_file.name, public_url
+    st.session_state.last_uploaded_file_url = final_url
+    print(f"[Log Debug] uploaded file to Supabase Storage: {final_url}")
+    return uploaded_file.name, final_url
+
+
+def _create_signed_file_url(path, expires_in=60 * 60 * 24 * 30):
+    sign_endpoint = f"{SUPABASE_URL}/storage/v1/object/sign/{SUPABASE_BUCKET}/{path}"
+    res = _original_request(
+        requests.Session(),
+        "POST",
+        sign_endpoint,
+        headers=_supabase_headers(),
+        json={"expiresIn": expires_in},
+        timeout=10,
+    )
+    if res.status_code not in (200, 201):
+        print(f"[Log Debug] signed url generation failed {res.status_code}: {res.text}")
+        return None
+
+    signed_part = res.json().get("signedURL")
+    if not signed_part:
+        return None
+
+    if signed_part.startswith("http"):
+        return signed_part
+    return f"{SUPABASE_URL}{signed_part}"
 
 
 def log_action(action, module_name=None, file_name=None, file_url=None):

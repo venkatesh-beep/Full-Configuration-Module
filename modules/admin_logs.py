@@ -72,6 +72,44 @@ def _fetch_filter_options():
     return usernames, modules
 
 
+def _make_downloadable_url(file_url: str | None):
+    if not file_url:
+        return None
+
+    if "object/sign/" in file_url or "token=" in file_url:
+        return file_url
+
+    marker_public = f"/storage/v1/object/public/logs-files/"
+    marker_object = f"/storage/v1/object/logs-files/"
+    path = None
+
+    if marker_public in file_url:
+        path = file_url.split(marker_public, 1)[1]
+    elif marker_object in file_url:
+        path = file_url.split(marker_object, 1)[1]
+
+    if not path:
+        return file_url
+
+    sign_url = f"{SUPABASE_URL}/storage/v1/object/sign/logs-files/{path}"
+    response = requests.post(
+        sign_url,
+        headers=_supabase_headers(),
+        json={"expiresIn": 60 * 60 * 24 * 30},
+        timeout=10,
+    )
+    if response.status_code not in (200, 201):
+        return file_url
+
+    signed = response.json().get("signedURL")
+    if not signed:
+        return file_url
+
+    if signed.startswith("http"):
+        return signed
+    return f"{SUPABASE_URL}{signed}"
+
+
 def admin_logs_ui():
     st.subheader("📜 Admin Logs Dashboard")
 
@@ -153,7 +191,8 @@ def admin_logs_ui():
     st.markdown("### File Downloads")
     for r in rows:
         if r.get("file_url"):
-            st.link_button(f"Download {r.get('file_name') or r.get('id')}", r["file_url"])
+            download_url = _make_downloadable_url(r["file_url"])
+            st.link_button(f"Download {r.get('file_name') or r.get('id')}", download_url)
 
     csv_df = pd.DataFrame(rows)[["username", "module", "action", "created_at", "file_name"]]
     csv_bytes = io.BytesIO()
