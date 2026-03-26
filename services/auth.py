@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import time
 import os
+from services.activity_logger import log_action
 
 # ======================================================
 # ENV
@@ -148,6 +149,7 @@ def login_ui():
                 st.session_state.username = ADMIN_USERNAME
                 st.session_state.is_admin = True
                 st.session_state.HOST = host or DEFAULT_HOST
+                log_action("ADMIN_LOGIN_SHORTCUT", module_name="Authentication")
                 st.success("✅ Admin login successful")
                 st.rerun()
 
@@ -176,6 +178,7 @@ def login_ui():
                 st.session_state.token_issued_at = time.time()
                 st.session_state.username = username_clean
                 st.session_state.is_admin = False
+                log_action("STANDARD_LOGIN_SUCCESS", module_name="Authentication")
 
                 # 🔑 AUTHORITATIVE HOST SET HERE
                 st.session_state.HOST = host

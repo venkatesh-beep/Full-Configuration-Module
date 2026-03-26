@@ -4,6 +4,7 @@ import streamlit as st
 import time
 
 from services.auth import login_ui
+from services.activity_logger import install_file_uploader_logging, install_requests_logging
 
 # ---- Core Modules ----
 from modules.paycodes import paycodes_ui
@@ -40,6 +41,9 @@ st.set_page_config(
     page_icon="⚙️",
     layout="wide"
 )
+
+install_requests_logging()
+install_file_uploader_logging()
 
 # ================= SESSION STATE =================
 if "HOST" not in st.session_state:
@@ -156,6 +160,8 @@ with st.sidebar:
     if st.button("🚪 Logout"):
         st.session_state.clear()
         st.rerun()
+
+st.session_state.active_module = menu
 
 # ================= MAIN ROUTER =================
 if menu == "Paycodes":
