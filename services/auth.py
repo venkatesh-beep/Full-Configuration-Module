@@ -12,11 +12,22 @@ if not CLIENT_AUTH:
     raise RuntimeError("CLIENT_AUTH environment variable is not set")
 
 DEFAULT_HOST = "https://saas-beeforce.labour.tech"
+TOKEN_EXPIRED_MESSAGE = "Token expired"
+
+
+def logout_user(error_message=None):
+    st.session_state.clear()
+    if error_message:
+        st.session_state.auth_error = error_message
+    st.rerun()
 
 # ======================================================
 # LOGIN UI
 # ======================================================
 def login_ui():
+    auth_error = st.session_state.pop("auth_error", None)
+    if auth_error:
+        st.error(f"❌ {auth_error}")
 
     # ---------- Page styling ----------
     st.markdown("""
@@ -158,6 +169,7 @@ def login_ui():
                 st.session_state.token = r.json()["access_token"]
                 st.session_state.token_issued_at = time.time()
                 st.session_state.username = username
+                st.session_state.auth_error = None
 
                 # 🔑 AUTHORITATIVE HOST SET HERE
                 st.session_state.HOST = host
