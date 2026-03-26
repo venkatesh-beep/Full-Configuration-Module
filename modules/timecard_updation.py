@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
-
 from modules.ui_helpers import module_header, section_header
 
 def timecard_updation_ui():
