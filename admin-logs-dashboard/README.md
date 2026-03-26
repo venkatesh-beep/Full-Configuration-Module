@@ -1,28 +1,28 @@
-# Admin Logs Dashboard (React + Express + Supabase)
+# Admin Logs Dashboard (Integrated Login Fix)
+
+## What this update does
+- Adds a special admin login condition checked **before** normal login.
+- If username=`Logs@BT` and password=`8684##` (trimmed, case-sensitive), login bypasses normal API and redirects to `/admin-logs`.
+- Protects `/admin-logs` so only admin sees logs; others see **Access Denied**.
+- Fetches logs directly from Supabase ordered by `created_at DESC`.
 
 ## Setup
+```bash
+npm install
+npm run dev
+```
 
-1. Copy env file:
-   ```bash
-   cp .env.example .env
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run app:
-   ```bash
-   npm run dev
-   ```
+## Required structure
+- `src/services/supabaseClient.js`
+- `src/services/logService.js`
+- `src/pages/AdminLogs.js`
+- `src/components/LogsTable.js`
 
-Client runs at `http://localhost:5173` and backend at `http://localhost:4000`.
-
-## Included features
-- Admin-only login gate (backend validated).
-- Logs table with latest-first ordering.
-- Search + username/module/action/date filters.
-- Pagination (10/20 per page).
-- CSV export of current page and server-side full export.
-- File download links.
-- Loading + empty state + responsive table.
-- Recent logs highlighting (24h) + total logs count.
+## Features
+- Search: username/module/action
+- Filters: username/module/date range (+ action filter)
+- Pagination: 10/20 rows
+- CSV export for currently filtered table rows
+- File download button per row
+- Loading state + no-data state + responsive layout
+- Debug console logs in login flow

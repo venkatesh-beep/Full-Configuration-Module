@@ -1,112 +1,64 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import LogsTable from '../components/LogsTable';
-import { adminLogin, downloadAllLogs, exportCsv, fetchFilterOptions, fetchLogs } from '../services/logService';
-
-const defaultFilters = {
-  search: '',
-  username: '',
-  module: '',
-  action: '',
-  startDate: '',
-  endDate: ''
-};
+import { exportCsv, fetchFilterOptions, fetchLogs } from '../services/logService';
 
 function AdminLogs() {
-  const [auth, setAuth] = useState(!!localStorage.getItem('adminToken'));
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
-  const [filters, setFilters] = useState(defaultFilters);
+  const isAdmin = localStorage.getItem('isAdmin') === 'true';
+
+  const [filters, setFilters] = useState({
+    search: '',
+    username: '',
+    module: '',
+    action: '',
+    startDate: '',
+    endDate: ''
+  });
   const [rows, setRows] = useState([]);
-  const [usernames, setUsernames] = useState([]);
-  const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [usernames, setUsernames] = useState([]);
+  const [modules, setModules] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 10, totalPages: 1, totalCount: 0 });
 
-  const queryParams = useMemo(
-    () => ({
-      ...filters,
-      page: pagination.page,
-      pageSize: pagination.pageSize
-    }),
+  const params = useMemo(
+    () => ({ ...filters, page: pagination.page, pageSize: pagination.pageSize }),
     [filters, pagination.page, pagination.pageSize]
   );
 
   useEffect(() => {
-    if (!auth) return;
-
-    const loadMeta = async () => {
-      try {
-        const result = await fetchFilterOptions();
-        setUsernames(result.usernames || []);
-        setModules(result.modules || []);
-      } catch (e) {
-        setError(e.message);
-      }
-    };
-
-    loadMeta();
-  }, [auth]);
+    if (!isAdmin) return;
+    fetchFilterOptions()
+      .then((res) => {
+        setUsernames(res.usernames || []);
+        setModules(res.modules || []);
+      })
+      .catch((e) => setError(e.message));
+  }, [isAdmin]);
 
   useEffect(() => {
-    if (!auth) return;
+    if (!isAdmin) return;
+    setLoading(true);
+    fetchLogs(params)
+      .then((res) => {
+        setRows(res.rows || []);
+        setPagination((prev) => ({ ...prev, totalPages: res.totalPages, totalCount: res.totalCount }));
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [isAdmin, params]);
 
-    const loadLogs = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const result = await fetchLogs(queryParams);
-        setRows(result.rows || []);
-        setPagination((prev) => ({
-          ...prev,
-          totalPages: result.totalPages || 1,
-          totalCount: result.totalCount || 0
-        }));
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadLogs();
-  }, [auth, queryParams]);
-
-  const onLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      const result = await adminLogin(credentials.username, credentials.password);
-      localStorage.setItem('adminToken', result.token);
-      setAuth(true);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const onFilter = (key, value) => {
+  const onFilterChange = (key, value) => {
     setPagination((p) => ({ ...p, page: 1 }));
     setFilters((f) => ({ ...f, [key]: value }));
   };
 
-  if (!auth) {
+  if (!isAdmin) {
     return (
       <div className="auth-wrap">
-        <form className="card" onSubmit={onLogin}>
-          <h2>Admin Logs Login</h2>
-          <input
-            placeholder="Username"
-            value={credentials.username}
-            onChange={(e) => setCredentials((v) => ({ ...v, username: e.target.value }))}
-          />
-          <input
-            placeholder="Password"
-            type="password"
-            value={credentials.password}
-            onChange={(e) => setCredentials((v) => ({ ...v, password: e.target.value }))}
-          />
-          {error && <p className="error">{error}</p>}
-          <button type="submit">Login</button>
-        </form>
+        <div className="card">
+          <h2>Access Denied</h2>
+          <p>Only the special admin user can view this route.</p>
+        </div>
       </div>
     );
   }
@@ -120,9 +72,10 @@ function AdminLogs() {
         <input
           placeholder="Search username / module / action"
           value={filters.search}
-          onChange={(e) => onFilter('search', e.target.value)}
+          onChange={(e) => onFilterChange('search', e.target.value)}
         />
-        <select value={filters.username} onChange={(e) => onFilter('username', e.target.value)}>
+
+        <select value={filters.username} onChange={(e) => onFilterChange('username', e.target.value)}>
           <option value="">All Users</option>
           {usernames.map((u) => (
             <option key={u} value={u}>
@@ -130,7 +83,8 @@ function AdminLogs() {
             </option>
           ))}
         </select>
-        <select value={filters.module} onChange={(e) => onFilter('module', e.target.value)}>
+
+        <select value={filters.module} onChange={(e) => onFilterChange('module', e.target.value)}>
           <option value="">All Modules</option>
           {modules.map((m) => (
             <option key={m} value={m}>
@@ -138,18 +92,14 @@ function AdminLogs() {
             </option>
           ))}
         </select>
-        <input placeholder="Action filter" value={filters.action} onChange={(e) => onFilter('action', e.target.value)} />
-        <input type="date" value={filters.startDate} onChange={(e) => onFilter('startDate', e.target.value)} />
-        <input type="date" value={filters.endDate} onChange={(e) => onFilter('endDate', e.target.value)} />
 
-        <div className="actions">
-          <button type="button" onClick={() => exportCsv(rows)}>
-            Export CSV
-          </button>
-          <button type="button" onClick={() => downloadAllLogs(filters)}>
-            Download All Logs
-          </button>
-        </div>
+        <input placeholder="Filter by action" value={filters.action} onChange={(e) => onFilterChange('action', e.target.value)} />
+        <input type="date" value={filters.startDate} onChange={(e) => onFilterChange('startDate', e.target.value)} />
+        <input type="date" value={filters.endDate} onChange={(e) => onFilterChange('endDate', e.target.value)} />
+
+        <button type="button" onClick={() => exportCsv(rows)}>
+          Export CSV
+        </button>
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -157,11 +107,7 @@ function AdminLogs() {
       <LogsTable rows={rows} loading={loading} />
 
       <div className="pagination">
-        <button
-          type="button"
-          onClick={() => setPagination((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
-          disabled={pagination.page === 1}
-        >
+        <button type="button" disabled={pagination.page === 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>
           Prev
         </button>
         <span>
@@ -169,16 +115,13 @@ function AdminLogs() {
         </span>
         <button
           type="button"
-          onClick={() => setPagination((p) => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}
           disabled={pagination.page >= pagination.totalPages}
+          onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
         >
           Next
         </button>
 
-        <select
-          value={pagination.pageSize}
-          onChange={(e) => setPagination((p) => ({ ...p, pageSize: Number(e.target.value), page: 1 }))}
-        >
+        <select value={pagination.pageSize} onChange={(e) => setPagination((p) => ({ ...p, pageSize: Number(e.target.value), page: 1 }))}>
           <option value={10}>10 / page</option>
           <option value={20}>20 / page</option>
         </select>
