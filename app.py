@@ -66,7 +66,10 @@ if "menu_search_text" not in st.session_state:
 
 if "visible_modules_count" not in st.session_state:
     query_visible = query_params.get("visible")
-    st.session_state.visible_modules_count = int(query_visible) if query_visible else 25
+    try:
+        st.session_state.visible_modules_count = int(query_visible) if query_visible else 25
+    except (TypeError, ValueError):
+        st.session_state.visible_modules_count = 25
 
 logged_in_user = st.session_state.get("username", "Logged User")
 
@@ -162,6 +165,8 @@ with st.sidebar:
         opt for opt in menu_options
         if search_text.lower() in opt.lower()
     ][:visible_count]
+    if not filtered_options:
+        filtered_options = ["Accrual Policies"]
 
     default_index = 0
     if st.session_state.selected_menu in filtered_options:
