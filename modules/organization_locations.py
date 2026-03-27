@@ -34,6 +34,21 @@ def normalize_columns(df):
     return df
 
 
+def canonical_name(value):
+    return str(value or "").strip().lower()
+
+
+def extract_list_payload(response_json):
+    if isinstance(response_json, list):
+        return response_json
+    if isinstance(response_json, dict):
+        for key in ("data", "content", "results", "items"):
+            payload = response_json.get(key)
+            if isinstance(payload, list):
+                return payload
+    return []
+
+
 # ======================================================
 # MAIN UI
 # ======================================================
@@ -55,23 +70,37 @@ def organization_locations_ui():
         response = requests.get(levels_url, headers=headers, timeout=30)
         if response.status_code != 200:
             return None
-        levels = response.json()
-        if isinstance(levels, dict):
-            levels = levels.get("data", [])
-        return levels
+        return extract_list_payload(response.json())
 
-    def get_level_names(levels):
-        names = []
-        for level in levels or []:
-            name = level.get("name") or level.get("label")
-            if name:
-                names.append(str(name))
-        return names
+    def build_level_metadata(levels):
+        canonical_to_level = {}
+        ordered_level_columns = []
+        ordered_levels = sorted(
+            levels or [],
+            key=lambda item: (
+                to_int(item.get("sequence"))
+                if to_int(item.get("sequence")) is not None
+                else to_int(item.get("order"))
+                if to_int(item.get("order")) is not None
+                else 9999
+            ),
+        )
 
-    def level_id_lookup(levels):
-        return {level.get("id"): (level.get("name") or level.get("label")) for level in levels or []}
+        for level in ordered_levels:
+            raw_id = level.get("id")
+            level_id = to_int(raw_id)
+            fallback_name = level.get("name") or level.get("label")
+            normalized_name = str(fallback_name).strip() if fallback_name else ""
+            level_name = normalized_name or (f"Level {level_id}" if level_id is not None else "Level")
+            level_info = {"id": level_id, "name": level_name}
+            ordered_level_columns.append(level_info)
+            canonical_to_level[canonical_name(level_name)] = level_info
+            if level_id is not None:
+                canonical_to_level[canonical_name(level_id)] = level_info
 
-    def build_rows_from_locations(locations, level_names, level_id_map):
+        return ordered_level_columns, canonical_to_level
+
+    def build_rows_from_locations(locations, level_columns):
         rows = []
         for location in locations:
             row = {
@@ -82,8 +111,9 @@ def organization_locations_ui():
                 "Paycode Event Set": "",
                 "Shift Template Set": "",
             }
-            for level_name in level_names:
-                row[level_name] = ""
+            level_id_to_name = {item["id"]: item["name"] for item in level_columns}
+            for level in level_columns:
+                row[level["name"]] = ""
 
             known_location = location.get("knownLocation") or {}
             row["KnownLocation"] = known_location.get("id") or location.get("knownLocationId", "")
@@ -98,7 +128,7 @@ def organization_locations_ui():
                 level_id = entry.get("organizationLevelId")
                 if not level_id:
                     level_id = (entry.get("organizationLevel") or {}).get("id")
-                level_name = level_id_map.get(level_id)
+                level_name = level_id_to_name.get(to_int(level_id))
                 if not level_name:
                     continue
 
@@ -123,7 +153,8 @@ def organization_locations_ui():
         st.error("❌ Failed to fetch organization levels for template")
         return
 
-    level_names = get_level_names(levels)
+    level_columns, canonical_to_level = build_level_metadata(levels)
+    level_names = [level["name"] for level in level_columns]
     template_columns = [
         "Id",
         "Name",
@@ -233,12 +264,18 @@ def organization_locations_ui():
                                 payload["shiftTemplateSet"] = {"id": shift_template_set_id}
 
                         for level_name in level_names:
-                            level_col = column_lookup.get(level_name.lower())
+                            level_info = canonical_to_level.get(canonical_name(level_name), {})
+                            level_col = column_lookup.get(canonical_name(level_name))
+                            if not level_col and level_info.get("id") is not None:
+                                level_col = column_lookup.get(canonical_name(level_info["id"]))
                             if not level_col:
                                 continue
                             entry_id = to_int(row.get(level_col))
                             if entry_id is not None:
-                                payload["organizationEntries"].append({"id": entry_id})
+                                entry_payload = {"id": entry_id}
+                                if level_info and level_info.get("id") is not None:
+                                    entry_payload["organizationLevelId"] = level_info["id"]
+                                payload["organizationEntries"].append(entry_payload)
 
                         record_id = to_int(row.get(id_col)) if id_col else None
                         if record_id is not None:
@@ -319,10 +356,9 @@ def organization_locations_ui():
         if response.status_code != 200:
             st.error("❌ Failed to fetch organization locations")
             return
-        locations = response.json() or []
+        locations = extract_list_payload(response.json())
 
-    level_id_map = level_id_lookup(levels)
-    rows = build_rows_from_locations(locations, level_names, level_id_map)
+    rows = build_rows_from_locations(locations, level_columns)
     export_df = pd.DataFrame(rows, columns=template_columns)
 
     export_output = io.BytesIO()
