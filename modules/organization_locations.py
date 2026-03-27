@@ -7,6 +7,30 @@ import streamlit as st
 
 from modules.ui_helpers import module_header, section_header
 
+LEVEL_LABELS_BY_ID = {
+    26203: "Entity",
+    26212: "Cluster",
+    26227: "Sub Region",
+    26354: "Location",
+    26386: "Function",
+    26669: "Sub Function",
+    27029: "Category",
+    27066: "Department",
+    27096: "Reporting Manager",
+}
+
+PREFERRED_LEVEL_ORDER = [
+    "Entity",
+    "Cluster",
+    "Sub Region",
+    "Location",
+    "Function",
+    "Sub Function",
+    "Category",
+    "Department",
+    "Reporting Manager",
+]
+
 
 # ======================================================
 # FILE HASH (PREVENT REPROCESS)
@@ -32,6 +56,10 @@ def to_int(value):
 def normalize_columns(df):
     df.columns = [str(col).strip() for col in df.columns]
     return df
+
+
+def canonical_name(value):
+    return str(value or "").strip().lower()
 
 
 # ======================================================
@@ -60,18 +88,32 @@ def organization_locations_ui():
             levels = levels.get("data", [])
         return levels
 
-    def get_level_names(levels):
-        names = []
+    def build_level_metadata(levels):
+        canonical_to_level = {}
+        ordered_level_columns = []
+
         for level in levels or []:
-            name = level.get("name") or level.get("label")
-            if name:
-                names.append(str(name))
-        return names
+            raw_id = level.get("id")
+            level_id = to_int(raw_id)
+            fallback_name = level.get("name") or level.get("label")
+            normalized_name = str(fallback_name).strip() if fallback_name else ""
+            level_name = LEVEL_LABELS_BY_ID.get(level_id) or normalized_name or f"Level {level_id}"
+            level_info = {"id": level_id, "name": level_name}
+            canonical_to_level[canonical_name(level_name)] = level_info
 
-    def level_id_lookup(levels):
-        return {level.get("id"): (level.get("name") or level.get("label")) for level in levels or []}
+        for preferred_name in PREFERRED_LEVEL_ORDER:
+            mapped = canonical_to_level.get(canonical_name(preferred_name))
+            if mapped:
+                ordered_level_columns.append(mapped)
 
-    def build_rows_from_locations(locations, level_names, level_id_map):
+        for key in sorted(canonical_to_level):
+            mapped = canonical_to_level[key]
+            if mapped not in ordered_level_columns:
+                ordered_level_columns.append(mapped)
+
+        return ordered_level_columns, canonical_to_level
+
+    def build_rows_from_locations(locations, level_columns):
         rows = []
         for location in locations:
             row = {
@@ -82,8 +124,9 @@ def organization_locations_ui():
                 "Paycode Event Set": "",
                 "Shift Template Set": "",
             }
-            for level_name in level_names:
-                row[level_name] = ""
+            level_id_to_name = {item["id"]: item["name"] for item in level_columns}
+            for level in level_columns:
+                row[level["name"]] = ""
 
             known_location = location.get("knownLocation") or {}
             row["KnownLocation"] = known_location.get("id") or location.get("knownLocationId", "")
@@ -98,7 +141,7 @@ def organization_locations_ui():
                 level_id = entry.get("organizationLevelId")
                 if not level_id:
                     level_id = (entry.get("organizationLevel") or {}).get("id")
-                level_name = level_id_map.get(level_id)
+                level_name = level_id_to_name.get(to_int(level_id))
                 if not level_name:
                     continue
 
@@ -123,7 +166,8 @@ def organization_locations_ui():
         st.error("❌ Failed to fetch organization levels for template")
         return
 
-    level_names = get_level_names(levels)
+    level_columns, canonical_to_level = build_level_metadata(levels)
+    level_names = [level["name"] for level in level_columns]
     template_columns = [
         "Id",
         "Name",
@@ -233,12 +277,16 @@ def organization_locations_ui():
                                 payload["shiftTemplateSet"] = {"id": shift_template_set_id}
 
                         for level_name in level_names:
-                            level_col = column_lookup.get(level_name.lower())
+                            level_col = column_lookup.get(canonical_name(level_name))
                             if not level_col:
                                 continue
                             entry_id = to_int(row.get(level_col))
                             if entry_id is not None:
-                                payload["organizationEntries"].append({"id": entry_id})
+                                entry_payload = {"id": entry_id}
+                                level_info = canonical_to_level.get(canonical_name(level_name))
+                                if level_info and level_info.get("id") is not None:
+                                    entry_payload["organizationLevelId"] = level_info["id"]
+                                payload["organizationEntries"].append(entry_payload)
 
                         record_id = to_int(row.get(id_col)) if id_col else None
                         if record_id is not None:
@@ -321,8 +369,7 @@ def organization_locations_ui():
             return
         locations = response.json() or []
 
-    level_id_map = level_id_lookup(levels)
-    rows = build_rows_from_locations(locations, level_names, level_id_map)
+    rows = build_rows_from_locations(locations, level_columns)
     export_df = pd.DataFrame(rows, columns=template_columns)
 
     export_output = io.BytesIO()
