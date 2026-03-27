@@ -163,6 +163,14 @@ def organization_locations_ui():
 
                 row[level_name] = entry_id or ""
 
+            if not (location.get("organizationEntries") or []):
+                path_value = str(location.get("path") or "").strip()
+                path_entry_ids = [to_int(item) for item in path_value.split("/") if str(item).strip()]
+                for idx, entry_id in enumerate(path_entry_ids):
+                    if entry_id is None or idx >= len(level_columns):
+                        continue
+                    row[level_columns[idx]["name"]] = entry_id
+
             rows.append(row)
         return rows
 
