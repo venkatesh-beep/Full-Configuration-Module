@@ -61,6 +61,17 @@ def canonical_name(value):
     return str(value or "").strip().lower()
 
 
+def extract_list_payload(response_json):
+    if isinstance(response_json, list):
+        return response_json
+    if isinstance(response_json, dict):
+        for key in ("data", "content", "results", "items"):
+            payload = response_json.get(key)
+            if isinstance(payload, list):
+                return payload
+    return []
+
+
 # ======================================================
 # MAIN UI
 # ======================================================
@@ -82,33 +93,33 @@ def organization_locations_ui():
         response = requests.get(levels_url, headers=headers, timeout=30)
         if response.status_code != 200:
             return None
-        levels = response.json()
-        if isinstance(levels, dict):
-            levels = levels.get("data", [])
-        return levels
+        return extract_list_payload(response.json())
 
     def build_level_metadata(levels):
         canonical_to_level = {}
         ordered_level_columns = []
+        ordered_levels = sorted(
+            levels or [],
+            key=lambda item: (
+                to_int(item.get("sequence"))
+                if to_int(item.get("sequence")) is not None
+                else to_int(item.get("order"))
+                if to_int(item.get("order")) is not None
+                else 9999
+            ),
+        )
 
-        for level in levels or []:
+        for level in ordered_levels:
             raw_id = level.get("id")
             level_id = to_int(raw_id)
             fallback_name = level.get("name") or level.get("label")
             normalized_name = str(fallback_name).strip() if fallback_name else ""
-            level_name = LEVEL_LABELS_BY_ID.get(level_id) or normalized_name or f"Level {level_id}"
+            level_name = normalized_name or (f"Level {level_id}" if level_id is not None else "Level")
             level_info = {"id": level_id, "name": level_name}
+            ordered_level_columns.append(level_info)
             canonical_to_level[canonical_name(level_name)] = level_info
-
-        for preferred_name in PREFERRED_LEVEL_ORDER:
-            mapped = canonical_to_level.get(canonical_name(preferred_name))
-            if mapped:
-                ordered_level_columns.append(mapped)
-
-        for key in sorted(canonical_to_level):
-            mapped = canonical_to_level[key]
-            if mapped not in ordered_level_columns:
-                ordered_level_columns.append(mapped)
+            if level_id is not None:
+                canonical_to_level[canonical_name(level_id)] = level_info
 
         return ordered_level_columns, canonical_to_level
 
@@ -276,13 +287,15 @@ def organization_locations_ui():
                                 payload["shiftTemplateSet"] = {"id": shift_template_set_id}
 
                         for level_name in level_names:
+                            level_info = canonical_to_level.get(canonical_name(level_name), {})
                             level_col = column_lookup.get(canonical_name(level_name))
+                            if not level_col and level_info.get("id") is not None:
+                                level_col = column_lookup.get(canonical_name(level_info["id"]))
                             if not level_col:
                                 continue
                             entry_id = to_int(row.get(level_col))
                             if entry_id is not None:
                                 entry_payload = {"id": entry_id}
-                                level_info = canonical_to_level.get(canonical_name(level_name))
                                 if level_info and level_info.get("id") is not None:
                                     entry_payload["organizationLevelId"] = level_info["id"]
                                 payload["organizationEntries"].append(entry_payload)
@@ -366,7 +379,7 @@ def organization_locations_ui():
         if response.status_code != 200:
             st.error("❌ Failed to fetch organization locations")
             return
-        locations = response.json() or []
+        locations = extract_list_payload(response.json())
 
     rows = build_rows_from_locations(locations, level_columns)
     export_df = pd.DataFrame(rows, columns=template_columns)
