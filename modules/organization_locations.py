@@ -1,11 +1,34 @@
 import hashlib
 import io
-
 import pandas as pd
 import requests
 import streamlit as st
 
 from modules.ui_helpers import module_header, section_header
+
+LEVEL_LABELS_BY_ID = {
+    26203: "Entity",
+    26212: "Cluster",
+    26227: "Sub Region",
+    26354: "Location",
+    26386: "Function",
+    26669: "Sub Function",
+    27029: "Category",
+    27066: "Department",
+    27096: "Reporting Manager",
+}
+
+PREFERRED_LEVEL_ORDER = [
+    "Entity",
+    "Cluster",
+    "Sub Region",
+    "Location",
+    "Function",
+    "Sub Function",
+    "Category",
+    "Department",
+    "Reporting Manager",
+]
 
 
 # ======================================================
