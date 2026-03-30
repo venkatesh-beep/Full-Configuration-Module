@@ -235,6 +235,7 @@ def shift_templates_ui():
 
                         if not is_blank_or_null(end):
                             pc["endMinute"] = parse_number(end)
+                            pc["max"] = False
                         else:
                             pc["max"] = True
 
@@ -263,16 +264,11 @@ def shift_templates_ui():
 
                         if not is_blank_or_null(end):
                             ex["endMinute"] = parse_number(end)
+                            ex["max"] = False
                         else:
                             ex["max"] = True
 
                         exceptions.append(ex)
-
-                    start_dt, end_dt = normalize_shift_datetimes(
-                        row["startTime"],
-                        row["endTime"],
-                        to_bool(row.get("Night Shift", False))
-                    )
 
                     start_dt, end_dt = normalize_shift_datetimes(
                         row["startTime"],
