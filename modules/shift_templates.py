@@ -4,6 +4,8 @@ import requests
 import io
 import hashlib
 import datetime
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.utils import get_column_letter
 
 from modules.ui_helpers import module_header, section_header
 
@@ -32,45 +34,52 @@ def js_number(value):
     return parse_number(value)
 
 
-def normalize_datetime(value):
+def normalize_time(value, date_prefix="1970-01-01"):
     """
-    ALWAYS returns: 1970-01-01 HH:MM:SS
+    Returns: <date_prefix> HH:MM:SS
     """
     if is_blank_or_null(value):
         return None
 
     if isinstance(value, (pd.Timestamp, datetime.datetime)):
-        return value.strftime("1970-01-01 %H:%M:%S")
+        return value.strftime(f"{date_prefix} %H:%M:%S")
 
     if isinstance(value, datetime.time):
-        return f"1970-01-01 {value.strftime('%H:%M:%S')}"
+        return f"{date_prefix} {value.strftime('%H:%M:%S')}"
 
     if isinstance(value, datetime.timedelta):
         total_seconds = int(value.total_seconds())
         h = total_seconds // 3600
         m = (total_seconds % 3600) // 60
         s = total_seconds % 60
-        return f"1970-01-01 {h:02d}:{m:02d}:{s:02d}"
+        return f"{date_prefix} {h:02d}:{m:02d}:{s:02d}"
 
     if isinstance(value, (int, float)):
         total_seconds = int(float(value) * 86400)
         h = total_seconds // 3600
         m = (total_seconds % 3600) // 60
         s = total_seconds % 60
-        return f"1970-01-01 {h:02d}:{m:02d}:{s:02d}"
+        return f"{date_prefix} {h:02d}:{m:02d}:{s:02d}"
 
     v = str(value).strip()
 
     if len(v) == 19 and v[4] == "-" and v[13] == ":":
-        return v
+        return f"{date_prefix} {v[11:]}"
 
     if len(v) == 5 and ":" in v:
-        return f"1970-01-01 {v}:00"
+        return f"{date_prefix} {v}:00"
 
     if len(v) == 8 and ":" in v:
-        return f"1970-01-01 {v}"
+        return f"{date_prefix} {v}"
 
     raise ValueError(f"Invalid time format: {value}")
+
+
+def normalize_shift_datetimes(start_time, end_time, night_shift):
+    start_dt = normalize_time(start_time, date_prefix="1970-01-01")
+    end_date = "1970-01-02" if night_shift else "1970-01-01"
+    end_dt = normalize_time(end_time, date_prefix=end_date)
+    return start_dt, end_dt
 
 
 def file_hash(file_bytes):
@@ -99,15 +108,17 @@ def shift_templates_ui():
 
     st.info(
         "⏱️ **MANDATORY TIME FORMAT**\n\n"
-        "`1970-01-01 HH:MM:SS`\n\n"
+        "Use only `HH:MM:SS` in `startTime` and `endTime`.\n\n"
+        "`Night Shift = TRUE` → `endTime` is saved as `1970-01-02 HH:MM:SS`\n"
+        "`Night Shift = FALSE` → `endTime` is saved as `1970-01-01 HH:MM:SS`\n\n"
         "**Example:**\n"
-        "`1970-01-01 09:30:00`\n"
-        "`1970-01-01 17:30:00`"
+        "`09:30:00`\n"
+        "`18:00:00`"
     )
 
     template_df = pd.DataFrame(columns=[
         "name", "description",
-        "startTime", "endTime",
+        "startTime", "endTime", "Night Shift",
         "beforeStartToleranceMinute", "afterStartToleranceMinute",
         "lateInToleranceMinute", "earlyOutToleranceMinute",
         "report",
@@ -145,6 +156,12 @@ def shift_templates_ui():
         template_df.to_excel(writer, index=False, sheet_name="Template")
         if not paycodes_df.empty:
             paycodes_df.to_excel(writer, index=False, sheet_name="Paycodes_Master")
+        ws = writer.book["Template"]
+        night_shift_col = template_df.columns.get_loc("Night Shift") + 1
+        dv = DataValidation(type="list", formula1='"TRUE,FALSE"', allow_blank=False)
+        ws.add_data_validation(dv)
+        col_letter = get_column_letter(night_shift_col)
+        dv.add(f"{col_letter}2:{col_letter}1000")
 
     st.download_button(
         "⬇️ Download Create Template",
@@ -163,7 +180,7 @@ def shift_templates_ui():
 
     st.warning(
         "⚠️ **Time format is mandatory**\n\n"
-        "`1970-01-01 HH:MM:SS`\n\n"
+        "Use `HH:MM:SS` for `startTime` and `endTime`.\n\n"
         "Invalid formats will cause a **400 Bad Request**."
     )
 
@@ -265,11 +282,17 @@ def shift_templates_ui():
                             if ex["max"]:
                                 ex.pop("endMinute", None)
 
+                    start_dt, end_dt = normalize_shift_datetimes(
+                        row["startTime"],
+                        row["endTime"],
+                        to_bool(row.get("Night Shift", False))
+                    )
+
                     payload = {
                         "name": row["name"],
                         "description": row["description"],
-                        "startTime": normalize_datetime(row["startTime"]),
-                        "endTime": normalize_datetime(row["endTime"]),
+                        "startTime": start_dt,
+                        "endTime": end_dt,
                         "beforeStartToleranceMinute": js_number(row.get("beforeStartToleranceMinute")),
                         "afterStartToleranceMinute": js_number(row.get("afterStartToleranceMinute")),
                         "lateInToleranceMinute": js_number(row.get("lateInToleranceMinute")),
