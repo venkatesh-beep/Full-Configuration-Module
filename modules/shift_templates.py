@@ -111,6 +111,9 @@ def shift_templates_ui():
         "Use only `HH:MM:SS` in `startTime` and `endTime`.\n\n"
         "`Night Shift = TRUE` → `endTime` is saved as `1970-01-02 HH:MM:SS`\n"
         "`Night Shift = FALSE` → `endTime` is saved as `1970-01-01 HH:MM:SS`\n\n"
+        "`paycode_endMinute` / `exception_endMinute` behavior:\n"
+        "- keep any entered numeric value as `endMinute`\n"
+        "- leave blank to send `max=true`\n\n"
         "**Example:**\n"
         "`09:30:00`\n"
         "`18:00:00`"
@@ -181,6 +184,8 @@ def shift_templates_ui():
     st.warning(
         "⚠️ **Time format is mandatory**\n\n"
         "Use `HH:MM:SS` for `startTime` and `endTime`.\n\n"
+        "For `paycode_endMinute` / `exception_endMinute`: provide a value to keep it, "
+        "or leave it blank to mark that row as `max=true`.\n\n"
         "Invalid formats will cause a **400 Bad Request**."
     )
 
@@ -214,7 +219,6 @@ def shift_templates_ui():
                 try:
                     # PAYCODES
                     paycodes = []
-                    max_idx = None
 
                     for x in range(1, 11):
                         pc_id = row.get(f"paycode_id{x}")
@@ -232,24 +236,15 @@ def shift_templates_ui():
                         if not is_blank_or_null(end):
                             pc["endMinute"] = parse_number(end)
                         else:
-                            max_idx = len(paycodes)
+                            pc["max"] = True
 
                         paycodes.append(pc)
 
                     if not paycodes:
                         raise Exception("At least one paycode is required")
 
-                    if max_idx is None:
-                        max_idx = len(paycodes) - 1
-
-                    for idx, pc in enumerate(paycodes):
-                        pc["max"] = idx == max_idx
-                        if pc["max"]:
-                            pc.pop("endMinute", None)
-
                     # EXCEPTIONS (OPTIONAL)
                     exceptions = []
-                    ex_max_idx = None
 
                     for x in range(1, 11):
                         pc_id = row.get(f"exception_paycode_id{x}")
@@ -269,18 +264,15 @@ def shift_templates_ui():
                         if not is_blank_or_null(end):
                             ex["endMinute"] = parse_number(end)
                         else:
-                            ex_max_idx = len(exceptions)
+                            ex["max"] = True
 
                         exceptions.append(ex)
 
-                    if exceptions:
-                        if ex_max_idx is None:
-                            ex_max_idx = len(exceptions) - 1
-
-                        for idx, ex in enumerate(exceptions):
-                            ex["max"] = idx == ex_max_idx
-                            if ex["max"]:
-                                ex.pop("endMinute", None)
+                    start_dt, end_dt = normalize_shift_datetimes(
+                        row["startTime"],
+                        row["endTime"],
+                        to_bool(row.get("Night Shift", False))
+                    )
 
                     start_dt, end_dt = normalize_shift_datetimes(
                         row["startTime"],
