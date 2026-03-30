@@ -274,6 +274,12 @@ def shift_templates_ui():
                         to_bool(row.get("Night Shift", False))
                     )
 
+                    start_dt, end_dt = normalize_shift_datetimes(
+                        row["startTime"],
+                        row["endTime"],
+                        to_bool(row.get("Night Shift", False))
+                    )
+
                     payload = {
                         "name": row["name"],
                         "description": row["description"],
