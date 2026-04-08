@@ -15,6 +15,31 @@ if not CLIENT_AUTH:
 DEFAULT_HOST = "https://saas-beeforce.labour.tech"
 ADMIN_USERNAME = "Logs@BT"
 ADMIN_PASSWORD = "8684##"
+SUPABASE_URL = "https://msyljqazsndtxpritfwy.supabase.co"
+SUPABASE_KEY = "sb_publishable_HXoFqNveyeQcaFrL8suM1A_UBvL2rpZ"
+
+
+def _supabase_headers():
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    }
+
+
+def _is_allowed_user(username: str) -> bool:
+    params = {
+        "select": "id,username",
+        "username": f"eq.{username}",
+        "limit": 1,
+    }
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/allowed_users",
+        headers=_supabase_headers(),
+        params=params,
+        timeout=10,
+    )
+    response.raise_for_status()
+    return len(response.json()) > 0
 
 # ======================================================
 # LOGIN UI
@@ -149,6 +174,18 @@ def login_ui():
                 st.session_state.username = ADMIN_USERNAME
                 st.session_state.is_admin = True
                 st.session_state.HOST = host or DEFAULT_HOST
+
+                try:
+                    username = st.session_state.username
+                    if not _is_allowed_user(username):
+                        st.session_state.clear()
+                        st.error("❌ You dont have access, Please contact admin")
+                        st.stop()
+                except requests.exceptions.RequestException as ex:
+                    st.session_state.clear()
+                    st.error(f"❌ Access validation failed: {ex}")
+                    st.stop()
+
                 log_action("ADMIN_LOGIN_SHORTCUT", module_name="Authentication")
                 st.success("✅ Admin login successful")
                 st.rerun()
@@ -182,6 +219,17 @@ def login_ui():
 
                 # 🔑 AUTHORITATIVE HOST SET HERE
                 st.session_state.HOST = host
+
+                try:
+                    username = st.session_state.username
+                    if not _is_allowed_user(username):
+                        st.session_state.clear()
+                        st.error("❌ You dont have access, Please contact admin")
+                        st.stop()
+                except requests.exceptions.RequestException as ex:
+                    st.session_state.clear()
+                    st.error(f"❌ Access validation failed: {ex}")
+                    st.stop()
 
                 st.success("✅ Login successful")
                 st.rerun()
