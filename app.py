@@ -33,6 +33,7 @@ from modules.known_locations import known_locations_ui
 from modules.organization_locations import organization_locations_ui
 from modules.schedule_delete import schedule_delete_ui
 from modules.admin_logs import admin_logs_ui
+from modules.access_control import access_control_ui
 
 
 # ================= PAGE CONFIG =================
@@ -101,7 +102,7 @@ default_menu_options = [
 
 is_logs_admin = st.session_state.get("username") == "Logs@BT"
 if is_logs_admin:
-    menu_options = ["Admin Logs"]
+    menu_options = ["Admin Logs", "User Access Control"]
 else:
     menu_options = default_menu_options
 
@@ -131,6 +132,7 @@ menu_icons = {
     "Schedule Pattern Update": "🧷",
     "Known Locations": "📍",
     "Org Locations": "🗺️",
+    "User Access Control": "🔐",
 }
 
 with st.sidebar:
@@ -224,3 +226,8 @@ elif menu == "Schedule Delete":
     schedule_delete_ui()
 elif menu == "Admin Logs":
     admin_logs_ui()
+elif menu == "User Access Control":
+    if st.session_state.get("username") == "Logs@BT":
+        access_control_ui()
+    else:
+        st.error("❌ You are not authorized")
