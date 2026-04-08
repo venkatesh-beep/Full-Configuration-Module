@@ -27,10 +27,13 @@ def _supabase_headers():
 
 
 def _is_allowed_user(username: str) -> bool:
+    normalized_username = (username or "").strip().casefold()
+    if not normalized_username:
+        return False
+
     params = {
-        "select": "id,username",
-        "username": f"eq.{username}",
-        "limit": 1,
+        "select": "username",
+        "limit": 1000,
     }
     response = requests.get(
         f"{SUPABASE_URL}/rest/v1/allowed_users",
@@ -39,7 +42,11 @@ def _is_allowed_user(username: str) -> bool:
         timeout=10,
     )
     response.raise_for_status()
-    return len(response.json()) > 0
+    rows = response.json()
+    return any(
+        (row.get("username") or "").strip().casefold() == normalized_username
+        for row in rows
+    )
 
 # ======================================================
 # LOGIN UI
