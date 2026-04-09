@@ -51,6 +51,28 @@ def _parse_properties_cell(value):
     return {}
 
 
+def _extract_linked_paycode_id(value):
+    if isinstance(value, dict):
+        return value.get("id", "")
+    if value in (None, ""):
+        return ""
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return ""
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            try:
+                parsed = ast.literal_eval(raw)
+            except Exception:
+                return value
+        if isinstance(parsed, dict):
+            return parsed.get("id", "")
+        return value
+    return value
+
+
 # ======================================================
 # MAIN UI
 # ======================================================
@@ -279,6 +301,9 @@ def paycodes_ui():
             return
         df = pd.DataFrame(r.json())
 
+    if "linkedPaycode" in df.columns:
+        df["linkedPaycode"] = df["linkedPaycode"].apply(_extract_linked_paycode_id)
+
     property_columns = []
     if "properties" in df.columns:
         parsed_properties = df["properties"].apply(_parse_properties_cell)
@@ -293,6 +318,9 @@ def paycodes_ui():
 
         for prop_key in property_columns:
             df[prop_key] = parsed_properties.apply(lambda props: props.get(prop_key, ""))
+
+        # Hide raw JSON properties column from export after flattening
+        df = df.drop(columns=["properties"])
 
     export_output = io.BytesIO()
     with pd.ExcelWriter(export_output, engine="openpyxl") as writer:
