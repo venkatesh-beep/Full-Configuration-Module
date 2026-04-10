@@ -4,6 +4,7 @@ import requests
 import io
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
+import re
 
 from modules.ui_helpers import module_header, section_header
 
@@ -47,6 +48,8 @@ def overtime_policies_ui():
         "skipTotalizationRoundings",
         "rounding_startMinute1", "rounding_endMinute1", "rounding_roundMinute1",
         "rounding_startMinute2", "rounding_endMinute2", "rounding_roundMinute2",
+        "rounding_startMinute3", "rounding_endMinute3", "rounding_roundMinute3",
+        "rounding_startMinute4", "rounding_endMinute4", "rounding_roundMinute4",
         "holidayGroup1", "holidayGroup_minMinute1", "holidayGroup_maxDailyMinute1",
         "holidayGroup2", "holidayGroup_minMinute2", "holidayGroup_maxDailyMinute2",
     ]
@@ -96,6 +99,14 @@ def overtime_policies_ui():
             except:
                 return None
 
+        def parse_bool(v):
+            if isinstance(v, bool):
+                return v
+            if v is None:
+                return False
+            val = str(v).strip().lower()
+            return val in {"true", "1", "yes", "y"}
+
         if st.button("🚀 Submit Overtime Policies", type="primary", use_container_width=True):
             results = []
 
@@ -115,12 +126,18 @@ def overtime_policies_ui():
                         "weekoffMaxDailyMinute": parse_int(row.get("weekoffMaxDailyMinute")),
                         "holidayMinMinute": parse_int(row.get("holidayMinMinute")),
                         "holidayMaxDailyMinute": parse_int(row.get("holidayMaxDailyMinute")),
-                        "skipTotalizationRoundings": bool(row.get("skipTotalizationRoundings")),
+                        "skipTotalizationRoundings": parse_bool(row.get("skipTotalizationRoundings")),
                         "roundings": [],
                         "holidayGroupLimits": []
                     }
 
-                    for i in range(1, 3):
+                    rounding_indexes = sorted({
+                        int(m.group(1))
+                        for col in row.index
+                        for m in [re.match(r"rounding_startMinute(\d+)$", str(col))]
+                        if m
+                    })
+                    for i in rounding_indexes:
                         sm = parse_int(row.get(f"rounding_startMinute{i}"))
                         em = parse_int(row.get(f"rounding_endMinute{i}"))
                         rm = parse_int(row.get(f"rounding_roundMinute{i}"))
@@ -131,7 +148,13 @@ def overtime_policies_ui():
                                 "roundMinute": rm
                             })
 
-                    for i in range(1, 3):
+                    holiday_group_indexes = sorted({
+                        int(m.group(1))
+                        for col in row.index
+                        for m in [re.match(r"holidayGroup(\d+)$", str(col))]
+                        if m
+                    })
+                    for i in holiday_group_indexes:
                         hg = row.get(f"holidayGroup{i}")
                         if hg:
                             payload["holidayGroupLimits"].append({
