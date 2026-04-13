@@ -3,6 +3,8 @@ import pandas as pd
 import requests
 import io
 import hashlib
+import json
+import ast
 
 from modules.ui_helpers import module_header, section_header
 
@@ -29,6 +31,48 @@ def file_hash(file_bytes):
     return hashlib.md5(file_bytes).hexdigest()
 
 
+def _parse_properties_cell(value):
+    if isinstance(value, dict):
+        return value
+    if value in (None, ""):
+        return {}
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return {}
+        try:
+            return json.loads(raw)
+        except Exception:
+            try:
+                parsed = ast.literal_eval(raw)
+                return parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                return {}
+    return {}
+
+
+def _extract_linked_paycode_id(value):
+    if isinstance(value, dict):
+        return value.get("id", "")
+    if value in (None, ""):
+        return ""
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return ""
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            try:
+                parsed = ast.literal_eval(raw)
+            except Exception:
+                return value
+        if isinstance(parsed, dict):
+            return parsed.get("id", "")
+        return value
+    return value
+
+
 # ======================================================
 # MAIN UI
 # ======================================================
@@ -36,6 +80,7 @@ def paycodes_ui():
     module_header("🧾 Paycodes Configuration", "Create, update, delete and download Paycodes")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
+    ATTR_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycode_attributes"
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -47,6 +92,18 @@ def paycodes_ui():
     # DOWNLOAD UPLOAD TEMPLATE
     # ==================================================
     section_header("📥 Download Upload Template")
+
+    property_attribute_names = []
+    try:
+        attr_resp = requests.get(ATTR_URL, headers=headers)
+        if attr_resp.status_code == 200:
+            property_attribute_names = [
+                str(item.get("name")).strip()
+                for item in (attr_resp.json() or [])
+                if str(item.get("name", "")).strip()
+            ]
+    except Exception:
+        property_attribute_names = []
 
     template_df = pd.DataFrame(columns=[
         "id",
@@ -69,7 +126,7 @@ def paycodes_ui():
         "holDays",
         "payableDays",
         "otHours"
-    ])
+    ] + property_attribute_names)
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -181,6 +238,7 @@ def paycodes_ui():
                         raw_id = str(row.get("id")).strip()
 
                         if raw_id.isdigit():
+                            payload["id"] = int(raw_id)
                             r = requests.put(
                                 f"{BASE_URL}/{int(raw_id)}",
                                 headers=headers,
@@ -257,10 +315,44 @@ def paycodes_ui():
             return
         df = pd.DataFrame(r.json())
 
+    if "linkedPaycode" in df.columns:
+        df["linkedPaycode"] = df["linkedPaycode"].apply(_extract_linked_paycode_id)
+
+    property_columns = []
+    if "properties" in df.columns:
+        parsed_properties = df["properties"].apply(_parse_properties_cell)
+
+        all_property_keys = []
+        for props in parsed_properties:
+            all_property_keys.extend(list(props.keys()))
+
+        priority_keys = ["DAY_FLAG", "PAYDED_FLG", "HOLIDAY_OT_GROUP"]
+        dynamic_keys = [k for k in sorted(set(all_property_keys)) if k not in priority_keys]
+        property_columns = [k for k in priority_keys if k in all_property_keys] + dynamic_keys
+
+        for prop_key in property_columns:
+            df[prop_key] = parsed_properties.apply(lambda props: props.get(prop_key, ""))
+
+        # Hide raw JSON properties column from export after flattening
+        df = df.drop(columns=["properties"])
+
+    export_output = io.BytesIO()
+    with pd.ExcelWriter(export_output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Paycodes")
+        if property_columns:
+            ws = writer.sheets["Paycodes"]
+            from openpyxl.styles import Font
+            red_font = Font(color="FF0000", bold=True)
+            header_map = {cell.value: cell for cell in ws[1]}
+            for col_name in property_columns:
+                if col_name in header_map:
+                    header_map[col_name].font = red_font
+    export_output.seek(0)
+
     st.download_button(
         "⬇️ Download Existing Paycodes",
-        data=df.to_csv(index=False),
-        file_name="paycodes_export.csv",
-        mime="text/csv",
+        data=export_output.getvalue(),
+        file_name="paycodes_export.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
