@@ -94,13 +94,16 @@ def paycodes_ui():
     section_header("📥 Download Upload Template")
 
     property_attribute_names = []
-    attr_resp = requests.get(ATTR_URL, headers=headers)
-    if attr_resp.status_code == 200:
-        property_attribute_names = [
-            str(item.get("name")).strip()
-            for item in (attr_resp.json() or [])
-            if str(item.get("name", "")).strip()
-        ]
+    try:
+        attr_resp = requests.get(ATTR_URL, headers=headers)
+        if attr_resp.status_code == 200:
+            property_attribute_names = [
+                str(item.get("name")).strip()
+                for item in (attr_resp.json() or [])
+                if str(item.get("name", "")).strip()
+            ]
+    except Exception:
+        property_attribute_names = []
 
     template_df = pd.DataFrame(columns=[
         "id",
@@ -235,6 +238,7 @@ def paycodes_ui():
                         raw_id = str(row.get("id")).strip()
 
                         if raw_id.isdigit():
+                            payload["id"] = int(raw_id)
                             r = requests.put(
                                 f"{BASE_URL}/{int(raw_id)}",
                                 headers=headers,
