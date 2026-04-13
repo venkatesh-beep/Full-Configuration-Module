@@ -80,6 +80,7 @@ def paycodes_ui():
     module_header("🧾 Paycodes Configuration", "Create, update, delete and download Paycodes")
 
     BASE_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycodes"
+    ATTR_URL = st.session_state.HOST.rstrip("/") + "/resource-server/api/paycode_attributes"
 
     headers = {
         "Authorization": f"Bearer {st.session_state.token}",
@@ -91,6 +92,15 @@ def paycodes_ui():
     # DOWNLOAD UPLOAD TEMPLATE
     # ==================================================
     section_header("📥 Download Upload Template")
+
+    property_attribute_names = []
+    attr_resp = requests.get(ATTR_URL, headers=headers)
+    if attr_resp.status_code == 200:
+        property_attribute_names = [
+            str(item.get("name")).strip()
+            for item in (attr_resp.json() or [])
+            if str(item.get("name", "")).strip()
+        ]
 
     template_df = pd.DataFrame(columns=[
         "id",
@@ -113,7 +123,7 @@ def paycodes_ui():
         "holDays",
         "payableDays",
         "otHours"
-    ])
+    ] + property_attribute_names)
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
