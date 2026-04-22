@@ -19,7 +19,7 @@ def clean_excel_value(val):
     if val_str.endswith(".0"):
         try:
             return str(int(float(val_str)))
-        except:
+        except (ValueError, TypeError):
             pass
 
     # Handle pandas float values
@@ -29,6 +29,14 @@ def clean_excel_value(val):
         return str(val).strip()
 
     return val_str
+
+
+def clean_dataframe_values(df):
+    """Clean all dataframe cells in a pandas-version-safe way."""
+    # pandas >= 2.1 introduced DataFrame.map and deprecated applymap
+    if hasattr(df, "map"):
+        return df.map(clean_excel_value)
+    return df.applymap(clean_excel_value)
 
 
 # ======================================================
@@ -116,11 +124,26 @@ def organization_location_lookup_table_ui():
     )
 
     if uploaded_file:
-        df_upload = pd.read_excel(uploaded_file).fillna("")
+        try:
+            df_upload = pd.read_excel(uploaded_file).fillna("")
+        except Exception as exc:
+            st.error("❌ Could not read the uploaded Excel file. Please upload a valid .xlsx/.xls file.")
+            st.exception(exc)
+            return
+
+        if not isinstance(df_upload, pd.DataFrame):
+            st.error("❌ Uploaded file content is invalid. Please use the downloaded template format.")
+            return
+
         st.info(f"Rows detected: {len(df_upload)}")
 
         # ✅ CLEAN WHOLE DATAFRAME (fix .0 everywhere)
-        df_upload = df_upload.applymap(clean_excel_value)
+        try:
+            df_upload = clean_dataframe_values(df_upload)
+        except Exception as exc:
+            st.error("❌ Failed to clean uploaded data. Please verify the file format and cell values.")
+            st.exception(exc)
+            return
 
         if st.button("🚀 Validate & Upload", type="primary"):
             with st.spinner("Validating and uploading data..."):
