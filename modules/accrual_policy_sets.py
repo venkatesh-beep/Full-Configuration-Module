@@ -7,6 +7,22 @@ import streamlit as st
 from modules.ui_helpers import module_header, section_header
 
 
+UPLOAD_TEMPLATE_COLUMNS = ["id", "Accural Policy Set Name", "Description", "Accural Policy ID"]
+
+
+def _normalize_column_name(column):
+    return "".join(char for char in str(column).strip().lower() if char.isalnum())
+
+
+def _get_row_value(row, *column_names):
+    normalized_lookup = {_normalize_column_name(column): column for column in row.index}
+    for column_name in column_names:
+        matching_column = normalized_lookup.get(_normalize_column_name(column_name))
+        if matching_column is not None:
+            return row.get(matching_column)
+    return ""
+
+
 def _safe_int(value):
     try:
         return int(float(value))
@@ -17,15 +33,11 @@ def _safe_int(value):
 def _extract_entry_ids(row):
     entry_ids = []
     for column in row.index:
-        normalized = str(column).strip().lower().replace("_", "")
+        normalized = _normalize_column_name(column)
         if normalized.startswith("accuralpolicyid") or normalized.startswith("accrualpolicyid"):
             entry_id = _safe_int(row.get(column))
             if entry_id is not None:
                 entry_ids.append(entry_id)
-
-    legacy_entry_id = _safe_int(row.get("accrual_policy_id"))
-    if legacy_entry_id is not None:
-        entry_ids.append(legacy_entry_id)
 
     return sorted(set(entry_ids))
 
@@ -86,8 +98,7 @@ def accrual_policy_sets_ui():
 
     section_header("📥 Download Upload Template")
 
-    template_columns = ["id", "name", "description"] + [f"AccuralPolicyID{i}" for i in range(1, 11)]
-    template_df = pd.DataFrame(columns=template_columns)
+    template_df = pd.DataFrame(columns=UPLOAD_TEMPLATE_COLUMNS)
 
     accrual_policies_resp = requests.get(policies_url, headers=headers)
     accrual_policies_df = (
@@ -136,9 +147,9 @@ def accrual_policy_sets_ui():
 
             with st.spinner("⏳ Processing Accrual Policy Sets..."):
                 for _, row in df.iterrows():
-                    raw_id = row.get("id", "")
-                    name = str(row.get("name", "")).strip()
-                    description = str(row.get("description", "")).strip() or name
+                    raw_id = _get_row_value(row, "id")
+                    name = str(_get_row_value(row, "Accural Policy Set Name", "name")).strip()
+                    description = str(_get_row_value(row, "Description", "description")).strip() or name
                     entry_ids = _extract_entry_ids(row)
 
                     if not name or not entry_ids:
