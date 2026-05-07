@@ -68,23 +68,11 @@ def timeoff_policy_sets_ui():
     section_header("📥 Download Upload Template")
 
     template_columns = [
-        "id",
-        "name",
-        "description",
-        "timeoff_policy_id1",
-        "paycode_id1",
-        "timeoff_policy_id2",
-        "paycode_id2",
-        "timeoff_policy_id3",
-        "paycode_id3",
-        "timeoff_policy_id4",
-        "paycode_id4",
-        "timeoff_policy_id5",
-        "paycode_id5",
-        "timeoff_policy_id6",
-        "paycode_id6",
-        "timeoff_policy_id7",
-        "paycode_id7"
+        "Set ID",
+        "Set Name",
+        "Set Description",
+        "Paycode ID",
+        "Time off Policy ID",
     ]
 
     template_df = pd.DataFrame(columns=template_columns)
@@ -168,15 +156,17 @@ def timeoff_policy_sets_ui():
                 # GROUP ROWS (FIXED ID HANDLING)
                 # -----------------------------
                 for _, row in df.iterrows():
-                    raw_id = row.get("id", "")
-                    name = str(row.get("name", "")).strip()
-                    description = str(row.get("description", "")).strip() or name
+                    raw_id = row.get("Set ID", row.get("id", ""))
+                    name = str(row.get("Set Name", row.get("name", ""))).strip()
+                    description = str(
+                        row.get("Set Description", row.get("description", ""))
+                    ).strip() or name
 
                     # ✅ CRITICAL FIX — HANDLE FLOAT IDS
                     numeric_id = None
                     try:
                         numeric_id = int(float(raw_id))
-                    except:
+                    except (TypeError, ValueError):
                         numeric_id = None
 
                     group_key = numeric_id if numeric_id is not None else name
@@ -189,6 +179,20 @@ def timeoff_policy_sets_ui():
                             "entries": []
                         }
 
+                    raw_policy_id = str(row.get("Time off Policy ID", "")).strip()
+                    raw_paycode_id = str(row.get("Paycode ID", "")).strip()
+
+                    if raw_policy_id or raw_paycode_id:
+                        policy_id = int(float(raw_policy_id))
+                        paycode_id = int(float(raw_paycode_id))
+
+                        grouped[group_key]["entries"].append({
+                            "id": policy_id,
+                            "paycode": {"id": paycode_id}
+                        })
+                        continue
+
+                    # Keep the old wide-column format working for existing uploads.
                     for index in range(1, 8):
                         raw_policy_id = str(row.get(f"timeoff_policy_id{index}", "")).strip()
                         raw_paycode_id = str(row.get(f"paycode_id{index}", "")).strip()
