@@ -15,6 +15,11 @@ End users never run `streamlit run app.py`, never install Python, never see a te
 ├── configs/                       # Optional config folder bundled into app.exe
 ├── requirements.txt               # Existing Python dependencies
 ├── package.json                   # Electron scripts + electron-builder / NSIS config
+├── scripts/
+│   ├── build_windows_desktop.ps1  # End-to-end Windows installer build script
+│   └── create_icon.py             # Generated Windows icon asset
+├── .github/workflows/
+│   └── windows-desktop-release.yml # GitHub Actions release-ready installer workflow
 ├── build/
 │   └── pyinstaller-app.spec       # One-file PyInstaller build for app.exe
 └── electron/
@@ -119,6 +124,24 @@ Build the backend and installer in one command:
 npm run dist
 ```
 
+Or run the complete Windows build helper, which verifies tools, installs dependencies unless `-SkipInstall` is used, builds `dist\app.exe`, and creates the NSIS installer:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_windows_desktop.ps1
+```
+
+To publish release artifacts with electron-builder after setting `GH_TOKEN`:
+
+```powershell
+npm run release:github
+```
+
+The equivalent npm alias for Windows builders is:
+
+```powershell
+npm run build:windows
+```
+
 If `dist\app.exe` already exists and you only want to rebuild the Electron installer:
 
 ```powershell
@@ -160,10 +183,10 @@ The NSIS configuration creates:
 Release steps:
 
 1. Update `version` in `package.json`.
-2. Build with `npm run dist`.
-3. Create a GitHub release for the same version tag.
-4. Upload the generated installer and update metadata from `release/`.
-5. In CI or private repositories, set `GH_TOKEN` before running electron-builder publish commands.
+2. Build locally with `npm run dist`, or use the checked-in GitHub Actions workflow.
+3. Create and push a tag such as `v1.0.0` to run `.github/workflows/windows-desktop-release.yml` automatically.
+4. For manual CI builds, run **Build Windows Desktop Installer** from GitHub Actions and set `publish_release` to `true` when release publication is desired.
+5. In CI or private repositories, keep `GH_TOKEN` available before running electron-builder publish commands.
 
 The app checks for updates only when packaged. Automatic downloading is disabled by default so release signing, approval, and rollout policies can be added safely later.
 
