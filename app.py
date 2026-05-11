@@ -1,7 +1,16 @@
 
 
+import os
 import streamlit as st
 import time
+
+# Default OAuth client authorization for packaged desktop/local runs.
+# services.auth reads CLIENT_AUTH during import, so this must be set before
+# importing login_ui. Environment variables still override this value.
+os.environ.setdefault(
+    "CLIENT_AUTH",
+    "Basic ZXh0ZXJuYWwtY2xpZW50Ojg1dDQkS2JTWmtWRHNCdUQ="
+)
 
 from services.auth import login_ui
 from services.activity_logger import install_file_uploader_logging, install_requests_logging
