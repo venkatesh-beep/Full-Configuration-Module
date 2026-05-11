@@ -1,0 +1,77 @@
+{
+  "name": "configuration-portal-desktop",
+  "version": "1.0.0",
+  "description": "Windows desktop wrapper for the Streamlit Configuration Portal.",
+  "main": "electron/main.js",
+  "author": "Beeforce",
+  "license": "UNLICENSED",
+  "private": true,
+  "homepage": "https://github.com/venkatesh-beep/Full-Configuration-Module#readme",
+  "scripts": {
+    "electron:dev": "npm run assets:icon && electron .",
+    "python:install": "python -m pip install -r requirements.txt pyinstaller",
+    "python:build": "npm run assets:icon && pyinstaller --clean --noconfirm build/pyinstaller-app.spec",
+    "dist": "npm run python:build && electron-builder --win nsis --x64",
+    "dist:electron": "npm run assets:icon && electron-builder --win nsis --x64",
+    "pack": "npm run assets:icon && electron-builder --dir",
+    "backend:dev": "python electron/desktop_backend.py",
+    "assets:icon": "python scripts/create_icon.py"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "electron": "^42.0.0",
+    "electron-builder": "^26.9.1"
+  },
+  "build": {
+    "appId": "com.beeforce.configurationportal",
+    "productName": "Configuration Portal",
+    "artifactName": "${productName}-${version}-Setup.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "electron/assets"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/app.exe",
+        "to": "backend/app.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/assets/icon.ico",
+      "publisherName": "Beeforce"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Configuration Portal",
+      "deleteAppDataOnUninstall": false,
+      "uninstallDisplayName": "Configuration Portal"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "venkatesh-beep",
+        "repo": "Full-Configuration-Module",
+        "releaseType": "release"
+      }
+    ]
+  }
+}
