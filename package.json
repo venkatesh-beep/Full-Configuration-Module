@@ -15,7 +15,11 @@
     "dist:electron": "npm run assets:icon && electron-builder --win nsis --x64",
     "pack": "npm run assets:icon && electron-builder --dir",
     "backend:dev": "python electron/desktop_backend.py",
-    "assets:icon": "python scripts/create_icon.py"
+    "assets:icon": "python scripts/create_icon.py",
+    "dist:win": "npm run dist",
+    "build:windows": "powershell -ExecutionPolicy Bypass -File scripts/build_windows_desktop.ps1",
+    "release:github": "npm run python:build && npm run publish:electron",
+    "publish:electron": "npm run assets:icon && electron-builder --win nsis --x64 --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"
