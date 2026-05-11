@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/*
+!build/pyinstaller-app.spec
+dist/
+
+# Node / Electron
+electron/assets/icon.ico
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+release/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
