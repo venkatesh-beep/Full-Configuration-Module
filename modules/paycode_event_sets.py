@@ -5,6 +5,7 @@ import io
 
 from modules.ui_helpers import module_header, section_header
 
+
 # ======================================================
 # PAYCODE EVENT SETS UI
 # ======================================================
@@ -39,32 +40,42 @@ def paycode_event_sets_ui():
     # ==================================================
     section_header("📥 Download Upload Template")
 
+    # --------------------------------------------------
+    # TEMPLATE FORMAT
+    # --------------------------------------------------
     template_df = pd.DataFrame(columns=[
-        "id",
-        "name",
-        "description",
-        "PaycodeEvent",
-        "Priority"
+        "set_id",
+        "set_name",
+        "set_description",
+        "entry_id",
+        "priority",
+        "paycode_event_id",
+        "paycode_event_name"
     ])
 
     # --------------------------------------------------
-    # Available Paycode Events
+    # AVAILABLE PAYCODE EVENTS
     # --------------------------------------------------
     r1 = requests.get(EVENTS_URL, headers=headers)
 
     if r1.status_code == 200:
+
         events_df = pd.DataFrame([
             {
-                "id": e.get("id"),
-                "name": e.get("name"),
+                "paycode_event_id": e.get("id"),
+                "paycode_event_name": e.get("name"),
                 "description": e.get("description")
             }
             for e in r1.json()
         ])
+
     else:
-        events_df = pd.DataFrame(
-            columns=["id", "name", "description"]
-        )
+
+        events_df = pd.DataFrame(columns=[
+            "paycode_event_id",
+            "paycode_event_name",
+            "description"
+        ])
 
     output = io.BytesIO()
 
@@ -92,7 +103,7 @@ def paycode_event_sets_ui():
     st.divider()
 
     # ==================================================
-    # 2️⃣ UPLOAD & PROCESS
+    # 2️⃣ UPLOAD
     # ==================================================
     section_header("📤 Upload Paycode Event Sets")
 
@@ -117,7 +128,7 @@ def paycode_event_sets_ui():
         st.dataframe(df, use_container_width=True)
 
         # ==================================================
-        # PROCESS BUTTON
+        # PROCESS
         # ==================================================
         if st.button(
             "🚀 Process Upload",
@@ -130,40 +141,45 @@ def paycode_event_sets_ui():
             # --------------------------------------------------
             # NORMALIZE
             # --------------------------------------------------
-            def parse_id(x):
+            def parse_int(x):
                 try:
                     return int(float(x))
                 except:
                     return None
 
-            df["id"] = df["id"].apply(parse_id)
-            df["name"] = df["name"].astype(str).str.strip()
+            df["set_id"] = df["set_id"].apply(parse_int)
 
             # --------------------------------------------------
-            # GROUPS
+            # UPDATE GROUPS
             # --------------------------------------------------
-            id_groups = df[df["id"].notna()].groupby("id")
-            name_groups = df[df["id"].isna()].groupby("name")
+            update_groups = df[
+                df["set_id"].notna()
+            ].groupby("set_id")
+
+            # --------------------------------------------------
+            # CREATE GROUPS
+            # --------------------------------------------------
+            create_groups = df[
+                df["set_id"].isna()
+            ].groupby("set_name")
 
             with st.spinner("⏳ Processing..."):
 
                 # ==================================================
-                # UPDATE EXISTING (PUT)
+                # UPDATE EXISTING
                 # ==================================================
-                for set_id, group in id_groups:
+                for set_id, group in update_groups:
 
                     try:
-
-                        set_id = int(set_id)
 
                         first = group.iloc[0]
 
                         payload = {
-                            "id": set_id,
-                            "name": str(first["name"]).strip(),
+                            "id": int(set_id),
+                            "name": str(first["set_name"]).strip(),
                             "description": (
-                                str(first["description"]).strip()
-                                or str(first["name"]).strip()
+                                str(first["set_description"]).strip()
+                                or str(first["set_name"]).strip()
                             ),
                             "entries": []
                         }
@@ -172,46 +188,40 @@ def paycode_event_sets_ui():
 
                         for _, row in group.iterrows():
 
-                            ev = row.get("PaycodeEvent", "")
-                            pr = row.get("Priority", "")
+                            paycode_event_id = parse_int(
+                                row.get("paycode_event_id")
+                            )
 
-                            if str(ev).strip() == "":
+                            if not paycode_event_id:
                                 continue
 
-                            ev_id = int(float(ev))
-
-                            if ev_id in seen:
+                            if paycode_event_id in seen:
                                 continue
 
-                            seen.add(ev_id)
+                            seen.add(paycode_event_id)
 
                             payload["entries"].append({
                                 "paycodeEvent": {
-                                    "id": ev_id
+                                    "id": paycode_event_id
                                 },
                                 "priority": (
-                                    int(float(pr))
-                                    if str(pr).strip()
-                                    else 1
+                                    parse_int(row.get("priority")) or 1
                                 ),
                                 "overridable": False
                             })
 
-                        if not payload["entries"]:
-                            raise Exception("No Paycode Events found")
-
                         r = requests.put(
-                            f"{SETS_URL}/{set_id}",
+                            f"{SETS_URL}/{int(set_id)}",
                             headers=headers,
                             json=payload
                         )
 
                         results.append({
-                            "Key": set_id,
-                            "Name": payload["name"],
-                            "Action": "UPDATE",
-                            "Entries": len(payload["entries"]),
-                            "Status": (
+                            "set_id": set_id,
+                            "set_name": payload["name"],
+                            "action": "UPDATE",
+                            "entries": len(payload["entries"]),
+                            "status": (
                                 "Success"
                                 if r.status_code in (200, 201)
                                 else f"Failed ({r.status_code})"
@@ -221,30 +231,27 @@ def paycode_event_sets_ui():
                     except Exception as e:
 
                         results.append({
-                            "Key": set_id,
-                            "Name": "",
-                            "Action": "UPDATE",
-                            "Entries": "",
-                            "Status": str(e)
+                            "set_id": set_id,
+                            "set_name": "",
+                            "action": "UPDATE",
+                            "entries": "",
+                            "status": str(e)
                         })
 
                 # ==================================================
-                # CREATE NEW (POST)
+                # CREATE NEW
                 # ==================================================
-                for name, group in name_groups:
-
-                    if not str(name).strip():
-                        continue
+                for set_name, group in create_groups:
 
                     try:
 
                         first = group.iloc[0]
 
                         payload = {
-                            "name": str(name).strip(),
+                            "name": str(set_name).strip(),
                             "description": (
-                                str(first["description"]).strip()
-                                or str(name).strip()
+                                str(first["set_description"]).strip()
+                                or str(set_name).strip()
                             ),
                             "entries": []
                         }
@@ -253,33 +260,27 @@ def paycode_event_sets_ui():
 
                         for _, row in group.iterrows():
 
-                            ev = row.get("PaycodeEvent", "")
-                            pr = row.get("Priority", "")
+                            paycode_event_id = parse_int(
+                                row.get("paycode_event_id")
+                            )
 
-                            if str(ev).strip() == "":
+                            if not paycode_event_id:
                                 continue
 
-                            ev_id = int(float(ev))
-
-                            if ev_id in seen:
+                            if paycode_event_id in seen:
                                 continue
 
-                            seen.add(ev_id)
+                            seen.add(paycode_event_id)
 
                             payload["entries"].append({
                                 "paycodeEvent": {
-                                    "id": ev_id
+                                    "id": paycode_event_id
                                 },
                                 "priority": (
-                                    int(float(pr))
-                                    if str(pr).strip()
-                                    else 1
+                                    parse_int(row.get("priority")) or 1
                                 ),
                                 "overridable": False
                             })
-
-                        if not payload["entries"]:
-                            raise Exception("No Paycode Events found")
 
                         r = requests.post(
                             SETS_URL,
@@ -288,11 +289,11 @@ def paycode_event_sets_ui():
                         )
 
                         results.append({
-                            "Key": name,
-                            "Name": name,
-                            "Action": "CREATE",
-                            "Entries": len(payload["entries"]),
-                            "Status": (
+                            "set_id": "",
+                            "set_name": payload["name"],
+                            "action": "CREATE",
+                            "entries": len(payload["entries"]),
+                            "status": (
                                 "Success"
                                 if r.status_code in (200, 201)
                                 else f"Failed ({r.status_code})"
@@ -302,11 +303,11 @@ def paycode_event_sets_ui():
                     except Exception as e:
 
                         results.append({
-                            "Key": name,
-                            "Name": "",
-                            "Action": "CREATE",
-                            "Entries": "",
-                            "Status": str(e)
+                            "set_id": "",
+                            "set_name": set_name,
+                            "action": "CREATE",
+                            "entries": "",
+                            "status": str(e)
                         })
 
             # ==================================================
@@ -328,7 +329,7 @@ def paycode_event_sets_ui():
 
     ids_input = st.text_input(
         "Enter IDs (comma-separated)",
-        placeholder="392,390"
+        placeholder="143,144"
     )
 
     if st.button(
@@ -359,13 +360,16 @@ def paycode_event_sets_ui():
     st.divider()
 
     # ==================================================
-    # 4️⃣ DOWNLOAD EXISTING
+    # 4️⃣ EXPORT EXISTING
     # ==================================================
     section_header("⬇️ Download Existing Paycode Event Sets")
 
     with st.spinner("⏳ Fetching..."):
 
-        r = requests.get(FULL_SETS_URL, headers=headers)
+        r = requests.get(
+            FULL_SETS_URL,
+            headers=headers
+        )
 
         if r.status_code != 200:
             st.error("Failed to fetch data")
@@ -375,35 +379,43 @@ def paycode_event_sets_ui():
 
         for item in r.json():
 
-            row = {
-                "id": item.get("id"),
-                "name": item.get("name"),
-                "description": item.get("description")
-            }
-
             entries = item.get("entries", [])
 
-            for index, entry in enumerate(entries, start=1):
+            for entry in entries:
 
-                row[f"PaycodeEvent{index}"] = (
-                    entry.get("paycodeEvent", {}).get("name", "")
-                )
+                rows.append({
 
-                row[f"Priority{index}"] = (
-                    entry.get("priority", "")
-                )
+                    "set_id": item.get("id"),
 
-            rows.append(row)
+                    "set_name": item.get("name"),
+
+                    "set_description": item.get("description"),
+
+                    "entry_id": entry.get("id"),
+
+                    "priority": entry.get("priority"),
+
+                    "paycode_event_id": (
+                        entry.get("paycodeEvent", {}).get("id")
+                    ),
+
+                    "paycode_event_name": (
+                        entry.get("paycodeEvent", {}).get("name")
+                    )
+
+                })
 
         export_df = pd.DataFrame(rows)
 
         output = io.BytesIO()
 
-        export_df.to_excel(
-            output,
-            index=False,
-            engine="openpyxl"
-        )
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+
+            export_df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Paycode_Event_Sets"
+            )
 
     st.download_button(
         "⬇️ Download Existing Paycode Event Sets",
