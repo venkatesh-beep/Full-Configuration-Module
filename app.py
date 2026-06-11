@@ -56,6 +56,19 @@ st.set_page_config(
 install_requests_logging()
 install_file_uploader_logging()
 
+# Hide Streamlit's automatic multipage navigation so only the
+# custom module router in the sidebar is visible.
+st.markdown(
+    """
+    <style>
+    section[data-testid="stSidebar"] [data-testid="stSidebarNav"] {
+        display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ================= SESSION STATE =================
 if "HOST" not in st.session_state:
     st.session_state.HOST = "https://saas-beeforce.labour.tech"
