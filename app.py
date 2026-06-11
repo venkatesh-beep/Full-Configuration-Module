@@ -36,7 +36,7 @@ from modules.regularization_policy_sets import regularization_policy_sets_ui
 from modules.roles import roles_ui
 from modules.overtime_policies import overtime_policies_ui
 from modules.timecard_updation import timecard_updation_ui
-from pages.timecard_analyzer import timecard_analyzer_ui
+from modules.timecard_analyzer import timecard_analyzer_ui
 from modules.punch import punch_ui
 from modules.schedule_pattern_mapper import schedule_pattern_mapper_ui
 from modules.known_locations import known_locations_ui
