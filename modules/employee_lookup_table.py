@@ -7,6 +7,28 @@ from openpyxl.styles import PatternFill, Font
 from modules.ui_helpers import module_header, section_header
 
 # ======================================================
+# HELPER: SAFELY FORMAT A CELL VALUE AS TEXT
+# ======================================================
+def format_value(val):
+    """
+    Converts a cell value to a clean string.
+    Fixes the common pandas issue where whole numbers in a column
+    containing blanks get upcast to float (e.g. 1 -> 1.0).
+    """
+    if val is None:
+        return ""
+
+    if isinstance(val, float):
+        if pd.isna(val):
+            return ""
+        if val.is_integer():
+            return str(int(val))
+        return str(val).strip()
+
+    return str(val).strip()
+
+
+# ======================================================
 # MAIN UI
 # ======================================================
 def employee_lookup_table_ui():
@@ -100,7 +122,7 @@ def employee_lookup_table_ui():
     st.divider()
 
     # ==================================================
-    # UPLOAD DATA (UNCHANGED LOGIC)
+    # UPLOAD DATA
     # ==================================================
     section_header("📤 Upload Employee Lookup Data")
 
@@ -110,7 +132,7 @@ def employee_lookup_table_ui():
     )
 
     if uploaded_file:
-        df_upload = pd.read_excel(uploaded_file).fillna("")
+        df_upload = pd.read_excel(uploaded_file)
         st.info(f"Rows detected: {len(df_upload)}")
 
         if st.button("🚀 Validate & Upload", type="primary"):
@@ -136,7 +158,7 @@ def employee_lookup_table_ui():
 
                     # ---------- INPUT VALIDATION ----------
                     for col in input_columns:
-                        if col not in df_upload.columns or str(row[col]).strip() == "":
+                        if col not in df_upload.columns or format_value(row[col]) == "":
                             validation_errors.append({
                                 "Row": excel_row,
                                 "Field": col,
@@ -150,7 +172,7 @@ def employee_lookup_table_ui():
                     # ---------- BUILD DATA ----------
                     for col in all_columns:
                         if col in df_upload.columns:
-                            value = str(row[col]).strip()
+                            value = format_value(row[col])
                             if value != "":
                                 record[col] = value
 
