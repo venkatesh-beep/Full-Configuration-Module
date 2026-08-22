@@ -1,4 +1,12 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const {
+    app,
+    BrowserWindow,
+    ipcMain,
+    dialog
+} = require('electron');
+
+const { autoUpdater } = require('electron-updater');
+
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -37,21 +45,16 @@ function createWindow() {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
 
-            // Renderer cannot directly access Node.js
             nodeIntegration: false,
 
-            // Communication happens through preload IPC
             contextIsolation: true,
 
-            // Keep enabled/disabled according to Electron compatibility
             sandbox: false,
 
-            // Prevent Electron from opening unexpected windows
             webviewTag: false
         }
     });
 
-    // Load local BeeForce application
     mainWindow.loadFile(
         path.join(
             __dirname,
@@ -60,7 +63,6 @@ function createWindow() {
         )
     );
 
-    // Optional: log renderer loading errors
     mainWindow.webContents.on(
         'did-fail-load',
         function (event, errorCode, errorDescription) {
@@ -99,6 +101,7 @@ function createWindow() {
 function validateApiRequest(request) {
 
     if (!request || typeof request !== 'object') {
+
         return {
             valid: false,
             message: 'Invalid API request.'
@@ -114,6 +117,7 @@ function validateApiRequest(request) {
             env
         )
     ) {
+
         return {
             valid: false,
             message: 'Invalid API environment.'
@@ -135,6 +139,7 @@ function validateApiRequest(request) {
     ];
 
     if (!allowedMethods.includes(method)) {
+
         return {
             valid: false,
             message: 'HTTP method is not allowed.'
@@ -145,6 +150,7 @@ function validateApiRequest(request) {
         request.path !== undefined &&
         typeof request.path !== 'string'
     ) {
+
         return {
             valid: false,
             message: 'Invalid API path.'
@@ -166,38 +172,46 @@ function buildQueryString(query) {
         !query ||
         typeof query !== 'object'
     ) {
+
         return '';
     }
 
     const params = new URLSearchParams();
 
-    Object.keys(query).forEach(function (key) {
+    Object.keys(query).forEach(
+        function (key) {
 
-        const value = query[key];
+            const value = query[key];
 
-        if (value === undefined || value === null) {
-            return;
-        }
+            if (
+                value === undefined ||
+                value === null
+            ) {
 
-        if (Array.isArray(value)) {
+                return;
+            }
 
-            value.forEach(function (item) {
+            if (Array.isArray(value)) {
+
+                value.forEach(
+                    function (item) {
+
+                        params.append(
+                            key,
+                            String(item)
+                        );
+                    }
+                );
+
+            } else {
 
                 params.append(
                     key,
-                    String(item)
+                    String(value)
                 );
-
-            });
-
-        } else {
-
-            params.append(
-                key,
-                String(value)
-            );
+            }
         }
-    });
+    );
 
     const encoded = params.toString();
 
@@ -207,7 +221,7 @@ function buildQueryString(query) {
 }
 
 // ============================================================
-// Convert Node response headers to plain object
+// Normalize response headers
 // ============================================================
 
 function normalizeResponseHeaders(headers) {
@@ -221,11 +235,15 @@ function normalizeResponseHeaders(headers) {
 
             if (Array.isArray(value)) {
 
-                result[key] = value.join(', ');
+                result[key] =
+                    value.join(', ');
 
-            } else if (value !== undefined) {
+            } else if (
+                value !== undefined
+            ) {
 
-                result[key] = String(value);
+                result[key] =
+                    String(value);
             }
         }
     );
@@ -239,234 +257,233 @@ function normalizeResponseHeaders(headers) {
 
 function makeApiRequest(request) {
 
-    return new Promise(function (resolve) {
+    return new Promise(
+        function (resolve) {
 
-        const validation =
-            validateApiRequest(request);
+            const validation =
+                validateApiRequest(request);
 
-        if (!validation.valid) {
+            if (!validation.valid) {
 
-            resolve({
-                error: true,
-                message: validation.message
-            });
+                resolve({
+                    error: true,
+                    message: validation.message
+                });
 
-            return;
-        }
-
-        try {
-
-            const env = request.env;
-
-            const target =
-                API_TARGETS[env];
-
-            const method = String(
-                request.method || 'GET'
-            ).toUpperCase();
-
-            let requestPath =
-                request.path || '/';
-
-            // Make sure the path starts with /
-            if (!requestPath.startsWith('/')) {
-                requestPath = '/' + requestPath;
+                return;
             }
 
-            const queryString =
-                buildQueryString(
-                    request.query
+            try {
+
+                const env = request.env;
+
+                const target =
+                    API_TARGETS[env];
+
+                const method = String(
+                    request.method || 'GET'
+                ).toUpperCase();
+
+                let requestPath =
+                    request.path || '/';
+
+                if (
+                    !requestPath.startsWith('/')
+                ) {
+
+                    requestPath =
+                        '/' + requestPath;
+                }
+
+                const queryString =
+                    buildQueryString(
+                        request.query
+                    );
+
+                const headers =
+                    Object.assign(
+                        {},
+                        request.headers || {}
+                    );
+
+                delete headers.host;
+                delete headers.connection;
+                delete headers['content-length'];
+
+                const body =
+                    request.body !== undefined &&
+                    request.body !== null
+                        ? String(request.body)
+                        : null;
+
+                if (
+                    body !== null &&
+                    body.length > 0
+                ) {
+
+                    const hasContentType =
+                        Object.keys(headers).some(
+                            function (key) {
+
+                                return (
+                                    key.toLowerCase() ===
+                                    'content-type'
+                                );
+                            }
+                        );
+
+                    if (!hasContentType) {
+
+                        headers['Content-Type'] =
+                            'application/json';
+                    }
+                }
+
+                const options = {
+
+                    hostname:
+                        target.host,
+
+                    port: 443,
+
+                    path:
+                        requestPath +
+                        queryString,
+
+                    method: method,
+
+                    headers: headers,
+
+                    timeout: 60000
+                };
+
+                console.log(
+                    '[BeeForce API]',
+                    method,
+                    env,
+                    requestPath
                 );
 
-            const headers = Object.assign(
-                {},
-                request.headers || {}
-            );
+                const req =
+                    https.request(
+                        options,
+                        function (res) {
 
-            // Remove browser-only headers that should not
-            // be forwarded by the native application.
-            delete headers.host;
-            delete headers.connection;
-            delete headers['content-length'];
+                            let responseBody = '';
 
-            const body =
-                request.body !== undefined &&
-                request.body !== null
-                    ? String(request.body)
-                    : null;
-
-            // If there is a body and no Content-Type was supplied,
-            // JSON is the normal format used by BeeForce.
-            if (
-                body !== null &&
-                body.length > 0
-            ) {
-
-                const hasContentType =
-                    Object.keys(headers).some(
-                        function (key) {
-                            return key.toLowerCase() ===
-                                'content-type';
-                        }
-                    );
-
-                if (!hasContentType) {
-
-                    headers['Content-Type'] =
-                        'application/json';
-                }
-            }
-
-            const options = {
-
-                hostname: target.host,
-
-                port: 443,
-
-                path:
-                    requestPath +
-                    queryString,
-
-                method: method,
-
-                headers: headers,
-
-                timeout: 60000
-            };
-
-            console.log(
-                '[BeeForce API]',
-                method,
-                env,
-                requestPath
-            );
-
-            const req = https.request(
-                options,
-                function (res) {
-
-                    let responseBody = '';
-
-                    res.setEncoding('utf8');
-
-                    res.on(
-                        'data',
-                        function (chunk) {
-
-                            responseBody += chunk;
-                        }
-                    );
-
-                    res.on(
-                        'end',
-                        function () {
-
-                            const responseHeaders =
-                                normalizeResponseHeaders(
-                                    res.headers
-                                );
-
-                            console.log(
-                                '[BeeForce API]',
-                                method,
-                                requestPath,
-                                'Status:',
-                                res.statusCode
+                            res.setEncoding(
+                                'utf8'
                             );
 
-                            resolve({
+                            res.on(
+                                'data',
+                                function (chunk) {
 
-                                error: false,
+                                    responseBody +=
+                                        chunk;
+                                }
+                            );
 
-                                status:
-                                    res.statusCode || 0,
+                            res.on(
+                                'end',
+                                function () {
 
-                                headers:
-                                    responseHeaders,
+                                    const responseHeaders =
+                                        normalizeResponseHeaders(
+                                            res.headers
+                                        );
 
-                                body:
-                                    responseBody
-                            });
+                                    console.log(
+                                        '[BeeForce API]',
+                                        method,
+                                        requestPath,
+                                        'Status:',
+                                        res.statusCode
+                                    );
+
+                                    resolve({
+
+                                        error: false,
+
+                                        status:
+                                            res.statusCode ||
+                                            0,
+
+                                        headers:
+                                            responseHeaders,
+
+                                        body:
+                                            responseBody
+                                    });
+                                }
+                            );
                         }
                     );
-                }
-            );
 
-            // ====================================================
-            // Network error
-            // ====================================================
+                req.on(
+                    'error',
+                    function (error) {
 
-            req.on(
-                'error',
-                function (error) {
-
-                    console.error(
-                        '[BeeForce API] Request failed:',
-                        error.message
-                    );
-
-                    resolve({
-
-                        error: true,
-
-                        message:
+                        console.error(
+                            '[BeeForce API] Request failed:',
                             error.message
-                    });
+                        );
+
+                        resolve({
+
+                            error: true,
+
+                            message:
+                                error.message
+                        });
+                    }
+                );
+
+                req.on(
+                    'timeout',
+                    function () {
+
+                        console.error(
+                            '[BeeForce API] Request timeout.'
+                        );
+
+                        req.destroy(
+                            new Error(
+                                'BeeForce API request timed out.'
+                            )
+                        );
+                    }
+                );
+
+                if (
+                    body !== null &&
+                    method !== 'GET' &&
+                    method !== 'HEAD'
+                ) {
+
+                    req.write(body);
                 }
-            );
 
-            // ====================================================
-            // Timeout
-            // ====================================================
+                req.end();
 
-            req.on(
-                'timeout',
-                function () {
+            } catch (error) {
 
-                    console.error(
-                        '[BeeForce API] Request timeout.'
-                    );
+                console.error(
+                    '[BeeForce API] Unexpected error:',
+                    error
+                );
 
-                    req.destroy(
-                        new Error(
-                            'BeeForce API request timed out.'
-                        )
-                    );
-                }
-            );
+                resolve({
 
-            // ====================================================
-            // Request body
-            // ====================================================
+                    error: true,
 
-            if (
-                body !== null &&
-                method !== 'GET' &&
-                method !== 'HEAD'
-            ) {
-
-                req.write(body);
+                    message:
+                        error.message ||
+                        String(error)
+                });
             }
-
-            req.end();
-
-        } catch (error) {
-
-            console.error(
-                '[BeeForce API] Unexpected error:',
-                error
-            );
-
-            resolve({
-
-                error: true,
-
-                message:
-                    error.message ||
-                    String(error)
-            });
         }
-    });
+    );
 }
 
 // ============================================================
@@ -483,17 +500,6 @@ ipcMain.handle(
 
 // ============================================================
 // Local renderer file access
-// ============================================================
-//
-// Renderer JavaScript asks:
-// window.beeForce.getAppFile('common.js')
-//
-// Electron reads:
-// renderer/common.js
-//
-// No Gist.
-// No GitHub.
-// No network.
 // ============================================================
 
 ipcMain.handle(
@@ -513,15 +519,6 @@ ipcMain.handle(
                 };
             }
 
-            // Only simple filenames are allowed.
-            //
-            // Reject:
-            // ../file.js
-            // ..\file.js
-            // C:\file.js
-            // /file.js
-            // folders/file.js
-            //
             if (
                 filename.includes('/') ||
                 filename.includes('\\') ||
@@ -535,8 +532,11 @@ ipcMain.handle(
                 };
             }
 
-            // Only JavaScript files can be requested
-            if (!filename.toLowerCase().endsWith('.js')) {
+            if (
+                !filename
+                    .toLowerCase()
+                    .endsWith('.js')
+            ) {
 
                 return {
                     ok: false,
@@ -557,9 +557,6 @@ ipcMain.handle(
                     filename
                 );
 
-            // Extra protection:
-            // make absolutely sure the resolved path
-            // remains inside renderer/.
             const rendererPrefix =
                 rendererDirectory.endsWith(
                     path.sep
@@ -641,6 +638,280 @@ ipcMain.handle(
 );
 
 // ============================================================
+// BeeForce Auto Update
+// ============================================================
+
+function setupAutoUpdater() {
+
+    // --------------------------------------------------------
+    // Development mode
+    // --------------------------------------------------------
+
+    if (!app.isPackaged) {
+
+        console.log(
+            '[BeeForce Updater] Development mode - updater disabled.'
+        );
+
+        return;
+    }
+
+    console.log(
+        '[BeeForce Updater] Production mode.'
+    );
+
+    console.log(
+        '[BeeForce Updater] Current version:',
+        app.getVersion()
+    );
+
+    // Do not download automatically.
+    // Ask the user first.
+    autoUpdater.autoDownload = false;
+
+    // Install downloaded update when application quits.
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    // --------------------------------------------------------
+    // Checking
+    // --------------------------------------------------------
+
+    autoUpdater.on(
+        'checking-for-update',
+        function () {
+
+            console.log(
+                '[BeeForce Updater] Checking for updates...'
+            );
+        }
+    );
+
+    // --------------------------------------------------------
+    // Update available
+    // --------------------------------------------------------
+
+    autoUpdater.on(
+        'update-available',
+        async function (info) {
+
+            console.log(
+                '[BeeForce Updater] Update available:',
+                info.version
+            );
+
+            if (!mainWindow) {
+
+                return;
+            }
+
+            const result =
+                await dialog.showMessageBox(
+                    mainWindow,
+                    {
+
+                        type: 'info',
+
+                        title:
+                            'BeeForce Update Available',
+
+                        message:
+                            'A new version of BeeForce is available.',
+
+                        detail:
+                            'Current version: ' +
+                            app.getVersion() +
+                            '\nNew version: ' +
+                            info.version +
+                            '\n\nWould you like to download the update now?',
+
+                        buttons: [
+                            'Update Now',
+                            'Later'
+                        ],
+
+                        defaultId: 0,
+
+                        cancelId: 1
+                    }
+                );
+
+            if (result.response === 0) {
+
+                console.log(
+                    '[BeeForce Updater] Downloading update...'
+                );
+
+                try {
+
+                    await autoUpdater.downloadUpdate();
+
+                } catch (error) {
+
+                    console.error(
+                        '[BeeForce Updater] Download failed:',
+                        error
+                    );
+
+                    dialog.showErrorBox(
+                        'BeeForce Update Failed',
+                        'Unable to download the update.\n\n' +
+                        (
+                            error.message ||
+                            String(error)
+                        )
+                    );
+                }
+            }
+        }
+    );
+
+    // --------------------------------------------------------
+    // No update
+    // --------------------------------------------------------
+
+    autoUpdater.on(
+        'update-not-available',
+        function () {
+
+            console.log(
+                '[BeeForce Updater] BeeForce is up to date.'
+            );
+        }
+    );
+
+    // --------------------------------------------------------
+    // Download progress
+    // --------------------------------------------------------
+
+    autoUpdater.on(
+        'download-progress',
+        function (progress) {
+
+            console.log(
+                '[BeeForce Updater] Download:',
+                Math.round(
+                    progress.percent
+                ) + '%'
+            );
+        }
+    );
+
+    // --------------------------------------------------------
+    // Update downloaded
+    // --------------------------------------------------------
+
+    autoUpdater.on(
+        'update-downloaded',
+        async function (info) {
+
+            console.log(
+                '[BeeForce Updater] Update downloaded:',
+                info.version
+            );
+
+            if (!mainWindow) {
+
+                autoUpdater.quitAndInstall();
+
+                return;
+            }
+
+            const result =
+                await dialog.showMessageBox(
+                    mainWindow,
+                    {
+
+                        type: 'info',
+
+                        title:
+                            'BeeForce Update Ready',
+
+                        message:
+                            'BeeForce ' +
+                            info.version +
+                            ' has been downloaded.',
+
+                        detail:
+                            'Restart BeeForce now to install the update.',
+
+                        buttons: [
+                            'Restart Now',
+                            'Later'
+                        ],
+
+                        defaultId: 0,
+
+                        cancelId: 1
+                    }
+                );
+
+            if (result.response === 0) {
+
+                console.log(
+                    '[BeeForce Updater] Restarting for update...'
+                );
+
+                autoUpdater.quitAndInstall();
+            }
+        }
+    );
+
+    // --------------------------------------------------------
+    // Update error
+    // --------------------------------------------------------
+
+    autoUpdater.on(
+        'error',
+        function (error) {
+
+            console.error(
+                '[BeeForce Updater] Error:',
+                error
+            );
+        }
+    );
+
+    // --------------------------------------------------------
+    // Check GitHub after application starts
+    // --------------------------------------------------------
+
+    setTimeout(
+        function () {
+
+            console.log(
+                '[BeeForce Updater] Starting update check...'
+            );
+
+            autoUpdater
+                .checkForUpdates()
+                .then(
+                    function (result) {
+
+                        if (!result) {
+
+                            console.log(
+                                '[BeeForce Updater] No update result.'
+                            );
+                        }
+
+                    }
+                )
+                .catch(
+                    function (error) {
+
+                        console.error(
+                            '[BeeForce Updater] Update check failed:',
+                            error.message
+                        );
+                    }
+                );
+
+        },
+        5000
+    );
+}
+
+// ============================================================
 // Electron startup
 // ============================================================
 
@@ -660,7 +931,15 @@ app.whenReady().then(
             __dirname
         );
 
+        console.log(
+            '[BeeForce] Application version:',
+            app.getVersion()
+        );
+
         createWindow();
+
+        // Start updater during normal application startup.
+        setupAutoUpdater();
 
         app.on(
             'activate',

@@ -1,6 +1,6 @@
 {
   "name": "beeforce-configuration-portal",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "BeeForce Configuration Portal",
   "main": "main.js",
   "author": "Bluetree",
@@ -8,14 +8,25 @@
     "start": "electron .",
     "build": "electron-builder --win"
   },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
   "devDependencies": {
     "electron": "^43.4.0",
-    "electron-builder": "^26.0.0"
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "in.beeforce.configurationportal",
     "productName": "BeeForce Configuration Portal",
     "icon": "icon.ico",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "venkatesh-beep",
+        "repo": "Full-Configuration-Module",
+        "releaseType": "release"
+      }
+    ],
     "files": [
       "main.js",
       "preload.js",
@@ -42,8 +53,5 @@
       "createStartMenuShortcut": true,
       "shortcutName": "BeeForce Configuration Portal"
     }
-  },
-  "dependencies": {
-    "electron-updater": "^6.8.9"
   }
 }
