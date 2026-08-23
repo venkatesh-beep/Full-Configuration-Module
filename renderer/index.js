@@ -5,6 +5,13 @@
  * Everything below runs in the global scope that loader.js
  * evaluated it in, so `var` declarations here are visible to
  * every core file we go on to fetch + new Function(...).
+ *
+ * CHANGE LOG (UI redesign pass):
+ *   - overlay/modal are now sized to fill the full Electron
+ *     window instead of a 600px centered popup. Nothing about
+ *     the loader pipeline, AppCtx surface, module registry, or
+ *     click-wiring logic changed — only the two style blocks
+ *     below (search "REDESIGN" to find them).
  * ========================================================= */
 (function () {
   'use strict';
@@ -69,10 +76,9 @@
   var _loadedModule = {}; // moduleId -> true once init() has run
   var _loadQueue = Promise.resolve(); // serializes core loads in order
 
-function fetchCode(name) {
-
+  function fetchCode(name) {
     if (_fetchCache[name]) {
-        return _fetchCache[name];
+      return _fetchCache[name];
     }
 
     // ---------------------------------------------------------
@@ -83,38 +89,33 @@ function fetchCode(name) {
     // No Gist and no network request.
     //
     if (
-        typeof BF_IS_DESKTOP !== 'undefined' &&
-        BF_IS_DESKTOP &&
-        typeof BF_LOAD_LOCAL_FILE === 'function'
+      typeof BF_IS_DESKTOP !== 'undefined' &&
+      BF_IS_DESKTOP &&
+      typeof BF_LOAD_LOCAL_FILE === 'function'
     ) {
-
-        _fetchCache[name] =
-            BF_LOAD_LOCAL_FILE(
-                name + '.js'
-            ).then(function (result) {
-
-                if (
-                    !result ||
-                    !result.ok
-                ) {
-
-                    throw new Error(
-                        'Local file not available: ' +
-                        name +
-                        '.js' +
-                        (
-                            result &&
-                            result.error
-                                ? ' (' + result.error + ')'
-                                : ''
-                        )
-                    );
-                }
-
-                return result.content;
-            });
-
-        return _fetchCache[name];
+      _fetchCache[name] =
+        BF_LOAD_LOCAL_FILE(
+          name + '.js'
+        ).then(function (result) {
+          if (
+            !result ||
+            !result.ok
+          ) {
+            throw new Error(
+              'Local file not available: ' +
+              name +
+              '.js' +
+              (
+                result &&
+                result.error
+                  ? ' (' + result.error + ')'
+                  : ''
+              )
+            );
+          }
+          return result.content;
+        });
+      return _fetchCache[name];
     }
 
     // ---------------------------------------------------------
@@ -124,29 +125,24 @@ function fetchCode(name) {
     // Keep the existing Gist behavior for the hosted version.
     //
     var url =
-        cacheBust(
-            gistUrl(name)
-        );
-
+      cacheBust(
+        gistUrl(name)
+      );
     _fetchCache[name] =
-        fetch(url).then(function (r) {
-
-            if (!r.ok) {
-
-                throw new Error(
-                    'HTTP ' +
-                    r.status +
-                    ' fetching ' +
-                    name +
-                    '.js'
-                );
-            }
-
-            return r.text();
-        });
-
+      fetch(url).then(function (r) {
+        if (!r.ok) {
+          throw new Error(
+            'HTTP ' +
+            r.status +
+            ' fetching ' +
+            name +
+            '.js'
+          );
+        }
+        return r.text();
+      });
     return _fetchCache[name];
-}
+  }
 
   function logStep(msg, color) { console.log('%c' + msg, 'color:' + (color || '#6B7280') + ';'); }
 
@@ -159,26 +155,34 @@ function fetchCode(name) {
   }
 
   // ── Overlay shell (shown immediately, before any core file loads) ──
+  // REDESIGN: overlay now IS the full application surface (not a dimmed
+  // backdrop behind a floating card) — this is what lets the eventual
+  // sidebar/header layout in login.js use the entire Electron window.
   var overlay = document.createElement('div');
   overlay.id = 'bf-hub-overlay';
   overlay.style.cssText = [
     'position:fixed', 'top:0', 'left:0', 'width:100%', 'height:100%',
-    'background:rgba(17,24,39,0.55)', 'display:flex',
-    'align-items:center', 'justify-content:center', 'z-index:2147483647',
+    'background:#F3F4F6', 'display:flex',
+    'align-items:stretch', 'justify-content:stretch', 'z-index:2147483647',
     'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif'
   ].join(';');
 
+  // REDESIGN: modal now fills the overlay edge-to-edge instead of being
+  // a fixed 600px card. #bf-hub-modal is still the single container that
+  // AppCtx.modal points to and that login.js/router.js/every module
+  // appends its screens into and queries — nothing downstream changes.
   var modal = document.createElement('div');
   modal.id = 'bf-hub-modal';
   modal.style.cssText = [
-    'background:#fff', 'border-radius:16px', 'width:600px', 'max-width:96vw', 'max-height:92vh',
-    'overflow-y:auto', 'padding:26px 24px', 'position:relative'
+    'background:#fff', 'border-radius:0', 'width:100%', 'height:100%',
+    'max-width:100%', 'max-height:100%',
+    'overflow-y:auto', 'padding:0', 'position:relative', 'box-sizing:border-box'
   ].join(';');
 
   modal.innerHTML =
-    '<div id="bf-loading-screen" style="text-align:center;padding:40px 20px;">' +
-      '<div style="font-size:28px;margin-bottom:12px;">🐝</div>' +
-      '<div style="font-size:16px;font-weight:700;color:#1D4ED8;margin-bottom:8px;">BeeForce Configuration Portal</div>' +
+    '<div id="bf-loading-screen" style="text-align:center;padding:80px 20px;">' +
+      '<div style="font-size:32px;margin-bottom:12px;">🐝</div>' +
+      '<div style="font-size:18px;font-weight:700;color:#1D4ED8;margin-bottom:8px;">BeeForce Configuration Portal</div>' +
       '<div style="font-size:13px;color:#6B7280;" id="bf-load-status">Initialising… (loader v' + LOADER_VERSION + ')</div>' +
     '</div>';
 
@@ -193,7 +197,7 @@ function fetchCode(name) {
 
   function showFatalError(fileLabel, url, err) {
     modal.innerHTML =
-      '<div style="padding:24px;">' +
+      '<div style="padding:40px;max-width:640px;margin:0 auto;">' +
         '<div style="font-size:24px;margin-bottom:12px;text-align:center;">⚠️</div>' +
         '<div style="font-size:14px;font-weight:700;color:#DC2626;margin-bottom:8px;text-align:center;">Failed loading ' + fileLabel + '</div>' +
         '<div style="font-size:12px;color:#374151;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:10px;margin-bottom:8px;word-break:break-all;">' + (err.message || String(err)) + '</div>' +
